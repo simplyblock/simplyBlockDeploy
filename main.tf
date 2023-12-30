@@ -129,14 +129,14 @@ resource "aws_security_group" "container_inst_sg" {
 }
 
 resource "aws_instance" "mgmt_nodes" {
-  count                  = 1
+  count                  = 3
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m6i.xlarge"
   key_name               = "simplyblock-us-east-2.pem"
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
-    volume_size = 25
+    volume_size = 100
   }
   tags = {
     Name = "mgmt-${count.index + 1}"
@@ -144,7 +144,7 @@ resource "aws_instance" "mgmt_nodes" {
   user_data = <<EOF
 #!/bin/bash
 echo "installing sbcli.."
-sudo  yum install -y pip
+sudo  yum install -y pip jq
 pip install sbcli
 
 sudo yum install -y fio nvme-cli;
@@ -152,8 +152,6 @@ sudo modprobe nvme-tcp
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 
-sbcli cluster create
-sbcli cluster list
 EOF
 }
 
@@ -254,6 +252,17 @@ module "eks" {
       key_name                             = "simplyblock-us-east-2.pem"
       worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
     }
+
+    # cache-nodes = {
+    #   desired_size = 1
+    #   min_size     = 1
+    #   max_size     = 1
+    #   ami_id = "ami-0ef50c2b2eb330511"
+    #   instance_types = ["i4i.large"]
+    #   capacity_type                        = "ON_DEMAND"
+    #   key_name                             = "simplyblock-us-east-2.pem"
+    #   worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+    # }
   }
 
   tags = {
