@@ -129,7 +129,7 @@ resource "aws_security_group" "container_inst_sg" {
 }
 
 resource "aws_instance" "mgmt_nodes" {
-  count                  = 3
+  count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m6i.xlarge"
   key_name               = "simplyblock-us-east-2.pem"
@@ -156,7 +156,7 @@ EOF
 }
 
 resource "aws_instance" "storage_nodes" {
-  count                  = 8
+  count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "i3en.large"
   key_name               = "simplyblock-us-east-2.pem"
@@ -178,7 +178,7 @@ EOF
 }
 
 resource "aws_instance" "local_cache" {
-  count                  = 1
+  count                  = var.cache_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "i4i.large"
   key_name               = "simplyblock-us-east-2.pem"
@@ -205,7 +205,7 @@ EOF
 # EKS
 ################################################################################
 module "eks" {
-  count   = 1
+  count   = var.enable_eks
   source  = "terraform-aws-modules/eks/aws"
   version = "19.16.0"
 
@@ -271,16 +271,18 @@ module "eks" {
   }
 }
 
-
 output "storage_private_ips" {
-  value = aws_instance.storage_nodes[*].private_ip
+  value = join(" ", aws_instance.storage_nodes[*].private_ip)
 }
 
 output "mgmt_private_ips" {
   value = aws_instance.mgmt_nodes[*].private_ip
 }
 
-output "local_cache_private_ips" {
-  value = aws_instance.local_cache[*].private_ip
+output "mgmt_public_ips" {
+  value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
 }
 
+# output "local_cache_private_ips" {
+#   value = aws_instance.local_cache[*].private_ip
+# }
