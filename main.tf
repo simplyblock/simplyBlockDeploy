@@ -51,42 +51,42 @@ resource "aws_security_group" "container_inst_sg" {
     from_port   = 5900
     to_port     = 5909
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = "VNC from world"
   }
   ingress {
     from_port   = 8404
     to_port     = 8404
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
   ingress {
     from_port   = 8081
     to_port     = 8081
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
   ingress {
     from_port   = 8081
     to_port     = 8081
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
   # all traffic from 172.30.0.0/16
@@ -114,7 +114,7 @@ resource "aws_security_group" "container_inst_sg" {
     from_port   = 2222
     to_port     = 2222
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.whitelist_ips
     description = ""
   }
 
@@ -180,7 +180,7 @@ EOF
 resource "aws_instance" "local_cache" {
   count                  = var.cache_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "i4i.large"
+  instance_type          = "t3.medium"
   key_name               = "simplyblock-us-east-2.pem"
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -190,13 +190,13 @@ resource "aws_instance" "local_cache" {
   tags = {
     Name = "localcache-${count.index + 1}"
   }
-  user_data = <<EOF
-#!/bin/bash
-echo "installing sbcli.."
-sudo  yum install -y pip
-pip install sbcli
-sbcli caching-node deploy
-EOF
+#   user_data = <<EOF
+# #!/bin/bash
+# echo "installing sbcli.."
+# sudo  yum install -y pip
+# pip install sbcli
+# sbcli caching-node deploy
+# EOF
 }
 
 
@@ -271,6 +271,10 @@ module "eks" {
   }
 }
 
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
 output "storage_private_ips" {
   value = join(" ", aws_instance.storage_nodes[*].private_ip)
 }
@@ -283,6 +287,10 @@ output "mgmt_public_ips" {
   value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
 }
 
-# output "local_cache_private_ips" {
-#   value = aws_instance.local_cache[*].private_ip
-# }
+output "local_cache_private_ips" {
+  value = aws_instance.local_cache[*].private_ip
+}
+
+output "local_cache_public_ips" {
+  value = aws_instance.local_cache[*].public_ip
+}

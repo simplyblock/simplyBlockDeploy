@@ -13,16 +13,14 @@ variable "cluster_type" {
   }
 }
 
-# todo: validate: if the cluster type is HA, there should be atleast 3 nodes
+variable "whitelist_ips" {
+  type = list(string)
+  default = [ "195.176.32.156/32", "84.254.107.94/32"]
+}
 
 variable "enable_eks" {
   default = 0
   type = number
-}
-
-variable "storage_nodes" {
-  default = 5
-  type  = number
 }
 
 variable "mgmt_nodes" {
@@ -30,7 +28,12 @@ variable "mgmt_nodes" {
   type  = number
 }
 
+variable "storage_nodes" {
+  default = 8
+  type  = number
+}
+
 variable "cache_nodes" {
-  default = 0
+  default = 3
   type  = number
 }
