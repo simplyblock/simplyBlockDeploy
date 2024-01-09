@@ -6,6 +6,7 @@ storage_private_ips="10.0.4.59 10.0.4.67 10.0.4.196 10.0.4.46 10.0.4.246 10.0.4.
 
 echo "bootstrapping cluster..."
 
+# check if the cloud is successful
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "
 sudo cloud-init status
 "

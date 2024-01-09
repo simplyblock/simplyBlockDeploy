@@ -34,6 +34,6 @@ variable "storage_nodes" {
 }
 
 variable "cache_nodes" {
-  default = 3
+  default = 1
   type  = number
 }
