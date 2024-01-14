@@ -11,6 +11,8 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=$mnodes[1] 
 sudo /usr/local/bin/k3s kubectl get node
 "
 
+sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
+
 NODE_TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "
 sudo cat /var/lib/rancher/k3s/server/node-token
 ")

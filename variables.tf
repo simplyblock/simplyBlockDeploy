@@ -15,7 +15,7 @@ variable "cluster_type" {
 
 variable "whitelist_ips" {
   type = list(string)
-  default = [ "195.176.32.156/32", "84.254.107.94/32"]
+  default = [ "195.176.32.0/24", "84.254.107.0/24"]
 }
 
 variable "enable_eks" {
@@ -29,7 +29,7 @@ variable "mgmt_nodes" {
 }
 
 variable "storage_nodes" {
-  default = 8
+  default = 3
   type  = number
 }
 
