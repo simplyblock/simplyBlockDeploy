@@ -23,6 +23,11 @@ variable "enable_eks" {
   type = number
 }
 
+variable "key_name" {
+  default = "simplyblock-us-east-2.pem"
+  type = string
+}
+
 variable "mgmt_nodes" {
   default = 3
   type  = number

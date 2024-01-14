@@ -132,7 +132,7 @@ resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m6i.xlarge"
-  key_name               = "simplyblock-us-east-2.pem"
+  key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -159,7 +159,7 @@ resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "i3en.large"
-  key_name               = "simplyblock-us-east-2.pem"
+  key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -181,7 +181,7 @@ resource "aws_instance" "local_cache" {
   count                  = var.cache_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "t3.medium"
-  key_name               = "simplyblock-us-east-2.pem"
+  key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {

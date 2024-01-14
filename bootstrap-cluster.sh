@@ -6,11 +6,20 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 
 echo "bootstrapping cluster..."
 
-# check if the cloud is successful
+# Loop until the status is "done"
+while true; do
+    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "sudo cloud-init status" 2>/dev/null)
+    echo "Current status: $dstatus"
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
-sudo cloud-init status
-"
+if [[ "$dstatus" == "status: done" ]]; then
+    echo "Cloud-init is done. Exiting loop."
+    break
+fi
+
+    echo "Waiting for cloud-init to finish..."
+    sleep 10  # Adjust the sleep duration as needed
+done
+
 echo ""
 echo "Deploying management node..."
 echo ""

@@ -10,14 +10,14 @@ Terraform template to setup simple cluster
 terraform plan
 
 # review the resources
-
-terraform apply
+terraform init
+terraform apply -var mgmt_nodes=3 -var storage_nodes=3 --auto-approve
 ```
 
 ### Cluster bootstrapping
 
 ```
-# in the boostrap-cluster.sh update KEY, mnodes, storage_private_ips
+# in the boostrap-cluster.sh update KEY
 
 chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
