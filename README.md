@@ -7,9 +7,9 @@ Terraform template to setup simple cluster
 ```
 # change count for mgmt_nodes and storage_nodes variables in variables.tf
 
+# review the resources
 terraform plan
 
-# review the resources
 terraform init
 terraform apply -var mgmt_nodes=3 -var storage_nodes=3 --auto-approve
 ```

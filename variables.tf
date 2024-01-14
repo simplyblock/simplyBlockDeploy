@@ -3,16 +3,6 @@ variable "cluster_name" {
   description = "EKS Cluster name"
 }
 
-variable "cluster_type" {
-  default = "single"
-  description = "the type of the cluster"
-
-  validation {
-    condition     = contains(["single", "ha"], var.cluster_type)
-    error_message = "Valid values for cluster_type are (single, ha)."
-  }
-}
-
 variable "whitelist_ips" {
   type = list(string)
   default = [ "195.176.32.0/24", "84.254.107.0/24"]
@@ -38,7 +28,7 @@ variable "storage_nodes" {
   type  = number
 }
 
-variable "cache_nodes" {
+variable "extra_nodes" {
   default = 1
   type  = number
 }

@@ -178,7 +178,7 @@ EOF
 }
 
 resource "aws_instance" "local_cache" {
-  count                  = var.cache_nodes
+  count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "t3.medium"
   key_name               = var.key_name
