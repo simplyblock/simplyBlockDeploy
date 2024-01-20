@@ -23,3 +23,11 @@ chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
 
 ```
+
+
+create sn nodes of type: m6id.large
+add sn to cluster --> wil get an error: nvme devices not found.
+
+and change to i3en.large
+we observe that the private IPs didn't change.
+add sn to cluster  -->wil get an error: nvme devices not found.

@@ -19,11 +19,11 @@ module "vpc" {
   cidr = "10.0.0.0/16"
 
   azs                     = ["us-east-2a", "us-east-2b", ]
-  private_subnets          = ["10.0.1.0/24", "10.0.3.0/24"]
+  private_subnets         = ["10.0.1.0/24", "10.0.3.0/24"]
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
 
-  enable_nat_gateway      = false
+  enable_nat_gateway = false
 
   public_subnet_tags = {
     "kubernetes.io/role/elb"                    = 1
@@ -131,7 +131,7 @@ resource "aws_security_group" "container_inst_sg" {
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "m6i.xlarge"
+  instance_type          = "t3.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -158,7 +158,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "i3en.large"
+  instance_type          = "t3.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -177,10 +177,23 @@ sbcli storage-node deploy
 EOF
 }
 
-resource "aws_instance" "local_cache" {
+resource "aws_ebs_volume" "storage_nodes_ebs" {
+  count             = var.storage_nodes
+  availability_zone = "us-east-2b"
+  size              = 50
+}
+
+resource "aws_volume_attachment" "attach_sn" {
+  count       = var.storage_nodes
+  device_name = "/dev/sdh"
+  volume_id   = aws_ebs_volume.storage_nodes_ebs[count.index].id
+  instance_id = aws_instance.storage_nodes[count.index].id
+}
+
+resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "t3.medium"
+  instance_type          = "t3.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -190,13 +203,13 @@ resource "aws_instance" "local_cache" {
   tags = {
     Name = "localcache-${count.index + 1}"
   }
-#   user_data = <<EOF
-# #!/bin/bash
-# echo "installing sbcli.."
-# sudo  yum install -y pip
-# pip install sbcli
-# sbcli caching-node deploy
-# EOF
+  #   user_data = <<EOF
+  # #!/bin/bash
+  # echo "installing sbcli.."
+  # sudo  yum install -y pip
+  # pip install sbcli
+  # sbcli caching-node deploy
+  # EOF
 }
 
 
@@ -287,10 +300,10 @@ output "mgmt_public_ips" {
   value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
 }
 
-output "local_cache_private_ips" {
-  value = aws_instance.local_cache[*].private_ip
+output "extra_nodes_private_ips" {
+  value = aws_instance.extra_nodes[*].private_ip
 }
 
-output "local_cache_public_ips" {
-  value = aws_instance.local_cache[*].public_ip
+output "extra_nodes_public_ips" {
+  value = aws_instance.extra_nodes[*].public_ip
 }

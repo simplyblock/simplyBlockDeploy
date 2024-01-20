@@ -64,3 +64,13 @@ for node in ${storage_private_ips}; do
     sleep 5
 done
 "
+
+echo ""
+echo "getting cluster secret"
+echo ""
+
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
+MANGEMENT_NODE_IP=${mnodes[1]}
+CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+sbcli cluster get-secret \${CLUSTER_ID}
+"
