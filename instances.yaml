@@ -1,0 +1,94 @@
+---
+ImageId: ami-0475fd761f7452820
+instances:
+- Name: m00
+  Role: management
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+  Quantity: 1
+- Name: s00
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s01
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s02
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s03
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s04
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s05
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s06
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: s07
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
+- Name: k01
+  Role: kubernetes
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 20
+    - DeviceName: /dev/sdf
+      Size: 20
