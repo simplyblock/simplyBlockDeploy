@@ -47,6 +47,7 @@ for ((i=2; i <= $#mnodes; i++)); do
 done
 
 echo ""
+sleep 60
 echo "Adding storage nodes..."
 echo ""
 

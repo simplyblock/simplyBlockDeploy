@@ -5,9 +5,16 @@ mnodes=(18.220.65.180 18.118.86.135 3.15.33.167)
 mnodesp=(10.0.4.72 10.0.4.88 10.0.4.139)
 
 # simplified
+sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
 curl -sfL https://get.k3s.io | bash
 sudo /usr/local/bin/k3s kubectl get node
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
+sudo yum install -y make golang
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl start docker
+
 
 KEY=$HOME/.ssh/simplyblock-ohio.pem
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "

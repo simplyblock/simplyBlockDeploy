@@ -29,6 +29,6 @@ variable "storage_nodes" {
 }
 
 variable "extra_nodes" {
-  default = 0
+  default = 1
   type  = number
 }
