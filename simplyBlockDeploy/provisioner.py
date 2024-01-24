@@ -2,7 +2,9 @@ import yaml
 import json
 from .ssh_keys import generate_create_ssh_keypair
 from .cf_construct import cf_construct
-from .aws_functions import cloudformation_deploy
+from .aws_functions import cloudformation_deploy, get_instances_from_cf_resources
+from .sb_deploy import sb_deploy
+import pprint
 
 
 def parse_instances_yaml(instances_yaml_file):
@@ -13,10 +15,15 @@ def parse_instances_yaml(instances_yaml_file):
             print(exc)
     return instances
 
-def provisioner(namespace="default", az="az", deploy=True, instances=None):
+
+def provisioner(namespace=None, az=None, deploy=None, instances=None):
     # Set up key filename
-    key_filename = "keys/{}".format(namespace)
-    instances['PublicKeyMaterial'] = generate_create_ssh_keypair(key_filename=key_filename)
+    instances['PublicKeyMaterial'] = generate_create_ssh_keypair(namespace=namespace)
+    # Get the CF stack
     cf_stack = cf_construct(namespace=namespace, instances=instances, region=az)
-    print(json.dumps(cf_stack, indent=4))
-    cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region=az["RegionName"])
+    # cloudformation will deploy and return when the stack is green. 
+    # If the stack is already deployed in that namespace it will catch the error and return.
+    cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region_name=az["RegionName"])
+    instances_dict_of_lists = get_instances_from_cf_resources(namespace=namespace, region_name=az['RegionName'])
+    sb_deploy(namespace=namespace, instances=instances_dict_of_lists)
+    

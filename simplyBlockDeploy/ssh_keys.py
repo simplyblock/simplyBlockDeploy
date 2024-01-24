@@ -1,9 +1,10 @@
 import paramiko
 
-def generate_create_ssh_keypair(key_filename='keys/default_key'):
+def generate_create_ssh_keypair(namespace=None):
     """
     Generate an SSH key pair.
     """
+    key_filename = "keys/{}".format(namespace)
     print("SSH Key is {}".format(key_filename))
     try:
         key = paramiko.RSAKey.from_private_key_file(key_filename)

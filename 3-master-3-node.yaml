@@ -1,0 +1,40 @@
+---
+ImageId: ami-0475fd761f7452820
+instances:
+- Name: m00
+  Role: management
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+- Name: m01
+  Role: management
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+- Name: m02
+  Role: management
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+- Name: s00
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 200
+- Name: s01
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 200
+- Name: s02
+  Role: storage
+  InstanceType: t3.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sde
+      Size: 200
+- Name: k01
+  Role: kubernetes
+  InstanceType: t3.large
+  SubnetId: PublicSubnet

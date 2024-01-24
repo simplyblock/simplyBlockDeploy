@@ -31,7 +31,7 @@ def cf_construct(namespace="default", instances=None, region=None):
     for instance in instances["instances"]:
         instance['Name'] =  "{}{}".format(namespace, instance['Name'])
         cf["Resources"][instance['Name']] = Instance(namespace, instance, instances["ImageId"])
-        if instance['EBS']:
+        if 'EBS' in instance:
             BlockDeviceMappings = []
             print(instance['EBS'])
 

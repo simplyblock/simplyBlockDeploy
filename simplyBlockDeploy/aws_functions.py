@@ -1,10 +1,10 @@
 import boto3
-import yaml
 import json
 import sys
 import traceback
 
-def get_azs(region):
+
+def get_azs(region=None):
     ec2_local = boto3.client('ec2', region_name=region)
     azs_list_of_dicts_response = ec2_local.describe_availability_zones()['AvailabilityZones']
     azs_list = []
@@ -29,7 +29,7 @@ def get_regions():
             json.dump(regions, outfile, indent=4)
         return regions
 
-def get_region_from_az(az):
+def get_region_from_az(az=None):
     region_data = get_regions()
     for region in region_data["Regions"]:
         if az in region["AvailabilityZones"]:
@@ -39,9 +39,9 @@ def get_region_from_az(az):
     
     sys.exit("AZ does not exist.")
 
-def cloudformation_deploy(namespace=None, cf_stack=None, region=None):
+def cloudformation_deploy(namespace=None, cf_stack=None, region_name=None):
 
-    client = boto3.client('cloudformation', region_name=region)
+    client = boto3.client('cloudformation', region_name=region_name)
     def createStack(client, namespace, cf_stack):
         try:
             response = client.create_stack(
@@ -65,3 +65,56 @@ def cloudformation_deploy(namespace=None, cf_stack=None, region=None):
     if stackId:
         createWaiter(client, stackId)
 
+def get_cloudformation_blob(namespace, region_name):
+    client = boto3.client('cloudformation', region_name=region_name)
+    response = client.list_stack_resources(
+        StackName=namespace
+    )
+    return response
+
+def get_instances_from_cf_resources(namespace=None, region_name=None):
+
+    def get_instances_data(instances, region_name):
+        ec2_local = boto3.client('ec2', region_name=region_name)
+        response = ec2_local.describe_instances(
+        InstanceIds=instances)
+        return response
+
+    def convert_tags_to_dicts(tags):
+        output_dict = {}
+        for tag in tags:
+            output_dict[tag["Key"]] = tag["Value"]
+        return output_dict
+
+    def squidge_instances_data(namespace, region_name):
+
+        def get_boto_instance(instance_id, region_name):
+            ec2_local = boto3.resource('ec2', region_name=region_name)
+            return ec2_local.Instance(instance_id)
+        
+        instances_instance_list = []
+        cf_data = get_cloudformation_blob(namespace, region_name)
+        for resource in cf_data["StackResourceSummaries"]:
+            if resource["ResourceType"] == "AWS::EC2::Instance":
+                instances_instance_list.append(get_boto_instance(resource['PhysicalResourceId'], region_name))
+        # returns a list of boto3 instance objects.
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/instance/index.html
+        return(instances_instance_list)
+    
+    def filter_instance_by_role_key(instance_list, role):
+        return list(
+            filter(
+                lambda instance: any(
+                    tag['Key'] == 'Role' and tag['Value'] == role for tag in instance.tags or []
+                ), 
+            instances_list))
+    
+    instances_list = squidge_instances_data(namespace, region_name)
+
+    instances_dict_of_lists = {}
+    instances_dict_of_lists["all_instances"] = instances_list
+    instances_dict_of_lists["storage"] = filter_instance_by_role_key(instances_list, "storage")
+    instances_dict_of_lists["management"] = filter_instance_by_role_key(instances_list, "management")
+    instances_dict_of_lists["kubernetes"] = filter_instance_by_role_key(instances_list, "kubernetes")
+
+    return instances_dict_of_lists
