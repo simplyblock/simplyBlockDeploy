@@ -1,4 +1,4 @@
-from .fabric_functions import run_concurrent_command
+from .fabric_functions import run_concurrent_command, run_command_return_output
 
 def sb_deploy(namespace=None, instances=None):
     print("Depoying SimplyBlock Software. Namespace is {}".format(namespace))
@@ -19,15 +19,42 @@ def sb_deploy(namespace=None, instances=None):
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
-    def sbcli_cluster_create(instance_list=None, namespace=namespace):
-        command = """
-            sudo yum install -y fio nvme-cli
-            sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-            sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-            sbcli cluster create --model_ids 'Amazon Elastic Block Store'
-            sbcli cluster list
-        """
-        run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
+    def sbcli_cluster_create(instance_list_public=None, instance_list_private=None, namespace=namespace):
+        first_master_created = False
+        cluster_uuid = None
+        management_master = None
+        for instance_public, instance_private in zip(instance_list_public, instance_list_private):
+            print("first_master_created:{}".format(first_master_created))
+            print("cluster_uuid:{}".format(cluster_uuid))
+            if first_master_created == False:
+                command = """
+                    sudo yum install -y fio nvme-cli
+                    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+                    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+                    # sbcli cluster create --model_ids 'Amazon Elastic Block Store'
+                    # sbcli cluster list | grep active | awk '{{print $2}}' > cluster_uuid
+                    # echo "Cluster $(cat cluster_uuid) ready on $(hostname)"
+                """
+                run_command_return_output(namespace=namespace, host=instance_public, command=command)
+
+                command = """
+                    cat cluster_uuid
+                """
+                
+                cluster_uuid = run_command_return_output(namespace=namespace, host=instance_public, command=command)
+                management_master = instance_private
+                first_master_created == True
+            else:
+                command = """
+                    hostname
+                    sudo yum install -y fio nvme-cli
+                    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+                    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+                    echo '$(hostname) ready to be added to cluster {0} on ip {1}'
+                """.format(cluster_uuid, management_master)
+                run_command_return_output(namespace=namespace, host=instance_public, command=command)
+
+        
 
     def sbcli_storage_node_add_node(instance_list=None, storage_instances_private=None, namespace=namespace):
         command_list = []
@@ -41,7 +68,7 @@ def sb_deploy(namespace=None, instances=None):
             --iobuf_small_cache_size 10000 \
             --iobuf_large_cache_size 25000 \
             $(cat cluster_uuid) {}:5000 eth0
-        """.format(instance))
+            """.format(instance))
             # print(command)
         command_list.append("sbcli pool add pool1")
         command = "".join(command_list)
@@ -61,10 +88,17 @@ def sb_deploy(namespace=None, instances=None):
     storage_instances = [i.public_ip_address for i in instances['storage']]
     storage_instances_private = [i.private_ip_address for i in instances['storage']]
     management_instances = [i.public_ip_address for i in instances['management']]
+    management_instances_private = [i.private_ip_address for i in instances['management']]
     kubernetes_instances = [i.public_ip_address for i in instances['kubernetes']]
 
+  
+    
+    """
     install_deps(instance_list=all_instances, namespace=namespace)
     sbcli_storage_node_deploy(instance_list=storage_instances, namespace=namespace)
-    sbcli_cluster_create(instance_list=management_instances, namespace=namespace)
+    """
+    sbcli_cluster_create(instance_list_public=management_instances, instance_list_private=management_instances_private, namespace=namespace)
+    """
     sbcli_storage_node_add_node(instance_list=management_instances, storage_instances_private=storage_instances_private, namespace=namespace)
     k8s_cluster_create(instance_list=kubernetes_instances, namespace=namespace)
+    """

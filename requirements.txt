@@ -2,3 +2,4 @@ cfn-lint
 fabric
 boto3
 paramiko
+jinja2

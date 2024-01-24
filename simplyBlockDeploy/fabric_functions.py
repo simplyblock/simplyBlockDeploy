@@ -20,10 +20,12 @@ def run_concurrent_command(namespace=None, instance_list=None, command=None):
         exit(1)
 
 def run_command_return_output(namespace=None, host=None, command=None):
+    key_filename = "keys/{}".format(namespace)
+    print(key_filename)
     connect_kwargs = {
         "key_filename": key_filename
     }
     connection = fabric.Connection(host, user="rocky", connect_kwargs=connect_kwargs)
     result = connection.run(command)
     print(result)
-    return json.loads(result)
+    return result.stdout
