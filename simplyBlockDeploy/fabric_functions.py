@@ -4,7 +4,11 @@ import os
 
 def run_concurrent_command(namespace=None, instance_list=None, command=None):
     key_filename = "keys/{}".format(namespace)
-    print(key_filename)
+    print("#######################################")
+    print("Running command on {}".format(instance_list))
+    print(command)
+    print("with key file {}".format(key_filename))
+    print("#######################################")
     if os.path.isfile(key_filename):
         connect_kwargs = {
             "key_filename": key_filename
@@ -21,7 +25,11 @@ def run_concurrent_command(namespace=None, instance_list=None, command=None):
 
 def run_command_return_output(namespace=None, host=None, command=None):
     key_filename = "keys/{}".format(namespace)
-    print(key_filename)
+    print("#######################################")
+    print("Running command on {}".format(host))
+    print(command)
+    print("with key file {}".format(key_filename))
+    print("#######################################")
     connect_kwargs = {
         "key_filename": key_filename
     }
