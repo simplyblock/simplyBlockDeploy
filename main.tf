@@ -201,17 +201,22 @@ resource "aws_instance" "extra_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "localcache-${count.index + 1}"
+    Name = "k8scluster-${count.index + 1}"
   }
-  #   user_data = <<EOF
-  # #!/bin/bash
-  # echo "installing sbcli.."
-  # sudo  yum install -y pip
-  # pip install sbcli
-  # sbcli caching-node deploy
-  # EOF
 }
 
+resource "aws_ebs_volume" "extra_nodes_ebs" {
+  count             = var.extra_nodes
+  availability_zone = "us-east-2b"
+  size              = 50
+}
+
+resource "aws_volume_attachment" "attach_cn" {
+  count       = var.extra_nodes
+  device_name = "/dev/sdh"
+  volume_id   = aws_ebs_volume.extra_nodes_ebs[count.index].id
+  instance_id = aws_instance.extra_nodes[count.index].id
+}
 
 
 ################################################################################
