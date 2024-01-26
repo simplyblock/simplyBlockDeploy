@@ -13,7 +13,7 @@ def get_azs(region=None):
     return azs_list
 
 def get_regions():
-    ec2 = boto3.client('ec2')
+    ec2 = boto3.client('ec2', region_name="us-east-1")
     filename = "data/RegionData.json"
     try:
         with open(filename, 'r') as infile:

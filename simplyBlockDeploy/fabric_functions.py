@@ -36,4 +36,4 @@ def run_command_return_output(namespace=None, host=None, command=None):
     connection = fabric.Connection(host, user="rocky", connect_kwargs=connect_kwargs)
     result = connection.run(command)
     print(result)
-    return result.stdout
+    return result.stdout.strip()

@@ -77,8 +77,8 @@ def sb_deploy(namespace=None, instances=None):
             --bdev_io_cache_size 10000 \
             --iobuf_small_cache_size 10000 \
             --iobuf_large_cache_size 25000 \
-            $(cat cluster_uuid) {}:5000 eth0
-            """.format(storage_instance))
+            {} {}:5000 eth0
+            """.format(cluster_create_output["cluster_uuid"], storage_instance))
             # print(command)
         command_list.append("sbcli pool add pool1")
         command = "".join(command_list)

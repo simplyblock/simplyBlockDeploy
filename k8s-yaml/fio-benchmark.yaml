@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pv-claim
+  labels:
+    app: wordpress
+spec:
+  storageClassName: spdkcsi-sc
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: postgres
+    tier: postgres
+  clusterIP: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slim-shady-configmap
+data:
+  slim-shady.sh: |
+    #!/bin/bash
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres  # Sets Deployment name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: fio
+          image: ubuntu
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - mountPath: /mnt
+              name: postgres-volume
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              apt-get update; apt-get -y install fio;
+              while true
+              do
+              sleep 1
+              fio --filename=/mnt/file --size=8GB --direct=1 --rw=randrw --bs=16k --ioengine=libaio --iodepth=256 --runtime=120 --numjobs=4 --time_based --group_reporting --name=iops-test-job --eta-newline=1
+              done
+
+      volumes:
+      - name: postgres-volume
+        persistentVolumeClaim:
+          claimName: postgres-pv-claim
