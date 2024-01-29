@@ -1,4 +1,4 @@
-# sbDeploy
+# simplyBlockDeploy
 
 ## Deploying Simplyblock cluster.
 
