@@ -78,6 +78,11 @@ def sb_deploy(namespace=None, instances=None):
             --iobuf_small_cache_size 10000 \
             --iobuf_large_cache_size 25000 \
             {} {}:5000 eth0
+            sleep 10
+            echo '## sbcli cluster list ##'
+            sbcli cluster list
+            echo '## sbcli storage-node list ##'
+            sbcli storage-node list
             """.format(cluster_create_output["cluster_uuid"], storage_instance))
             # print(command)
         command_list.append("sbcli pool add pool1")

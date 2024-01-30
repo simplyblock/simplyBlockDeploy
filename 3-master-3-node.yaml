@@ -1,5 +1,5 @@
 ---
-ImageId: ami-0475fd761f7452820
+ImageId: ami-001233eb9ec59c2d9
 instances:
 - Name: m00
   Role: management
