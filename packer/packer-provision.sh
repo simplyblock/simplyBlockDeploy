@@ -10,4 +10,3 @@ sudo modprobe nvme-tcp
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker $USER
-pip install sbcli
