@@ -8,7 +8,7 @@ def sb_deploy(namespace=None, instances=None):
             sudo yum update -y
             sudo yum install -y pip fio nvme-cli
             sudo pip install sbcli
-            pip install sbcli==4.4.0
+            pip install sbcli
             sudo modprobe nvme-tcp
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
