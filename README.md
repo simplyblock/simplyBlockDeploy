@@ -4,10 +4,13 @@
 
 Clone the repo and cd into the dir.
 
-Make venv
+Make venv and install dependancies
 
 `python3 -m venv .venv`
+
 `. .venv/bin/activate`
+
+`pip install -r requirements.txt`
 
 Adjust node number and types in `--instance_yaml` file and deploy.
 

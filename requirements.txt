@@ -3,3 +3,4 @@ fabric
 boto3
 paramiko
 jinja2
+awscli
