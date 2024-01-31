@@ -131,7 +131,7 @@ resource "aws_security_group" "container_inst_sg" {
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "t3.large"
+  instance_type          = "m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -158,7 +158,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "t3.large"
+  instance_type          = "m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -193,7 +193,7 @@ resource "aws_volume_attachment" "attach_sn" {
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "t3.large"
+  instance_type          = "m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]

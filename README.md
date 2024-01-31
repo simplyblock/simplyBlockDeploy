@@ -11,7 +11,7 @@ Terraform template to setup simple cluster
 terraform plan
 
 terraform init
-terraform apply -var mgmt_nodes=3 -var storage_nodes=3 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 ```
 
 ### Cluster bootstrapping
@@ -22,6 +22,10 @@ terraform apply -var mgmt_nodes=3 -var storage_nodes=3 --auto-approve
 chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
 
+```
+### Destroy Cluster
+```
+terraform apply -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
 ```
 
 

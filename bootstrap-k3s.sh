@@ -16,7 +16,7 @@ sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo systemctl start docker
 
 
@@ -65,3 +65,17 @@ sudo reboot
 # reboot conform the huge pages
 
 sudo nvme list-subsys <device>
+
+
+./rpc.py bdev_get_bdevs
+./rpc.py bdev_nvme_attach_controller -b NVMe1 -t PCIe -a
+./rpc.py bdev_nvme_attach_controller -b NVMe1 -t PCIe -a
+
+
+
+# post hook
+
+/root/spdk/scripts/setup.sh reset
+
+mkdir /mnt/huge
+mount -t hugetlbfs -o uid=spdk,size=2G nodev /mnt/huge

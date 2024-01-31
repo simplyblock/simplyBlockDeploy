@@ -6,15 +6,14 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 
 echo "bootstrapping cluster..."
 
-
 while true; do
     dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "sudo cloud-init status" 2>/dev/null)
     echo "Current status: $dstatus"
 
-if [[ "$dstatus" == "status: done" ]]; then
-    echo "Cloud-init is done. Exiting loop."
-    break
-fi
+    if [[ "$dstatus" == "status: done" ]]; then
+        echo "Cloud-init is done. Exiting loop."
+        break
+    fi
 
     echo "Waiting for cloud-init to finish..."
     sleep 10
@@ -33,7 +32,7 @@ echo ""
 echo "Adding other management nodes if they exist.."
 echo ""
 
-for ((i=2; i <= $#mnodes; i++)); do
+for ((i = 2; i <= $#mnodes; i++)); do
     echo ""
     echo "Adding mgmt node ${i}.."
     echo ""
@@ -61,7 +60,7 @@ sbcli cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli storage-node add-node --cpu-mask 0x3 --memory 16g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  \$CLUSTER_ID \${node}:5000 eth0
+    sbcli storage-node add-node --cpu-mask 0x3 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "
