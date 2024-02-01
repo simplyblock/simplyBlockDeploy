@@ -114,4 +114,6 @@ def sb_deploy(namespace=None, instances=None):
     cluster_create_output = sbcli_cluster_create(instance_list_public=management_instances, instance_list_private=management_instances_private, namespace=namespace)
     sbcli_storage_node_add_node(cluster_create_output=cluster_create_output, storage_instances_private=storage_instances_private, namespace=namespace)
     k8s_cluster_create(instance_list=kubernetes_instances, namespace=namespace)
+
+    return cluster_create_output
     

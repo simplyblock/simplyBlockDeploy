@@ -26,7 +26,7 @@ def template_csi_yamls(cluster_data_for_csi_template):
     print(cluster_data_for_csi_template)
     return j2_template.render(cluster_data_for_csi_template)
 
-def setup_csi(namespace=str, instances_dict_of_lists=None):
+def setup_csi(namespace=str, instances_dict_of_lists=None, cluster_uuid=None):
 
     def get_cluster_uuid(namespace=str, instance=str):
         # this file is there because I put it there during cluster setup.
@@ -61,7 +61,7 @@ EOF
     management_node = instances_dict_of_lists["management"][0]
     kubernetes_node = instances_dict_of_lists["kubernetes"][0]
 
-    cluster_uuid = get_cluster_uuid(namespace=namespace, instance=management_node.public_ip_address)
+    # cluster_uuid = get_cluster_uuid(namespace=namespace, instance=management_node.public_ip_address)
     cluster_secret = get_cluster_secret(namespace=namespace, instance=management_node.public_ip_address, cluster_uuid=cluster_uuid)
 
     # TODO: Decouple this mess. The values in this dicts are referenced in the yaml jinja2

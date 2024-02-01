@@ -27,6 +27,6 @@ def provisioner(namespace=None, az=None, deploy=None, instances=None):
     ## If the stack is already deployed in that namespace it will catch the error and return.
     cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region_name=az["RegionName"])
     instances_dict_of_lists = get_instances_from_cf_resources(namespace=namespace, region_name=az['RegionName'])
-    sb_deploy(namespace=namespace, instances=instances_dict_of_lists)
-    setup_csi(namespace=namespace, instances_dict_of_lists=instances_dict_of_lists)
+    cluster_create_output = sb_deploy(namespace=namespace, instances=instances_dict_of_lists)
+    setup_csi(namespace=namespace, instances_dict_of_lists=instances_dict_of_lists, cluster_uuid=cluster_create_output["cluster_uuid"] )
     print_info(instances_dict_of_lists)
