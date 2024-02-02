@@ -50,6 +50,11 @@ sudo /usr/local/bin/k3s kubectl get node
 
 ### enable huge pages
 
+sudo vi /etc/sysctl.conf
+vm.nr_hugepages=2048
+sudo sysctl -p
+sudo sysctl -w vm.nr_hugepages=2048
+
 
 sudo echo "vm.nr_hugepages=2048" >> /etc/sysctl.conf
 sudo sysctl -p
@@ -77,5 +82,10 @@ sudo nvme list-subsys <device>
 
 /root/spdk/scripts/setup.sh reset
 
-mkdir /mnt/huge
-mount -t hugetlbfs -o uid=spdk,size=2G nodev /mnt/huge
+sudo reboot
+sudo mkdir /mnt/huge
+sudo mount -t hugetlbfs -o size=2G nodev /mnt/huge
+
+sudo vi /etc/fstab
+nodev /mnt/huge hugetlbfs size=2G 0 0
+

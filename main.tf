@@ -170,6 +170,8 @@ resource "aws_instance" "storage_nodes" {
   }
   user_data = <<EOF
 #!/bin/bash
+sudo sysctl -w vm.nr_hugepages=2048
+cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip
 pip install sbcli

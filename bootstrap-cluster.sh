@@ -74,3 +74,5 @@ MANGEMENT_NODE_IP=${mnodes[1]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 sbcli cluster get-secret \${CLUSTER_ID}
 "
+
+# sbcli storage-node add-node --cpu-mask 0x1 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  $cluster ${node}:5000 eth0
