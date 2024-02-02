@@ -18,15 +18,21 @@ def parse_instances_yaml(instances_yaml_file):
     return instances
 
 
-def provisioner(namespace=None, az=None, deploy=None, instances=None):
-    ## Set up key filename
+def provisioner(namespace=None, az=None, deploy=None, instances=None, dry_run=False, sbcli_pkg=None):
+    # Set up key filename
     instances['PublicKeyMaterial'] = generate_create_ssh_keypair(namespace=namespace)
-    ## Get the CF stack
+
+    # Get the CF stack
     cf_stack = cf_construct(namespace=namespace, instances=instances, region=az)
-    ## cloudformation will deploy and return when the stack is green. 
-    ## If the stack is already deployed in that namespace it will catch the error and return.
+    if dry_run or not deploy:
+        print("Dry run! No deployment done.")
+        return
+
+    # cloudformation will deploy and return when the stack is green.
+    # If the stack is already deployed in that namespace it will catch the error and return.
     cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region_name=az["RegionName"])
     instances_dict_of_lists = get_instances_from_cf_resources(namespace=namespace, region_name=az['RegionName'])
-    cluster_create_output = sb_deploy(namespace=namespace, instances=instances_dict_of_lists)
-    setup_csi(namespace=namespace, instances_dict_of_lists=instances_dict_of_lists, cluster_uuid=cluster_create_output["cluster_uuid"] )
+    cluster_create_output = sb_deploy(namespace=namespace, instances=instances_dict_of_lists, sbcli_pkg=sbcli_pkg)
+    setup_csi(namespace=namespace, instances_dict_of_lists=instances_dict_of_lists,
+              cluster_uuid=cluster_create_output["cluster_uuid"])
     print_info(instances_dict_of_lists)

@@ -18,7 +18,7 @@ Adjust node number and types in `--instance_yaml` file and deploy.
 
 Wait for the cluster to set up. Then Log in to one of the nodes:
 
-`ssh keys/<namespace> rocky@<ip>`
+`ssh -i keys/<namespace> rocky@<ip>`
 
 Note: `<namespace>` must be alphanumeric with no blank or special characters.
 
