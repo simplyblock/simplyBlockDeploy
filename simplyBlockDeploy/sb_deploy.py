@@ -1,20 +1,22 @@
 from .fabric_functions import run_concurrent_command, run_command_return_output
 
-def sb_deploy(namespace=None, instances=None):
-    print("Depoying SimplyBlock Software. Namespace is {}".format(namespace))
 
-    def install_deps(instance_list=None, namespace=namespace):
-        command = """
+def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
+    print("Deploying SimplyBlock Software. Namespace is {}".format(namespace))
+
+    def install_deps(instance_list=None):
+        command = f"""
             sudo yum update -y
             sudo yum install -y pip fio nvme-cli
-            sudo pip install sbcli
-            pip install sbcli
+            sudo pip install {sbcli_pkg}
             sudo modprobe nvme-tcp
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
     def sbcli_storage_node_deploy(instance_list=None, namespace=namespace):
         command = """
+            sudo sysctl -w vm.nr_hugepages=2048
+            echo "vm.nr_hugepages=2048" | sudo tee -a /etc/sysctl.conf
             sbcli storage-node deploy
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
@@ -27,7 +29,7 @@ def sb_deploy(namespace=None, instances=None):
         for instance_public, instance_private in zip(instance_list_public, instance_list_private):
             print("first_master_created:{}".format(first_master_created))
             print("cluster_uuid:{}".format(cluster_uuid))
-            if cluster_uuid == None:
+            if cluster_uuid is None:
                 command = """
                     set x
                     sudo yum install -y fio nvme-cli
@@ -62,7 +64,6 @@ def sb_deploy(namespace=None, instances=None):
             "cluster_uuid": cluster_uuid, 
             "management_master_public": management_master_public 
                }
-        
 
     def sbcli_storage_node_add_node(cluster_create_output=None, storage_instances_private=None, namespace=None):
         command_list = []
@@ -108,8 +109,7 @@ def sb_deploy(namespace=None, instances=None):
     management_instances_private = [i.private_ip_address for i in instances['management']]
     kubernetes_instances = [i.public_ip_address for i in instances['kubernetes']]
 
-  
-    install_deps(instance_list=all_instances, namespace=namespace)
+    install_deps(instance_list=all_instances)
     sbcli_storage_node_deploy(instance_list=storage_instances, namespace=namespace)
     cluster_create_output = sbcli_cluster_create(instance_list_public=management_instances, instance_list_private=management_instances_private, namespace=namespace)
     sbcli_storage_node_add_node(cluster_create_output=cluster_create_output, storage_instances_private=storage_instances_private, namespace=namespace)
