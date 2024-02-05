@@ -30,7 +30,7 @@ def cf_construct(namespace="default", instances=None, region=None):
 
     for instance in instances["instances"]:
         instance['Name'] =  "{}{}".format(namespace, instance['Name'])
-        cf["Resources"][instance['Name']] = Instance(namespace, instance, instances["ImageId"])
+        cf["Resources"][instance['Name']] = Instance(namespace, instance, instances["ImageId"]).dict
         if 'EBS' in instance:
             BlockDeviceMappings = []
             print(instance['EBS'])
@@ -296,8 +296,15 @@ def EbsVolume(size, device_name):
                 }
             }
 
-def Instance(namespace, instance_dict, ami):
-    return {
+
+class Instance:
+    def __init__(self, namespace, instance_dict, ami):
+        role = instance_dict["Role"]
+        with open('shell_scripts/storage_ec2_userdata.sh', 'r') as file:
+            storage_ec2_userdata = file.read()
+
+        self.dict = \
+            {
                 "Type": "AWS::EC2::Instance",
                 "Properties": {
                     "InstanceType": instance_dict["InstanceType"],
@@ -321,9 +328,13 @@ def Instance(namespace, instance_dict, ami):
                         },
                         {
                             "Key": "Role",
-                            "Value": instance_dict["Role"]
+                            "Value": role
                         }
                     ]
                 }
             }
 
+        if role == 'storage':
+            self.dict["Properties"]["UserData"] = {
+                "Fn::Base64": storage_ec2_userdata
+            }
