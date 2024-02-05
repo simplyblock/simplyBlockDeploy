@@ -25,6 +25,7 @@ def provisioner(namespace=None, az=None, deploy=None, instances=None, dry_run=Fa
     # Get the CF stack
     cf_stack = cf_construct(namespace=namespace, instances=instances, region=az)
     if dry_run or not deploy:
+        print(json.dumps(cf_stack, indent=4))
         print("Dry run! No deployment done.")
         return
 
