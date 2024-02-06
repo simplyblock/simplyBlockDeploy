@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
-
+sudo sysctl -w vm.nr_hugepages=2048
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum update -y
 sudo yum install -y pip fio nvme-cli yum-utils xorg-x11-xauth nvme-cli fio hostname pkg-config git wget python3-pip yum-utils docker-ce docker-ce-cli \

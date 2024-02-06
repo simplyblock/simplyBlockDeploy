@@ -1,0 +1,48 @@
+---
+ImageId: ami-0ddb9546f87cf308a
+instances:
+- Name: m00
+  Role: management
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 200
+    - DeviceName: /dev/sde
+      Size: 100
+- Name: s00
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 100
+    - DeviceName: /dev/sde
+      Size: 100
+- Name: s01
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 100
+    - DeviceName: /dev/sde
+      Size: 100
+- Name: s02
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 100
+    - DeviceName: /dev/sde
+      Size: 100
+- Name: k01
+  Role: kubernetes
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 100
+    - DeviceName: /dev/sde
+      Size: 100
