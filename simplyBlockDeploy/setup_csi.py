@@ -26,16 +26,17 @@ def template_csi_yamls(cluster_data_for_csi_template):
     print(cluster_data_for_csi_template)
     return j2_template.render(cluster_data_for_csi_template)
 
-def setup_csi(namespace=str, instances_dict_of_lists=None, cluster_uuid=None):
+
+def setup_csi(namespace=str, instances_dict_of_lists=None, cluster_uuid=None, sbcli_cmd='sbcli'):
 
     def get_cluster_uuid(namespace=str, instance=str):
         # this file is there because I put it there during cluster setup.
-        command = "sbcli cluster list | grep active | awk '{{print $2}}'"
+        command = f"{sbcli_cmd} cluster list | grep active | awk '{{{{print $2}}}}'"
         return run_command_return_output(namespace=namespace, host=instance, command=command)
 
 
     def get_cluster_secret(namespace=str, instance=str, cluster_uuid=str):
-        command = "sbcli cluster get-secret {}".format(cluster_uuid)
+        command = f"{sbcli_cmd} cluster get-secret {cluster_uuid}"
         return run_command_return_output(namespace=namespace, host=instance, command=command)
 
 
@@ -46,7 +47,6 @@ kubectl apply -f - <<'EOF'
 EOF
         """.format(csi_yaml)
         return run_command_return_output(namespace=namespace, host=instance, command=command)
-    
 
     def write_yamls(namespace=str, instance=str, csi_yaml=str):
         command = """
@@ -80,6 +80,7 @@ EOF
 
 def main():
     setup_csi("defaultXYP", "eu-west-1", "keys/defaultXYP")
+
 
 if __name__ == "__main__":
     main()

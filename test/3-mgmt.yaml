@@ -1,0 +1,15 @@
+---
+ImageId: ami-0ddb9546f87cf308a
+instances:
+- Name: m00
+  Role: management
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+- Name: m01
+  Role: management
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+- Name: m02
+  Role: management
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet

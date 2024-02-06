@@ -1,8 +1,10 @@
 from .fabric_functions import run_concurrent_command, run_command_return_output
+from pkg_resources import Requirement
 
 
 def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
     print("Deploying SimplyBlock Software. Namespace is {}".format(namespace))
+    sbcli_cmd = Requirement.parse(sbcli_pkg).name
 
     def install_deps(instance_list=None):
         command = f"""
@@ -14,8 +16,8 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
     def sbcli_storage_node_deploy(instance_list=None, namespace=namespace):
-        command = """
-            sbcli storage-node deploy
+        command = f"""
+            {sbcli_cmd} storage-node deploy
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
@@ -28,13 +30,13 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
             print("first_master_created:{}".format(first_master_created))
             print("cluster_uuid:{}".format(cluster_uuid))
             if cluster_uuid is None:
-                command = """
+                command = f"""
                     set x
                     sudo yum install -y fio nvme-cli
                     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
                     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-                    sbcli cluster create --model_ids 'Amazon Elastic Block Store'
-                    sbcli cluster list | grep active | awk '{{print $2}}' > cluster_uuid
+                    {sbcli_cmd} cluster create --model_ids 'Amazon Elastic Block Store'
+                    {sbcli_cmd} cluster list | grep active | awk '{{{{print $2}}}}' > cluster_uuid
                     echo "Cluster $(cat cluster_uuid) ready on $(hostname)"
                     sleep 180
                 """
@@ -48,43 +50,44 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
                 management_master_private = instance_private
                 management_master_public = instance_public
             else:
-                command = """
+                command = f"""
                     set -x
                     hostname
                     sudo yum install -y fio nvme-cli
                     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
                     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-                    echo $(hostname) ready to be added to cluster {0} on ip {1}
-                    sbcli mgmt add {1} {0} eth0
-                """.format(cluster_uuid, management_master_private)
+                    echo $(hostname) ready to be added to cluster {cluster_uuid} on ip {management_master_private}
+                    {sbcli_cmd} mgmt add {management_master_private} {cluster_uuid} eth0
+                """
                 run_command_return_output(namespace=namespace, host=instance_public, command=command)
-        return { 
-            "cluster_uuid": cluster_uuid, 
+        return {
+            "cluster_uuid": cluster_uuid,
             "management_master_public": management_master_public 
-               }
+        }
+
 
     def sbcli_storage_node_add_node(cluster_create_output=None, storage_instances_private=None, namespace=None):
         command_list = []
         for storage_instance in storage_instances_private:
-            command_list.append("""
+            command_list.append(f"""
             set -x
             hostname
-            sbcli cluster list | grep active | awk '{{print $2}}' > cluster_uuid
-            sbcli storage-node add-node \
+            {sbcli_cmd} cluster list | grep active | awk '{{{{print $2}}}}' > cluster_uuid
+            {sbcli_cmd} storage-node add-node \
             --cpu-mask 0x3 --memory 16g \
             --bdev_io_pool_size 10000 \
             --bdev_io_cache_size 10000 \
             --iobuf_small_cache_size 10000 \
             --iobuf_large_cache_size 25000 \
-            {} {}:5000 eth0
+            {cluster_create_output["cluster_uuid"]} {storage_instance}:5000 eth0
             sleep 10
-            echo '## sbcli cluster list ##'
-            sbcli cluster list
-            echo '## sbcli storage-node list ##'
-            sbcli storage-node list
-            """.format(cluster_create_output["cluster_uuid"], storage_instance))
+            echo '## {sbcli_cmd} cluster list ##'
+            {sbcli_cmd} cluster list
+            echo '## {sbcli_cmd} storage-node list ##'
+            {sbcli_cmd} storage-node list
+            """)
             # print(command)
-        command_list.append("sbcli pool add pool1")
+        command_list.append(f"{sbcli_cmd} pool add pool1")
         command = "".join(command_list)
         run_command_return_output(namespace=namespace, host=cluster_create_output["management_master_public"], command=command)
         # run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
