@@ -15,8 +15,6 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
 
     def sbcli_storage_node_deploy(instance_list=None, namespace=namespace):
         command = """
-            sudo sysctl -w vm.nr_hugepages=2048
-            echo "vm.nr_hugepages=2048" | sudo tee -a /etc/sysctl.conf
             sbcli storage-node deploy
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)

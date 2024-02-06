@@ -20,11 +20,11 @@ def main(argv):
     parser.add_argument('--dry-run', dest='dry_run', action='store_true',
                         help='Dry Run, only creates keys')
     parser.add_argument('--sbcli-pkg', default='sbcli', required=False, dest='sbcli_pkg',
-                        help='sbcli requirement specifier for "pip install" (e.g. "sbcli", "sbcli-dev")')
+                        help='sbcli requirement specifier for "pip install" (e.g. "sbcli-release", "sbcli-dev")')
 
     # TODO: delete if not used
     parser.add_argument('--deploy', default=True, type=bool, required=False,
-                        help='Osolete. Should not be used.')
+                        help='Obsolete. Should not be used.')
 
     args = parser.parse_args()
     provisioner(namespace=args.namespace, az=args.az, deploy=args.deploy, instances=args.instance_yaml,
