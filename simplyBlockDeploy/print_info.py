@@ -27,7 +27,7 @@ def print_connectivity_info(instances, namespace):
     instance_dict = {}
     print("Brief connectivity info:")
     for role in ("storage", "management", "kubernetes"):
-        instance_dict[role] = [f"ssh -i {private_key_path} rocky@{instance.public_dns_name}"
-                               for instance in instances[role]]
+        instance_dict[role] = [[f"ssh -i {private_key_path} rocky@{inst.public_dns_name}", inst.public_ip_address]
+                               for inst in instances[role]]
 
     print(yaml.dump(instance_dict))

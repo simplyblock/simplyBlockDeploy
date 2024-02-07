@@ -26,6 +26,7 @@ def cf_construct(namespace="default", instances=None, region=None):
     cf["Resources"]["PrivateRoute"] = PrivateRoute()
     cf["Resources"]["PrivateSubnetRouteTableAssociation"] = PrivateSubnetRouteTableAssociation()
     cf["Resources"]["VPCDefaultSecurityGroupIngress"] = VPCDefaultSecurityGroupIngress()
+    cf["Resources"]["MgmtInstancesSecurityGroup"] = MgmtInstancesSecurityGroup().dict
     cf["Resources"][namespace] = sshKey(namespace, instances['PublicKeyMaterial'])
 
     for instance in instances["instances"]:
@@ -270,6 +271,24 @@ def VPCDefaultSecurityGroupIngress():
                 }
             }
 
+
+class MgmtInstancesSecurityGroup:
+    def __init__(self):
+        self.dict = {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow access to API and dashboards",
+                "VpcId": {"Ref": "PubPrivateVPC"},
+                "SecurityGroupIngress": [{
+                    "IpProtocol": "tcp",
+                    "FromPort": port,
+                    "ToPort": port,
+                    "CidrIp": "0.0.0.0/0"
+                } for port in (80, 2222, 8081, 8404)]
+            }
+        }
+
+
 def sshKey(Name, PublicKeyMaterial):
     return {
                 "Type": "AWS::EC2::KeyPair",
@@ -338,3 +357,8 @@ class Instance:
             self.dict["Properties"]["UserData"] = {
                 "Fn::Base64": storage_ec2_userdata
             }
+        elif role == 'management':
+            self.dict["Properties"]["NetworkInterfaces"][0]["GroupSet"] = [
+                {"Fn::GetAtt": ["PubPrivateVPC", "DefaultSecurityGroup"]},
+                {"Ref": "MgmtInstancesSecurityGroup"},
+            ]
