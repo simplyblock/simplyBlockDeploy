@@ -1,7 +1,21 @@
 
 import sys
 import json
+
+import requests
 from cfnlint.api import lint_all
+
+
+def get_public_ip():
+    try:
+        response = requests.get('https://httpbin.org/ip')
+        if response.status_code == 200:
+            return response.json()['origin']
+        else:
+            print(f"Failed to retrieve public IP (HTTP status code {response.status_code})")
+    except Exception as e:
+        print(f"Error occurred while retrieving public IP: {e}")
+
 
 def cf_construct(namespace="default", instances=None, region=None):
     print(region)
@@ -274,6 +288,7 @@ def VPCDefaultSecurityGroupIngress():
 
 class MgmtInstancesSecurityGroup:
     def __init__(self):
+        own_public_ip_address = get_public_ip()
         self.dict = {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -283,7 +298,7 @@ class MgmtInstancesSecurityGroup:
                     "IpProtocol": "tcp",
                     "FromPort": port,
                     "ToPort": port,
-                    "CidrIp": "0.0.0.0/0"
+                    "CidrIp": f"{own_public_ip_address}/32"
                 } for port in (80, 2222, 8081, 8404)]
             }
         }
