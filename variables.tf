@@ -9,7 +9,7 @@ variable "whitelist_ips" {
 }
 
 variable "enable_eks" {
-  default = 0
+  default = 1
   type    = number
 }
 
@@ -29,6 +29,6 @@ variable "storage_nodes" {
 }
 
 variable "extra_nodes" {
-  default = 1
+  default = 0
   type    = number
 }

@@ -195,7 +195,7 @@ resource "aws_volume_attachment" "attach_sn" {
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = "i3en.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -207,18 +207,18 @@ resource "aws_instance" "extra_nodes" {
   }
 }
 
-resource "aws_ebs_volume" "extra_nodes_ebs" {
-  count             = var.extra_nodes
-  availability_zone = "us-east-2b"
-  size              = 50
-}
+# resource "aws_ebs_volume" "extra_nodes_ebs" {
+#   count             = var.extra_nodes
+#   availability_zone = "us-east-2b"
+#   size              = 50
+# }
 
-resource "aws_volume_attachment" "attach_cn" {
-  count       = var.extra_nodes
-  device_name = "/dev/sdh"
-  volume_id   = aws_ebs_volume.extra_nodes_ebs[count.index].id
-  instance_id = aws_instance.extra_nodes[count.index].id
-}
+# resource "aws_volume_attachment" "attach_cn" {
+#   count       = var.extra_nodes
+#   device_name = "/dev/sdh"
+#   volume_id   = aws_ebs_volume.extra_nodes_ebs[count.index].id
+#   instance_id = aws_instance.extra_nodes[count.index].id
+# }
 
 
 ################################################################################
@@ -267,7 +267,7 @@ module "eks" {
         role = "general"
       }
 
-      instance_types                       = ["t3.medium"]
+      instance_types                       = ["m5.large"]
       capacity_type                        = "ON_DEMAND"
       key_name                             = "simplyblock-us-east-2.pem"
       worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
