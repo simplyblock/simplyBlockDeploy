@@ -31,7 +31,10 @@ def provisioner(namespace=None, az=None, deploy=None, instances=None, dry_run=Fa
 
     # cloudformation will deploy and return when the stack is green.
     # If the stack is already deployed in that namespace it will catch the error and return.
-    cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region_name=az["RegionName"])
+    stack_id = cloudformation_deploy(namespace=namespace, cf_stack=cf_stack, region_name=az["RegionName"])
+    if not stack_id:
+        return
+
     instances_dict_of_lists = get_instances_from_cf_resources(namespace=namespace, region_name=az['RegionName'])
     cluster_create_output = sb_deploy(namespace=namespace, instances=instances_dict_of_lists, sbcli_pkg=sbcli_pkg)
 
