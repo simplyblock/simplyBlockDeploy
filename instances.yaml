@@ -1,13 +1,16 @@
 ---
-ImageId: ami-0ddb9546f87cf308a
+# us-east AMI Rocky-Linux-9.3-Minimal-20231123-8GiB
+# default root disk /dev/sda1 is only 8 Gb
+# root disk must be configured to be at least 30 Gb. Recommended value: 50 Gb.
+ImageId: ami-0832ff3056519ec7e
 instances:
 - Name: m00
   Role: management
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
   Quantity: 1
@@ -16,8 +19,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s01
@@ -25,8 +28,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s02
@@ -34,8 +37,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s03
@@ -43,8 +46,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s04
@@ -52,8 +55,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s05
@@ -61,8 +64,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s06
@@ -70,8 +73,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: s07
@@ -79,8 +82,8 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
 - Name: k01
@@ -88,7 +91,7 @@ instances:
   InstanceType: t3.large
   SubnetId: PublicSubnet
   EBS:
-    - DeviceName: /dev/sde
-      Size: 20
+    - DeviceName: /dev/sda1
+      Size: 30
     - DeviceName: /dev/sdf
       Size: 20
