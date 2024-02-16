@@ -19,7 +19,7 @@ instances:
 - Name: s00
   Role: storage
   InstanceType: m6i.large
-  SubnetId: PublicSubnet
+  SubnetId: PrivateSubnet
   EBS:
     - DeviceName: /dev/sda1
       Size: 30
@@ -28,7 +28,7 @@ instances:
 - Name: s01
   Role: storage
   InstanceType: m6i.large
-  SubnetId: PublicSubnet
+  SubnetId: PrivateSubnet
   EBS:
     - DeviceName: /dev/sda1
       Size: 30
@@ -37,7 +37,7 @@ instances:
 - Name: s02
   Role: storage
   InstanceType: m6i.large
-  SubnetId: PublicSubnet
+  SubnetId: PrivateSubnet
   EBS:
     - DeviceName: /dev/sda1
       Size: 30

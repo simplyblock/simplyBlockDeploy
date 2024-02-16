@@ -130,18 +130,5 @@ def get_instances_from_cf_resources(namespace=None, region_name=None):
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/instance/index.html
         return instances_instance_list
 
-    def filter_instance_by_role_key(instances_list, role):
-        return list(
-            filter(lambda instance: any(tag['Key'] == 'Role' and tag['Value'] == role for tag in instance.tags or []),
-                   instances_list)
-        )
-
     instances_list = squidge_instances_data(namespace, region_name)
-
-    instances_dict_of_lists = {}
-    instances_dict_of_lists["all_instances"] = instances_list
-    instances_dict_of_lists["storage"] = filter_instance_by_role_key(instances_list, "storage")
-    instances_dict_of_lists["management"] = filter_instance_by_role_key(instances_list, "management")
-    instances_dict_of_lists["kubernetes"] = filter_instance_by_role_key(instances_list, "kubernetes")
-
-    return instances_dict_of_lists
+    return instances_list

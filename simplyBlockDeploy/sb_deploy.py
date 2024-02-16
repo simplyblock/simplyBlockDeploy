@@ -40,13 +40,13 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
                     echo "Cluster $(cat cluster_uuid) ready on $(hostname)"
                     sleep 180
                 """
-                run_command_return_output(namespace=namespace, host=instance_public, command=command)
+                run_command_return_output(namespace=namespace, machine=instance_public, command=command)
 
                 command = """
                     cat cluster_uuid
                 """
                 
-                cluster_uuid = run_command_return_output(namespace=namespace, host=instance_public, command=command).strip()
+                cluster_uuid = run_command_return_output(namespace=namespace, machine=instance_public, command=command).strip()
                 management_master_private = instance_private
                 management_master_public = instance_public
             else:
@@ -59,7 +59,7 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
                     echo $(hostname) ready to be added to cluster {cluster_uuid} on ip {management_master_private}
                     {sbcli_cmd} mgmt add {management_master_private} {cluster_uuid} eth0
                 """
-                run_command_return_output(namespace=namespace, host=instance_public, command=command)
+                run_command_return_output(namespace=namespace, machine=instance_public, command=command)
         return {
             "cluster_uuid": cluster_uuid,
             "management_master_public": management_master_public 
@@ -89,7 +89,7 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
             # print(command)
         command_list.append(f"{sbcli_cmd} pool add pool1")
         command = "".join(command_list)
-        run_command_return_output(namespace=namespace, host=cluster_create_output["management_master_public"], command=command)
+        run_command_return_output(namespace=namespace, machine=cluster_create_output["management_master_public"], command=command)
         # run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
     def k8s_cluster_create(instance_list=None, namespace=namespace):
@@ -103,12 +103,12 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
         """
         run_concurrent_command(namespace=namespace, instance_list=instance_list, command=command)
 
-    all_instances = [i.public_ip_address for i in instances['all_instances']]
-    storage_instances = [i.public_ip_address for i in instances['storage']]
+    management_instances = [i.ssh_host_port for i in instances['management']]
+    all_instances = [i.ssh_host_port for i in instances['all_instances']]
+    storage_instances = [i.ssh_host_port for i in instances['storage']]
     storage_instances_private = [i.private_ip_address for i in instances['storage']]
-    management_instances = [i.public_ip_address for i in instances['management']]
     management_instances_private = [i.private_ip_address for i in instances['management']]
-    kubernetes_instances = [i.public_ip_address for i in instances['kubernetes']]
+    kubernetes_instances = [i.ssh_host_port for i in instances['kubernetes']]
 
     install_deps(instance_list=all_instances)
     sbcli_storage_node_deploy(instance_list=storage_instances, namespace=namespace)

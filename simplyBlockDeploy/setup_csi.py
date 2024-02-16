@@ -32,12 +32,12 @@ def setup_csi(namespace=str, instances_dict_of_lists=None, cluster_uuid=None, sb
     def get_cluster_uuid(namespace=str, instance=str):
         # this file is there because I put it there during cluster setup.
         command = f"{sbcli_cmd} cluster list | grep active | awk '{{{{print $2}}}}'"
-        return run_command_return_output(namespace=namespace, host=instance, command=command)
+        return run_command_return_output(namespace=namespace, machine=instance, command=command)
 
 
     def get_cluster_secret(namespace=str, instance=str, cluster_uuid=str):
         command = f"{sbcli_cmd} cluster get-secret {cluster_uuid}"
-        return run_command_return_output(namespace=namespace, host=instance, command=command)
+        return run_command_return_output(namespace=namespace, machine=instance, command=command)
 
 
     def kubectl_apply(namespace=str, instance=str, csi_yaml=str):
@@ -46,7 +46,7 @@ kubectl apply -f - <<'EOF'
 {}
 EOF
         """.format(csi_yaml)
-        return run_command_return_output(namespace=namespace, host=instance, command=command)
+        return run_command_return_output(namespace=namespace, machine=instance, command=command)
 
     def write_yamls(namespace=str, instance=str, csi_yaml=str):
         command = """
@@ -54,7 +54,7 @@ cat << 'EOF' > /tmp/yaml.yaml
 {}
 EOF
         """.format(csi_yaml)
-        return run_command_return_output(namespace=namespace, host=instance, command=command)
+        return run_command_return_output(namespace=namespace, machine=instance, command=command)
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(instances_dict_of_lists)
 

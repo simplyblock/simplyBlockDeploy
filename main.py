@@ -16,7 +16,7 @@ def main(argv):
     parser.add_argument('--namespace', type=check_namespace, required=True, help='DNS-compliant name')
     parser.add_argument('--az', type=get_region_from_az, required=True, help='Availability Zone name')
     parser.add_argument('--instance_yaml', type=parse_instances_yaml, required=True,
-                        help='Availability Zone name')
+                        help='CloudFormation stack template')
     parser.add_argument('--dry-run', dest='dry_run', action='store_true',
                         help='Dry Run, only creates keys')
     parser.add_argument('--sbcli-pkg', default='sbcli', required=False, dest='sbcli_pkg',

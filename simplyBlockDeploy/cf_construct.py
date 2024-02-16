@@ -44,7 +44,7 @@ def cf_construct(namespace="default", instances=None, region=None):
     cf["Resources"][namespace] = sshKey(namespace, instances['PublicKeyMaterial'])
 
     for instance in instances["instances"]:
-        instance['Name'] =  "{}{}".format(namespace, instance['Name'])
+        instance['Name'] = "{}{}".format(namespace, instance['Name'])
         cf["Resources"][instance['Name']] = Instance(namespace, instance, instances["ImageId"]).dict
         if 'EBS' in instance:
             BlockDeviceMappings = []
