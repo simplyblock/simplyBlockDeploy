@@ -3,6 +3,7 @@ import sys
 import json
 
 import requests
+import yaml
 from cfnlint.api import lint_all
 
 
@@ -19,6 +20,23 @@ def get_public_ip():
 
 def cf_construct(namespace="default", instances=None, region=None):
     print(region)
+
+    if "ImageId" not in instances:
+        region_name = region["RegionName"]
+        with open("config/default_images.yaml", "r") as stream:
+            try:
+                default_images = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+                raise
+
+            if region_name in default_images:
+                instances["ImageId"] = default_images[region_name]
+            else:
+                print(default_images)
+                raise Exception(
+                    f"ImageId not specified and there is no default image for region {region_name} in config.")
+
     # data var will be the content of the instances.yaml
     cf = {
         "AWSTemplateFormatVersion": "2010-09-09",

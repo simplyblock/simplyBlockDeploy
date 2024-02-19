@@ -2,7 +2,6 @@
 # us-east AMI Rocky-Linux-9.3-Minimal-20231123-8GiB
 # default root disk /dev/sda1 is only 8 Gb
 # root disk must be configured to be at least 30 Gb. Recommended value: 50 Gb.
-ImageId: ami-0832ff3056519ec7e
 instances:
 - Name: m00
   Role: management

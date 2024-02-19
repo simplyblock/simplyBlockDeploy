@@ -74,8 +74,8 @@ EOF
     csi_yaml = template_csi_yamls(cluster_data_for_csi_template)
     print(csi_yaml)
     # TODO: templating yaml in python like this is abhorrent.
-    write_yamls(namespace=namespace, instance=kubernetes_node.public_ip_address, csi_yaml=csi_yaml)
-    kubectl_apply(namespace=namespace, instance=kubernetes_node.public_ip_address, csi_yaml=csi_yaml)
+    write_yamls(namespace=namespace, instance=kubernetes_node.ssh_host_port, csi_yaml=csi_yaml)
+    kubectl_apply(namespace=namespace, instance=kubernetes_node.ssh_host_port, csi_yaml=csi_yaml)
     
 
 def main():
