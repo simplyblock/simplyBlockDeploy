@@ -25,7 +25,7 @@ echo ""
 
 # node 1
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
-sbcli cluster create
+sbcli-dev cluster create
 "
 
 echo ""
@@ -41,7 +41,7 @@ for ((i = 2; i <= $#mnodes; i++)); do
     MANGEMENT_NODE_IP=${mnodes[1]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
-    sbcli mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
+    sbcli-dev mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
     "
 done
 
@@ -60,7 +60,7 @@ sbcli cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli storage-node add-node --cpu-mask 0x3 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  \$CLUSTER_ID \${node}:5000 eth0
+    sbcli-dev storage-node add-node --cpu-mask 0x3 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "
@@ -72,7 +72,7 @@ echo ""
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
 MANGEMENT_NODE_IP=${mnodes[1]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-sbcli cluster get-secret \${CLUSTER_ID}
+sbcli-dev cluster get-secret \${CLUSTER_ID}
 "
 
 # sbcli storage-node add-node --cpu-mask 0x1 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  $cluster ${node}:5000 eth0

@@ -145,7 +145,7 @@ resource "aws_instance" "mgmt_nodes" {
 #!/bin/bash
 echo "installing sbcli.."
 sudo  yum install -y pip jq
-pip install sbcli
+pip install sbcli-dev
 
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
@@ -174,8 +174,8 @@ sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip
-pip install sbcli
-sbcli storage-node deploy
+pip install sbcli-dev
+sbcli-dev storage-node deploy
 EOF
 }
 
@@ -259,30 +259,33 @@ module "eks" {
 
   eks_managed_node_groups = {
     eks-nodes = {
-      desired_size = 3
-      min_size     = 2
+      desired_size = 1
+      min_size     = 1
       max_size     = 4
 
       labels = {
         role = "general"
       }
 
-      instance_types                       = ["m5.large"]
+      instance_types                       = ["t3.large"]
       capacity_type                        = "ON_DEMAND"
       key_name                             = "simplyblock-us-east-2.pem"
       worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
     }
 
-    # cache-nodes = {
-    #   desired_size = 1
-    #   min_size     = 1
-    #   max_size     = 1
-    #   ami_id = "ami-0ef50c2b2eb330511"
-    #   instance_types = ["i4i.large"]
-    #   capacity_type                        = "ON_DEMAND"
-    #   key_name                             = "simplyblock-us-east-2.pem"
-    #   worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
-    # }
+    cache-nodes = {
+      desired_size = 2
+      min_size     = 2
+      max_size     = 3
+      labels = {
+        role = "cache"
+      }
+
+      instance_types                       = ["i3en.large"]
+      capacity_type                        = "ON_DEMAND"
+      key_name                             = "simplyblock-us-east-2.pem"
+      worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+    }
   }
 
   tags = {
