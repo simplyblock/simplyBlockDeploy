@@ -207,6 +207,21 @@ resource "aws_instance" "extra_nodes" {
   }
 }
 
+resource "aws_instance" "monitoring_node" {
+  count                  = var.monitoring_node
+  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
+  instance_type          = "t3.large"
+  key_name               = var.key_name
+  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  subnet_id              = module.vpc.public_subnets[1]
+  root_block_device {
+    volume_size = 25
+  }
+  tags = {
+    Name = "monitoring-${count.index + 1}"
+  }
+}
+
 # resource "aws_ebs_volume" "extra_nodes_ebs" {
 #   count             = var.extra_nodes
 #   availability_zone = "us-east-2b"
@@ -316,4 +331,8 @@ output "extra_nodes_private_ips" {
 
 output "extra_nodes_public_ips" {
   value = aws_instance.extra_nodes[*].public_ip
+}
+
+output "monitoring_node_public_ips" {
+  value = join(" ", aws_instance.monitoring_node[*].public_ip)
 }

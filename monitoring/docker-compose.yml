@@ -1,0 +1,47 @@
+---
+version: "3"
+services:
+  # promagent:
+  #   build: ./
+  #   image: simplyblock/promagent
+
+  promagent:
+    image: simplyblock/promagent
+
+  pushgateway:
+    image: prom/pushgateway
+    ports:
+      - 9091:9091
+
+  prometheus:
+    image: prom/prometheus:v2.44.0
+    user: root
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    restart: "always"
+    ports:
+      - 9000:9000
+
+  grafana:
+    image: grafana/grafana:10.0.12
+    environment:
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "gfpassword"
+    volumes:
+      - ./datasource.yml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - grafana_data:/var/lib/grafana
+    restart: "always"
+    ports:
+      - 3000:3000
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  grafana_data:
+  prometheus_data:
