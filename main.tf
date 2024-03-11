@@ -285,7 +285,7 @@ module "eks" {
       instance_types                       = ["t3.large"]
       capacity_type                        = "ON_DEMAND"
       key_name                             = "simplyblock-us-east-2.pem"
-      worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+      vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
     }
 
     cache-nodes = {
@@ -299,7 +299,7 @@ module "eks" {
       instance_types                       = ["i3en.large"]
       capacity_type                        = "ON_DEMAND"
       key_name                             = "simplyblock-us-east-2.pem"
-      worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+      vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
     }
   }
 
