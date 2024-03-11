@@ -287,6 +287,11 @@ module "eks" {
       key_name                             = "geoffrey-test"
     # worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
       vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
+      pre_bootstrap_user_data = <<-EOT
+        echo "installing nvme-cli.."
+        sudo yum install -y nvme-cli
+        sudo modprobe nvme-tcp
+      EOT
     }
 
     cache-nodes = {
@@ -302,6 +307,11 @@ module "eks" {
       key_name                             = "geoffrey-test"
      # worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
       vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
+      pre_bootstrap_user_data = <<-EOT
+        echo "installing nvme-cli.."
+        sudo yum install -y nvme-cli 
+        sudo modprobe nvme-tcp
+      EOT
     }
   }
 
