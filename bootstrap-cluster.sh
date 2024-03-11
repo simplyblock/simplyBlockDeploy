@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-KEY=$HOME/.ssh/simplyblock-ohio.pem
+KEY=$HOME/.ssh/geoffrey-test.pem
 mnodes=($(terraform output -raw mgmt_public_ips))
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
@@ -78,6 +78,9 @@ sbcli-dev cluster get-secret \${CLUSTER_ID}
 ## deploy monitoring components
 storage_private_ips=($(terraform output -raw monitoring_node_public_ips))
 
+echo ""
+echo "copying monitoring folder"
+echo ""
 # copy the monitoring folder into the server
 scp -i $KEY -r ./monitoring ec2-user@${storage_private_ips[1]}:/home/ec2-user/.
 
