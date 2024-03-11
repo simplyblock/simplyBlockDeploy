@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-KEY=$HOME/.ssh/geoffrey-test.pem
+KEY=$HOME/.ssh/simplyblock-ohio.pem
 mnodes=($(terraform output -raw mgmt_public_ips))
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
