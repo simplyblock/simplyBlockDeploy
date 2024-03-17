@@ -196,6 +196,7 @@ resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-023c11a32b0207432" # RHEL 9
   instance_type          = "i3en.large"
+  //"t3.micro" //"i3en.large" //"m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
