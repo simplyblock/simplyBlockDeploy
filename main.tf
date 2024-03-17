@@ -1,12 +1,12 @@
 provider "aws" {
-  region = "us-east-1"
+  region = "us-east-2"
 }
 
 terraform {
   backend "s3" {
-    bucket = "geoffrey-demo-bucket"
-    key    = "geoffrey-csi"
-    region = "us-east-1"
+    bucket = "simplyblock-terraform-state-bucket"
+    key    = "csi"
+    region = "us-east-2"
     # dynamodb_table = "terraform-up-and-running-locks"
     encrypt = true
   }
@@ -18,7 +18,7 @@ module "vpc" {
   name = "sb-storage-vpc"
   cidr = "10.0.0.0/16"
 
-  azs                     = ["us-east-1a", "us-east-1b", ]
+  azs                     = ["us-east-2a", "us-east-2b", ]
   private_subnets         = ["10.0.1.0/24", "10.0.3.0/24"]
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
@@ -130,7 +130,7 @@ resource "aws_security_group" "container_inst_sg" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = "ami-023c11a32b0207432" # RHEL 9
+  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -157,7 +157,7 @@ EOF
 
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
-  ami                    = "ami-023c11a32b0207432" # RHEL 9
+  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -181,7 +181,7 @@ EOF
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
-  availability_zone = "us-east-1b"
+  availability_zone = "us-east-2b"
   size              = 50
 }
 
@@ -194,9 +194,8 @@ resource "aws_volume_attachment" "attach_sn" {
 
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = "ami-023c11a32b0207432" # RHEL 9
+  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "i3en.large"
-  //"t3.micro" //"i3en.large" //"m5.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -210,7 +209,7 @@ resource "aws_instance" "extra_nodes" {
 
 resource "aws_instance" "monitoring_node" {
   count                  = var.monitoring_node
-  ami                    = "ami-023c11a32b0207432" # RHEL 9
+  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "t3.large"
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -225,7 +224,7 @@ resource "aws_instance" "monitoring_node" {
 
 # resource "aws_ebs_volume" "extra_nodes_ebs" {
 #   count             = var.extra_nodes
-#   availability_zone = "us-east-1b"
+#   availability_zone = "us-east-2b"
 #   size              = 50
 # }
 
@@ -285,8 +284,7 @@ module "eks" {
 
       instance_types                       = ["t3.large"]
       capacity_type                        = "ON_DEMAND"
-      key_name                             = "geoffrey-test"
-    # worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+      key_name                             = "simplyblock-us-east-2.pem"
       vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
@@ -305,12 +303,11 @@ module "eks" {
 
       instance_types                       = ["i3en.large"]
       capacity_type                        = "ON_DEMAND"
-      key_name                             = "geoffrey-test"
-     # worker_additional_security_group_ids = [aws_security_group.container_inst_sg.id]
+      key_name                             = "simplyblock-us-east-2.pem"
       vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
-        sudo yum install -y nvme-cli 
+        sudo yum install -y nvme-cli
         sudo modprobe nvme-tcp
       EOT
     }

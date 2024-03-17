@@ -14,7 +14,7 @@ variable "enable_eks" {
 }
 
 variable "key_name" {
-  default = "geoffrey-test"
+  default = "simplyblock-us-east-2.pem"
   type    = string
 }
 
@@ -29,11 +29,11 @@ variable "storage_nodes" {
 }
 
 variable "extra_nodes" {
-  default = 1
+  default = 0
   type    = number
 }
 
 variable "monitoring_node" {
-  default = 1
+  default = 0
   type    = number
 }
