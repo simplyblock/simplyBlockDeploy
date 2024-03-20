@@ -33,9 +33,9 @@ instances:
     - DeviceName: /dev/sda1
       Size: 30
     - DeviceName: /dev/sdc
-      Size: 5
+      Size: 10
     - DeviceName: /dev/sdd
-      Size: 5
+      Size: 10
 - Name: s01
   Role: storage
   InstanceType: m6i.large
@@ -44,9 +44,9 @@ instances:
     - DeviceName: /dev/sda1
       Size: 30
     - DeviceName: /dev/sdc
-      Size: 5
+      Size: 10
     - DeviceName: /dev/sdd
-      Size: 5
+      Size: 10
 - Name: s02
   Role: storage
   InstanceType: m6i.large
@@ -55,6 +55,6 @@ instances:
     - DeviceName: /dev/sda1
       Size: 30
     - DeviceName: /dev/sdc
-      Size: 5
+      Size: 10
     - DeviceName: /dev/sdd
-      Size: 5
+      Size: 10
