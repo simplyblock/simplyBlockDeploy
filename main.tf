@@ -282,10 +282,10 @@ module "eks" {
         role = "general"
       }
 
-      instance_types                       = ["t3.large"]
-      capacity_type                        = "ON_DEMAND"
-      key_name                             = "simplyblock-us-east-2.pem"
-      vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
+      instance_types          = ["t3.large"]
+      capacity_type           = "ON_DEMAND"
+      key_name                = var.key_name
+      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli
@@ -301,10 +301,10 @@ module "eks" {
         role = "cache"
       }
 
-      instance_types                       = ["i3en.large"]
-      capacity_type                        = "ON_DEMAND"
-      key_name                             = "simplyblock-us-east-2.pem"
-      vpc_security_group_ids               = [aws_security_group.container_inst_sg.id]
+      instance_types          = ["i3en.large"]
+      capacity_type           = "ON_DEMAND"
+      key_name                = var.key_name
+      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli
@@ -314,7 +314,7 @@ module "eks" {
   }
 
   tags = {
-    Name        = "simplyblock-eks-cluster"
+    Name        = var.cluster_name
     Environment = "dev"
   }
 }
