@@ -1,7 +1,7 @@
 #!/bin/bash
 
-escapedPassword=admin
-GF_ADMIN_USER=gfpassword
+escapedPassword=gfpassword
+GF_ADMIN_USER=admin
 HOST=localhost:3000
 
 DASHBOARDS="./dashboards"
