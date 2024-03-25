@@ -1,5 +1,6 @@
 groups:
   - name: alertname
+    interval: 30s
     rules:
       - alert: HighPercentageError
         expr: |

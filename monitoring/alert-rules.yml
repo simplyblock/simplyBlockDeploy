@@ -1,5 +1,6 @@
 groups:
 - name: alertname
+  interval: 30s
   rules:
   - alert: cluster_down
     expr: sum(cluster_size_total) > 0

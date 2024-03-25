@@ -58,6 +58,7 @@ services:
     image: grafana/loki:2.9.2
     volumes:
     - ./loki.yml:/etc/config/loki.yml
+    - ./loki-alert-rules.yml:/etc/loki/rules/loki-alert-rules.yml
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/loki.yml
