@@ -75,10 +75,7 @@ def sb_deploy(namespace=None, instances=None, sbcli_pkg="sbcli"):
             {sbcli_cmd} cluster list | grep active | awk '{{{{print $2}}}}' > cluster_uuid
             {sbcli_cmd} storage-node add-node \
             --cpu-mask 0x3 --memory 16g \
-            --bdev_io_pool_size 10000 \
-            --bdev_io_cache_size 10000 \
-            --iobuf_small_cache_size 10000 \
-            --iobuf_large_cache_size 25000 \
+
             {cluster_create_output["cluster_uuid"]} {storage_instance}:5000 eth0
             sleep 10
             echo '## {sbcli_cmd} cluster list ##'
