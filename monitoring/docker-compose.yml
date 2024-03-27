@@ -7,6 +7,10 @@ services:
 
   promagent:
     image: simplyblock/promagent
+    environment:
+      ClusterID: "6227d9ba-051f-4cc7-ad91-bc065dcbb158"
+      ClusterIP: "44.192.4.240"
+      ClusterSecret: "t7CMMOismSoH9b9kB8yC"
 
   pushgateway:
     image: prom/pushgateway
@@ -18,6 +22,7 @@ services:
     user: root
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alert-rules.yml:/etc/prometheus/alert-rules.yml
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -25,6 +30,17 @@ services:
     restart: "always"
     ports:
       - 9000:9000
+      - 9090:9090
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager_data:/data
+      - ./alertmanager.yml:/config/alertmanager.yml
+    command: 
+      - "--config.file=/config/alertmanager.yml"
+      - "--web.external-url=http://18.209.226.254:9093"
 
   grafana:
     image: grafana/grafana:10.0.12
@@ -38,6 +54,22 @@ services:
     ports:
       - 3000:3000
 
+  loki:
+    image: grafana/loki:2.9.2
+    volumes:
+    - ./loki.yml:/etc/config/loki.yml
+    - ./loki-alert-rules.yml:/etc/loki/rules/loki-alert-rules.yml
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki.yml
+  promtail:
+    image: grafana/promtail:2.9.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yaml:/etc/promtail/docker-config.yaml
+      - /var/lib/docker/containers/:/var/lib/docker/containers/
+    command: -config.file=/etc/promtail/docker-config.yaml
+
 networks:
   default:
     driver: bridge
@@ -45,3 +77,4 @@ networks:
 volumes:
   grafana_data:
   prometheus_data:
+  alertmanager_data:
