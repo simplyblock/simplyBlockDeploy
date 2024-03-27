@@ -15,3 +15,13 @@ datasources:
   isDefault: false
   version: 1
   editable: true
+- name: GRAYLOG
+  type: elasticsearch
+  url: http://35.153.198.1:9200
+  isDefault: false
+  access: proxy
+  editable: true
+  jsonData:
+    index: '*'
+    interval: Hourly
+    timeField: 'timestamp'
