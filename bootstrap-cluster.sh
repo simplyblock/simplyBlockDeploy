@@ -60,7 +60,7 @@ sbcli cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli-dev storage-node add-node --cpu-mask 0x3 --memory 8g --bdev_io_pool_size 1000 --bdev_io_cache_size 1000 --iobuf_small_cache_size 10000 --iobuf_large_cache_size 25000  \$CLUSTER_ID \${node}:5000 eth0
+    sbcli-dev storage-node add-node --cpu-mask 0x3 --memory 8g \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "
