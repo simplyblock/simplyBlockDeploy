@@ -58,6 +58,7 @@ def cf_construct(namespace="default", instances=None, region=None):
     cf["Resources"]["PrivateRoute"] = PrivateRoute()
     cf["Resources"]["PrivateSubnetRouteTableAssociation"] = PrivateSubnetRouteTableAssociation()
     cf["Resources"]["VPCDefaultSecurityGroupIngress"] = VPCDefaultSecurityGroupIngress()
+    cf["Resources"]["VPCDefaultSecurityGroupIngressGraylog"] = VPCDefaultSecurityGroupIngressGraylog()
     cf["Resources"]["MgmtInstancesSecurityGroup"] = MgmtInstancesSecurityGroup().dict
     cf["Resources"][namespace] = sshKey(namespace, instances['PublicKeyMaterial'])
 
@@ -299,6 +300,24 @@ def VPCDefaultSecurityGroupIngress():
                     "IpProtocol": "tcp",
                     "FromPort": 22,
                     "ToPort": 22,
+                    "CidrIp": "0.0.0.0/0"
+                }
+            }
+
+
+def VPCDefaultSecurityGroupIngressGraylog():
+    return {
+                "Type": "AWS::EC2::SecurityGroupIngress",
+                "Properties": {
+                    "GroupId": {
+                        "Fn::GetAtt": [
+                            "PubPrivateVPC",
+                            "DefaultSecurityGroup"
+                        ]
+                    },
+                    "IpProtocol": "tcp",
+                    "FromPort": 9000,
+                    "ToPort": 9000,
                     "CidrIp": "0.0.0.0/0"
                 }
             }
