@@ -76,11 +76,18 @@ resource "aws_security_group" "container_inst_sg" {
     description = ""
   }
   ingress {
-    from_port   = 8081
-    to_port     = 8081
+    from_port   = 9000
+    to_port     = 9000
     protocol    = "tcp"
     cidr_blocks = var.whitelist_ips
-    description = ""
+    description = "graylog security group"
+  }
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "grafana security group"
   }
   ingress {
     from_port   = 22
