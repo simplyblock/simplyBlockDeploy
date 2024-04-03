@@ -19,7 +19,7 @@ def main(argv):
                         help='CloudFormation stack template')
     parser.add_argument('--dry-run', dest='dry_run', action='store_true',
                         help='Dry Run, only creates keys')
-    parser.add_argument('--sbcli-pkg', default='sbcli', required=False, dest='sbcli_pkg',
+    parser.add_argument('--sbcli-pkg', default='sbcli-dev', required=False, dest='sbcli_pkg',
                         help='sbcli requirement specifier for "pip install" (e.g. "sbcli-release", "sbcli-dev")')
 
     # TODO: delete if not used
