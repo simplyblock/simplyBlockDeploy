@@ -1,9 +1,0 @@
-cfn-lint
-fabric
-boto3
-paramiko
-jinja2
-awscli
-PyYAML
-requests
-sshtunnel
