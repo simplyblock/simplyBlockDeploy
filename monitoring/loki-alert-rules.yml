@@ -1,0 +1,15 @@
+groups:
+  - name: alertname
+    interval: 30s
+    rules:
+      - alert: HighPercentageError
+        expr: |
+          sum(rate({app="foo", env="production"} |= "error" [5m])) by (job)
+            /
+          sum(rate({app="foo", env="production"}[5m])) by (job)
+            > 0.05
+        for: 2m
+        labels:
+            severity: page
+        annotations:
+            summary: High request latency
