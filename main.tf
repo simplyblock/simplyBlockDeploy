@@ -17,17 +17,16 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  //region = data.aws_region.current.name
-  secret_id = {
+  key_name = {
     "us-east-1" = "simplyblock-us-east-1.pem"
     "us-east-2" = "simplyblock-us-east-2.pem"
   }
 
-  selected_secret_id = try(local.secret_id[var.region], null)
+  selected_key_name = try(local.key_name[var.region], null)
 }
 
 data "aws_secretsmanager_secret_version" "simply" {
-  secret_id = local.selected_secret_id
+  secret_id = local.selected_key_name
 }
 
 module "vpc" {
