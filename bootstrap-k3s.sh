@@ -10,7 +10,7 @@ sudo modprobe nvme-tcp
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=$mnodes[1]' bash
 sudo /usr/local/bin/k3s kubectl get node
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
