@@ -345,7 +345,3 @@ output "extra_nodes_private_ips" {
 output "extra_nodes_public_ips" {
   value = aws_instance.extra_nodes[*].public_ip
 }
-
-output "monitoring_node_public_ips" {
-  value = join(" ", aws_instance.monitoring_node[*].public_ip)
-}
