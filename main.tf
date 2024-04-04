@@ -15,7 +15,7 @@ terraform {
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = "sb-storage-vpc"
+  name = "${var.namespace}-sb-storage-vpc"
   cidr = "10.0.0.0/16"
 
   azs                     = ["us-east-2a", "us-east-2b", ]
@@ -37,12 +37,12 @@ module "vpc" {
 
   tags = {
     Terraform   = "true"
-    Environment = "dev"
+    Environment = "${var.namespace}-dev"
   }
 }
 
 resource "aws_security_group" "container_inst_sg" {
-  name        = "container-instance-sg"
+  name        = "${var.namespace}-container-instance-sg"
   description = "CSI Cluster Container Security Group"
 
   vpc_id = module.vpc.vpc_id
@@ -146,7 +146,7 @@ resource "aws_instance" "mgmt_nodes" {
     volume_size = 100
   }
   tags = {
-    Name = "mgmt-${count.index + 1}"
+    Name = "${var.namespace}-mgmt-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -173,7 +173,7 @@ resource "aws_instance" "storage_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "storage-${count.index + 1}"
+    Name = "${var.namespace}-storage-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -211,7 +211,7 @@ resource "aws_instance" "extra_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "k8scluster-${count.index + 1}"
+    Name = "${var.namespace}-k8scluster-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -247,7 +247,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.16.0"
 
-  cluster_name    = var.cluster_name
+  cluster_name    = "${var.namespace}-${var.cluster_name}"
   cluster_version = "1.28"
 
   cluster_endpoint_private_access = true # default is true
@@ -317,8 +317,8 @@ module "eks" {
   }
 
   tags = {
-    Name        = var.cluster_name
-    Environment = "dev"
+    Name        = "${var.namespace}-${var.cluster_name}"
+    Environment = "${var.namespace}-dev"
   }
 }
 

@@ -1,3 +1,8 @@
+variable "namespace" {
+  default     = "csi"
+  description = "global name resources"
+}
+
 variable "cluster_name" {
   default     = "simplyblock-eks-cluster"
   description = "EKS Cluster name"
