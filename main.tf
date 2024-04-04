@@ -22,7 +22,7 @@ locals {
     "us-east-2" = "simplyblock-us-east-2.pem"
   }
 
-  selected_key_name = try(local.key_name[var.region], "simplyblock-ohio.pem")
+  selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
 }
 
 data "aws_secretsmanager_secret_version" "simply" {
@@ -339,10 +339,6 @@ module "eks" {
   }
 }
 
-output "aws_region" {
-  value = var.region
-}
-
 output "vpc_id" {
   value = module.vpc.vpc_id
 }
@@ -367,6 +363,9 @@ output "extra_nodes_public_ips" {
   value = aws_instance.extra_nodes[*].public_ip
 }
 
+output "key_name" {
+  value = local.selected_key_name
+}
 output "secret_value" {
   sensitive = true
   value = data.aws_secretsmanager_secret_version.simply.secret_string
