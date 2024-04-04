@@ -5,6 +5,7 @@ datasources:
   url: http://prometheus:9090
   isDefault: true
   access: proxy
+  uid: prometheus_uid
   editable: true
 - name: Loki
   type: loki
@@ -15,3 +16,14 @@ datasources:
   isDefault: false
   version: 1
   editable: true
+- name: GRAYLOG
+  type: elasticsearch
+  url: http://44.203.242.71:9200
+  isDefault: false
+  access: proxy
+  uid: graylog_uid
+  editable: true
+  jsonData:
+    index: '*'
+    interval: Hourly
+    timeField: 'timestamp'
