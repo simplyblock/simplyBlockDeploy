@@ -199,6 +199,7 @@ resource "aws_volume_attachment" "attach_sn" {
   instance_id = aws_instance.storage_nodes[count.index].id
 }
 
+# can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
@@ -212,22 +213,17 @@ resource "aws_instance" "extra_nodes" {
   tags = {
     Name = "k8scluster-${count.index + 1}"
   }
+  user_data = <<EOF
+#!/bin/bash
+sudo sysctl -w vm.nr_hugepages=2048
+cat /proc/meminfo | grep -i hug
+echo "installing sbcli.."
+sudo yum install -y pip
+pip install sbcli-dev
+sbcli-dev caching-node deploy
+EOF
 }
 
-resource "aws_instance" "monitoring_node" {
-  count                  = var.monitoring_node
-  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "t3.large"
-  key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
-  root_block_device {
-    volume_size = 25
-  }
-  tags = {
-    Name = "monitoring-${count.index + 1}"
-  }
-}
 
 # resource "aws_ebs_volume" "extra_nodes_ebs" {
 #   count             = var.extra_nodes
