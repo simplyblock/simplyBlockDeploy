@@ -368,5 +368,6 @@ output "extra_nodes_public_ips" {
 }
 
 output "secret_value" {
+  sensitive = true
   value = data.aws_secretsmanager_secret_version.simply.secret_string
 }
