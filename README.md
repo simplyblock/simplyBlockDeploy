@@ -15,7 +15,7 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
 # Deploying with eks and monitoring node
 terraform init
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 enable_eks=1 monitoring_node=1 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 -var monitoring_node=1 --auto-approve
 ```
 
 ### Cluster bootstrapping
