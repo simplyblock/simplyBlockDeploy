@@ -22,7 +22,7 @@ locals {
     "us-east-2" = "simplyblock-us-east-2.pem"
   }
 
-  selected_key_name = try(local.key_name[var.region], null)
+  selected_key_name = try(local.key_name[var.region], "simplyblock-ohio.pem")
 }
 
 data "aws_secretsmanager_secret_version" "simply" {
@@ -156,7 +156,7 @@ resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -183,7 +183,7 @@ resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -221,7 +221,7 @@ resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "i3en.large"
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -304,7 +304,7 @@ module "eks" {
 
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
-      key_name                = var.key_name
+      key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
@@ -323,7 +323,7 @@ module "eks" {
 
       instance_types          = ["i3en.large"]
       capacity_type           = "ON_DEMAND"
-      key_name                = var.key_name
+      key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
