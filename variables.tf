@@ -32,8 +32,3 @@ variable "extra_nodes" {
   default = 0
   type    = number
 }
-
-variable "monitoring_node" {
-  default = 0
-  type    = number
-}
