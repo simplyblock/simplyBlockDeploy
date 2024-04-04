@@ -1,6 +1,19 @@
 #!/bin/zsh
 
 KEY=$HOME/.ssh/simplyblock-ohio.pem
+
+SECRET_VALUE=$(terraform output -raw secret_value)
+
+if [[ -n "$SECRET_VALUE" ]]; then
+    # SECRET_DIR="$HOME/.ssh"
+    # echo "$SECRET_VALUE" > "$SECRET_DIR/$SECRET_ID"
+    # KEY="$SECRET_DIR/$SECRET_ID"
+    echo $SECRET_VALUE > $HOME/.ssh/simplyblock.pem
+    KEY=$HOME/.ssh/simplyblock.pem
+else
+    echo "Failed to retrieve secret value. Falling back to default key."
+fi
+
 mnodes=($(terraform output -raw mgmt_public_ips))
 storage_private_ips=$(terraform output -raw storage_private_ips)
 

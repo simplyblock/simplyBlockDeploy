@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-2"
+  region = var.region
 }
 
 terraform {
@@ -12,13 +12,31 @@ terraform {
   }
 }
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  //region = data.aws_region.current.name
+  secret_id = {
+    "us-east-1" = "simplyblock-us-east-1.pem"
+    "us-east-2" = "simplyblock-us-east-2.pem"
+  }
+
+  selected_secret_id = try(local.secret_id[var.region], null)
+}
+
+data "aws_secretsmanager_secret_version" "simply" {
+  secret_id = local.selected_secret_id
+}
+
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = "${var.namespace}-sb-storage-vpc"
   cidr = "10.0.0.0/16"
 
-  azs                     = ["us-east-2a", "us-east-2b", ]
+  azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]
   private_subnets         = ["10.0.1.0/24", "10.0.3.0/24"]
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
@@ -188,7 +206,7 @@ EOF
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
-  availability_zone = "us-east-2b"
+  availability_zone = data.aws_availability_zones.available.names[1]
   size              = 50
 }
 
@@ -344,4 +362,8 @@ output "extra_nodes_private_ips" {
 
 output "extra_nodes_public_ips" {
   value = aws_instance.extra_nodes[*].public_ip
+}
+
+output "secret_value" {
+  value = data.aws_secretsmanager_secret_version.simply.secret_string
 }

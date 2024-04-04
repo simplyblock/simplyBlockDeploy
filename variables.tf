@@ -1,3 +1,8 @@
+variable "region" {
+  default     = "us-east-2"
+  description = "region to provision"
+}
+
 variable "namespace" {
   default     = "csi"
   description = "global naming"
