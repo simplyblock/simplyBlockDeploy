@@ -1,6 +1,6 @@
 variable "namespace" {
   default     = "csi"
-  description = "global name resources"
+  description = "global naming"
 }
 
 variable "cluster_name" {
