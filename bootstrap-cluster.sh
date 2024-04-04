@@ -1,13 +1,29 @@
 #!/bin/zsh
 
-KEY=$HOME/.ssh/simplyblock-ohio.pem
+DEFAULT_KEY=$HOME/.ssh/simplyblock-ohio.pem
+
+AWS_REGION=$(terraform output -raw aws_region)
+
+case $AWS_REGION in
+    "us-east-1")
+        KEY=$HOME/.ssh/simplyblock-us-east-1.pem
+        ;;
+    "us-east-2")
+        KEY=$HOME/.ssh/simplyblock-us-east-2.pem
+        ;;
+    *)
+        echo "Unsupported region, falling back to the default key."
+        KEY=$DEFAULT_KEY
+        ;;
+esac
 
 SECRET_VALUE=$(terraform output -raw secret_value)
 
 if [[ -n "$SECRET_VALUE" ]]; then
-    echo $SECRET_VALUE > $HOME/.ssh/simplyblock.pem
-    KEY=$HOME/.ssh/simplyblock.pem
+    echo $SECRET_VALUE > $KEY
+    echo "Secret value stored in: $KEY"
 else
+    KEY=$DEFAULT_KEY
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
 
