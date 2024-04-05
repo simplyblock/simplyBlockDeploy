@@ -24,7 +24,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
-          
+
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -60,19 +60,20 @@ jobs:
         run: git clone https://github.com/simplyblock-io/spdk-csi.git
 
       - name: Update ConfigMap
-        working-directory: spdk-csi
         run: |
-          sed -i "s/\"uuid\": \".*\"/\"uuid\": \"${{ steps.bootstrap_cluster.outputs.cluster_id }}\"/" $GITHUB_WORKSPACE/deploy/kubernetes/config-map.yaml
-          sed -i "s/\"ip\": \".*\"/\"ip\": \"${{ steps.bootstrap_cluster.outputs.cluster_ip }}\"/" $GITHUB_WORKSPACE/deploy/kubernetes/config-map.yaml
+          cd spdk-csi
+          sed -i "s/\"uuid\": \".*\"/\"uuid\": \"${{ steps.bootstrap_cluster.outputs.cluster_id }}\"/" deploy/kubernetes/config-map.yaml
+          sed -i "s/\"ip\": \".*\"/\"ip\": \"${{ steps.bootstrap_cluster.outputs.cluster_ip }}\"/" deploy/kubernetes/config-map.yaml
 
       - name: Update Secret
-        working-directory: spdk-csi
         run: |
-          sed -i "s/\"secret\": \".*\"/\"secret\": \"${{ steps.bootstrap_cluster.outputs.cluster_secret }}\"/" $GITHUB_WORKSPACE/deploy/kubernetes/secret.yaml
+          cd spdk-csi
+          sed -i "s/\"secret\": \".*\"/\"secret\": \"${{ steps.bootstrap_cluster.outputs.cluster_secret }}\"/" deploy/kubernetes/secret.yaml
       
       - name: Run tests
-        working-directory: spdk-csi
-        run: make e2e-test
+        run: | 
+          cd spdk-csi
+          make e2e-test
 
       - name: Destroy Cluster
         run: terraform apply -var "mgmt_nodes=0" -var "storage_nodes=0" -var "extra_nodes=0" --auto-approve
