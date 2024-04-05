@@ -24,6 +24,11 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
+          
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
       - name: Initialize Terraform
         run: terraform init
@@ -43,14 +48,9 @@ jobs:
 
       - name: Bootstrap K3s
         run: | 
-          mkdir -p ${HOME}/.kube/config
+          mkdir -p ${HOME}/.kube
           $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
         id: bootstrap_k3s
-
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
       - name: update .kube/config address
         run: |

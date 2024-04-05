@@ -60,7 +60,7 @@ for ((i = 2; i <= $#mnodes; i++)); do
     echo "Adding mgmt node ${i}.."
     echo ""
 
-    ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[${i}] "
+    ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
@@ -72,9 +72,8 @@ echo ""
 sleep 60
 echo "Adding storage nodes..."
 echo ""
-
 # node 1
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[0] "
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
