@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 KEY=$HOME/.ssh/simplyblock-ohio.pem
 
