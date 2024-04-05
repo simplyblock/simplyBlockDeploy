@@ -32,6 +32,8 @@ fi
 
 mnodes=($(terraform output -raw extra_nodes_public_ips))
 
+echo "::set-output name=KEY::$KEY"
+echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
@@ -54,9 +56,4 @@ nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 for node in $nodes; do
     kubectl label nodes $node type=cache
 done
-EXTRA_NODE_IP=${mnodes[0]}
-# echo "::set-output name=extra_node_ip::$EXTRA_NODE_IP"
-# echo "::set-output name=key::$KEY"
-echo "extra_node_ip=$EXTRA_NODE_IP" >> $GITHUB_OUTPUT
-echo "key=$KEY" >> $GITHUB_OUTPUT
 "
