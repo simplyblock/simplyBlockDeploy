@@ -21,8 +21,10 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2.0.2
-        
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
       - name: Initialize Terraform
         run: terraform init
 
