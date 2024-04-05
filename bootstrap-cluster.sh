@@ -5,7 +5,17 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 
+ssh_dir="$HOME/.ssh"
+
+if [ ! -d "$ssh_dir" ]; then
+    mkdir -p "$ssh_dir"
+    echo "Directory $ssh_dir created."
+else
+    echo "Directory $ssh_dir already exists."
+fi
+
 if [[ -n "$SECRET_VALUE" ]]; then
+    mkdir "$HOME/.ssh/"
     echo "$SECRET_VALUE" > "$HOME/.ssh/$KEY_NAME"
     KEY="$HOME/.ssh/$KEY_NAME"
     echo "running chmod 400"
