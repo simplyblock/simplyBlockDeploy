@@ -26,13 +26,13 @@ fi
 mnodes=($(terraform output -raw extra_nodes_public_ips))
 
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[0] "
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=$mnodes[0]' bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
 sudo /usr/local/bin/k3s kubectl get node
 sudo sysctl -w vm.nr_hugepages=4096
 sudo systemctl restart k3s
