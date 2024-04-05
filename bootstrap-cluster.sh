@@ -23,6 +23,7 @@ if [[ -n "$SECRET_VALUE" ]]; then
         chmod 400 "$KEY"
         echo "$key_name created successfully"
     else
+        KEY="$HOME/.ssh/$KEY_NAME"
         echo "$key_name already exists."
     fi
 else
