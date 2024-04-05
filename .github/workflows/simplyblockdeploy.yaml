@@ -35,7 +35,9 @@ jobs:
 
       - name: Apply Terraform Changes
         run: terraform apply tfplan
-
+      - name: Get mgmt public ip
+        run: terraform output -raw mgmt_public_ips
+        
       - name: Bootstrap Cluster
         run: $GITHUB_WORKSPACE/bootstrap-cluster.sh
         id: bootstrap_cluster
