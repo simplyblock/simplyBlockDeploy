@@ -42,7 +42,9 @@ jobs:
         id: bootstrap_cluster
 
       - name: Bootstrap K3s
-        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
+        run: | 
+          mkdir -p ${HOME}/.kube/config
+          $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
         id: bootstrap_k3s
 
       - name: Install kubectl
