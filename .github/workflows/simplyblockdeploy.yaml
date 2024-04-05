@@ -47,10 +47,13 @@ jobs:
         id: bootstrap_cluster
 
       - name: Bootstrap K3s
+        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh
+        id: bootstrap_k3s
+
+      - name: copying  Kubeconfig file
         run: | 
           mkdir -p ${HOME}/.kube
-          $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
-        id: bootstrap_k3s
+          scp -o StrictHostKeyChecking=no -i ${{ steps.bootstrap_k3s.outputs.key }} ec2-user@${{ steps.bootstrap_k3s.outputs.extra_node_ip }}:/etc/rancher/k3s/k3s.yaml ${HOME}/.kube/config
 
       - name: update .kube/config address
         run: |

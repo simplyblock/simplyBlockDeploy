@@ -56,5 +56,5 @@ for node in $nodes; do
 done
 EXTRA_NODE_IP=${mnodes[0]}
 echo "::set-output name=extra_node_ip::$EXTRA_NODE_IP"
-sudo cat /etc/rancher/k3s/k3s.yaml
+echo "::set-output name=key::$KEY"
 "
