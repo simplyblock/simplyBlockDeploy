@@ -83,8 +83,12 @@ echo ""
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
 MANGEMENT_NODE_IP=${mnodes[1]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-sbcli-dev cluster get-secret \${CLUSTER_ID}
+CLUSTER_SECRET=(sbcli-dev cluster get-secret \${CLUSTER_ID})
 "
+
+echo "::set-output name=cluster_id::$CLUSTER_ID"
+echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
+echo "::set-output name=cluster_ip::$MANGEMENT_NODE_IP"
 
 echo ""
 echo "Successfully deployed the cluster"
