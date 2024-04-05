@@ -15,7 +15,6 @@ else
 fi
 
 if [[ -n "$SECRET_VALUE" ]]; then
-    mkdir "$HOME/.ssh/"
     echo "$SECRET_VALUE" > "$HOME/.ssh/$KEY_NAME"
     KEY="$HOME/.ssh/$KEY_NAME"
     echo "running chmod 400"
