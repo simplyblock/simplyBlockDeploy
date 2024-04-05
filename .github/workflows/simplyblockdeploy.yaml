@@ -48,6 +48,7 @@ jobs:
 
       - name: Bootstrap K3s
         run: | 
+          mkdir -p ${HOME}/.kube
           $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
         id: bootstrap_k3s
 
