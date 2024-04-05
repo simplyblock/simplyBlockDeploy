@@ -55,6 +55,8 @@ for node in $nodes; do
     kubectl label nodes $node type=cache
 done
 EXTRA_NODE_IP=${mnodes[0]}
-echo "::set-output name=extra_node_ip::$EXTRA_NODE_IP"
-echo "::set-output name=key::$KEY"
+# echo "::set-output name=extra_node_ip::$EXTRA_NODE_IP"
+# echo "::set-output name=key::$KEY"
+echo "extra_node_ip=$EXTRA_NODE_IP" >> $GITHUB_OUTPUT
+echo "key=$KEY" >> $GITHUB_OUTPUT
 "
