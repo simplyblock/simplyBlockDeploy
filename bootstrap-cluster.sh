@@ -86,6 +86,14 @@ CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.result
 CLUSTER_SECRET=(sbcli-dev cluster get-secret \${CLUSTER_ID})
 "
 
+echo ""
+echo "adding pool testing1"
+echo ""
+
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
+sbcli-dev pool add testing1
+"
+
 echo "::set-output name=cluster_id::$CLUSTER_ID"
 echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
 echo "::set-output name=cluster_ip::$MANGEMENT_NODE_IP"
