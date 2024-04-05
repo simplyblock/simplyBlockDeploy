@@ -23,7 +23,7 @@ else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
 
-mnodes=($(terraform output -raw mgmt_public_ips))
+mnodes=$(terraform output -raw mgmt_public_ips)
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
 echo "bootstrapping cluster..."
