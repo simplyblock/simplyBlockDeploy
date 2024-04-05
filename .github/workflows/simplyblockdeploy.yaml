@@ -37,11 +37,11 @@ jobs:
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
-        run: ./$GITHUB_WORKSPACE/bootstrap-cluster.sh
+        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh
         id: bootstrap_cluster
 
       - name: Bootstrap K3s
-        run: ./$GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
+        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh > ${HOME}/.kube/config
         id: bootstrap_k3s
 
       - name: Install kubectl
