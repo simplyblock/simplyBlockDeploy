@@ -8,6 +8,7 @@ KEY_NAME=$(terraform output -raw key_name)
 if [[ -n "$SECRET_VALUE" ]]; then
     echo $SECRET_VALUE > "$HOME/.ssh/$KEY_NAME"
     KEY="$HOME/.ssh/$KEY_NAME"
+    chmod 400 $KEY
 else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
@@ -18,6 +19,7 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 echo "bootstrapping cluster..."
 
 while true; do
+    echo $KEY
     dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "sudo cloud-init status" 2>/dev/null)
     echo "Current status: $dstatus"
 
