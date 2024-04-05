@@ -203,7 +203,7 @@ resource "aws_volume_attachment" "attach_sn" {
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = var.extra_nodes_instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]

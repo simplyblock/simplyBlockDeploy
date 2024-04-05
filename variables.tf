@@ -37,3 +37,8 @@ variable "extra_nodes" {
   default = 0
   type    = number
 }
+
+variable "extra_nodes_instance_type" {
+  default = "m5.large"
+  type    = string
+}
