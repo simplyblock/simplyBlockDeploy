@@ -2,7 +2,8 @@
 
 KEY=$HOME/.ssh/simplyblock-ohio.pem
 
-mnodes=($(terraform output -raw extra_nodes))
+mnodes=($(terraform output -raw extra_nodes_public_ips))
+
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "
 sudo yum install -y fio nvme-cli;
