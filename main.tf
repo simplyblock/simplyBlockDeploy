@@ -220,7 +220,7 @@ resource "aws_volume_attachment" "attach_sn" {
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "i3en.large"
+  instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -360,7 +360,7 @@ output "extra_nodes_private_ips" {
 }
 
 output "extra_nodes_public_ips" {
-  value = aws_instance.extra_nodes[*].public_ip
+  value = join(" ", aws_instance.extra_nodes[*].public_ip)
 }
 
 output "key_name" {
