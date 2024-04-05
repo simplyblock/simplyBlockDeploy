@@ -1,3 +1,13 @@
+variable "region" {
+  default     = "us-east-2"
+  description = "region to provision"
+  type        = string
+  validation {
+    condition     = can(regex("^us-east-1$|^us-east-2$|^us-west-1$|^us-west-2$|^eu-west-1$|^eu-west-2$|^eu-central-1$", var.region))
+    error_message = "Invalid AWS region. Please choose one of: us-east-1, us-east-2, us-west-1, us-west-2, eu-west-1, eu-west-2, eu-central-1"
+  }
+}
+
 variable "namespace" {
   default     = "csi"
   description = "global naming"

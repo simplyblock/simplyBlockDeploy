@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-2"
+  region = var.region
 }
 
 terraform {
@@ -12,13 +12,30 @@ terraform {
   }
 }
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  key_name = {
+    "us-east-1" = "simplyblock-us-east-1.pem"
+    "us-east-2" = "simplyblock-us-east-2.pem"
+  }
+
+  selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
+}
+
+data "aws_secretsmanager_secret_version" "simply" {
+  secret_id = local.selected_key_name
+}
+
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = "${var.namespace}-sb-storage-vpc"
   cidr = "10.0.0.0/16"
 
-  azs                     = ["us-east-2a", "us-east-2b", ]
+  azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]
   private_subnets         = ["10.0.1.0/24", "10.0.3.0/24"]
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
@@ -139,7 +156,7 @@ resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -166,7 +183,7 @@ resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = "m5.large"
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -188,7 +205,7 @@ EOF
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
-  availability_zone = "us-east-2b"
+  availability_zone = data.aws_availability_zones.available.names[1]
   size              = 50
 }
 
@@ -204,7 +221,7 @@ resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
   instance_type          = var.extra_nodes_instance_type
-  key_name               = var.key_name
+  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   root_block_device {
@@ -287,7 +304,7 @@ module "eks" {
 
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
-      key_name                = var.key_name
+      key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
@@ -306,7 +323,7 @@ module "eks" {
 
       instance_types          = ["i3en.large"]
       capacity_type           = "ON_DEMAND"
-      key_name                = var.key_name
+      key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
@@ -344,4 +361,12 @@ output "extra_nodes_private_ips" {
 
 output "extra_nodes_public_ips" {
   value = join(" ", aws_instance.extra_nodes[*].public_ip)
+}
+
+output "key_name" {
+  value = local.selected_key_name
+}
+output "secret_value" {
+  sensitive = true
+  value = data.aws_secretsmanager_secret_version.simply.secret_string
 }
