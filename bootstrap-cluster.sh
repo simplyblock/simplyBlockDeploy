@@ -29,7 +29,7 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 echo "bootstrapping cluster..."
 
 while true; do
-    echo $KEY
+    echo "mgmt_public_ips: ${mnodes[0]}"
     dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
     echo "Current status: $dstatus"
 
