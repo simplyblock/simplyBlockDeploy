@@ -21,7 +21,7 @@ echo "bootstrapping cluster..."
 
 while true; do
     echo $KEY
-    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "sudo cloud-init status" 2>/dev/null)
+    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
     echo "Current status: $dstatus"
 
     if [[ "$dstatus" == "status: done" ]]; then
@@ -38,7 +38,7 @@ echo "Deploying management node..."
 echo ""
 
 # node 1
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sbcli-dev cluster create
 "
 
@@ -52,7 +52,7 @@ for ((i = 2; i <= $#mnodes; i++)); do
     echo ""
 
     ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[${i}] "
-    MANGEMENT_NODE_IP=${mnodes[1]}
+    MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
     sbcli-dev mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
@@ -65,8 +65,8 @@ echo "Adding storage nodes..."
 echo ""
 
 # node 1
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "
-MANGEMENT_NODE_IP=${mnodes[1]}
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[0] "
+MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
 sbcli cluster unsuspend \${CLUSTER_ID}
@@ -83,8 +83,8 @@ echo ""
 echo "getting cluster secret"
 echo ""
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
-MANGEMENT_NODE_IP=${mnodes[1]}
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 CLUSTER_SECRET=(sbcli-dev cluster get-secret \${CLUSTER_ID})
 "
@@ -93,7 +93,7 @@ echo ""
 echo "adding pool testing1"
 echo ""
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[1]} "
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sbcli-dev pool add testing1
 "
 
