@@ -48,7 +48,11 @@ sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl start docker
 
 nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
+
 for node in $nodes; do
+    echo "labeling node \${node}"
     kubectl label nodes $node type=cache
 done
+
+kubectl get nodes
 "
