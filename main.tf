@@ -3,13 +3,14 @@ provider "aws" {
 }
 
 terraform {
-  backend "s3" {
-    bucket = "simplyblock-terraform-state-bucket"
-    key    = "csi"
-    region = "us-east-2"
-    # dynamodb_table = "terraform-up-and-running-locks"
-    encrypt = true
-  }
+  # backend "s3" {
+  #   bucket = "simplyblock-terraform-state-bucket"
+  #   key    = "csi"
+  #   region = "us-east-2"
+  #   # dynamodb_table = "terraform-up-and-running-locks"
+  #   encrypt = true
+  # }
+  backend "local" {}
 }
 
 data "aws_availability_zones" "available" {
@@ -368,5 +369,5 @@ output "key_name" {
 }
 output "secret_value" {
   sensitive = true
-  value = data.aws_secretsmanager_secret_version.simply.secret_string
+  value     = data.aws_secretsmanager_secret_version.simply.secret_string
 }
