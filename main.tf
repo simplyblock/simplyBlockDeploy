@@ -210,6 +210,19 @@ resource "aws_ebs_volume" "storage_nodes_ebs" {
   size              = 50
 }
 
+resource "aws_ebs_volume" "storage_nodes_ebs2" {
+  count             = var.storage_nodes
+  availability_zone = data.aws_availability_zones.available.names[1]
+  size              = 50
+}
+
+resource "aws_volume_attachment" "attach_sn2" {
+  count       = var.storage_nodes
+  device_name = "/dev/sdj"
+  volume_id   = aws_ebs_volume.storage_nodes_ebs2[count.index].id
+  instance_id = aws_instance.storage_nodes[count.index].id
+}
+
 resource "aws_volume_attachment" "attach_sn" {
   count       = var.storage_nodes
   device_name = "/dev/sdh"

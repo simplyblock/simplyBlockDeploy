@@ -1,15 +1,19 @@
 #!/bin/zsh
 
-KEY=$HOME/.ssh/simplyblock-ohio.pem
+## default key name
+KEY=$HOME/.ssh/simplyblock-us-east-2.pem
 
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 
 if [[ -n "$SECRET_VALUE" ]]; then
-    rm $HOME/.ssh/$KEY_NAME
-    echo $SECRET_VALUE > $HOME/.ssh/$KEY_NAME
     KEY=$HOME/.ssh/$KEY_NAME
-    chmod 400 $KEY
+    if [ -f ${HOME}/.ssh/$KEY_NAME ]; then
+        echo "the ssh key: ${KEY} already exits on local"
+    else
+        echo $SECRET_VALUE >$KEY
+        chmod 400 $KEY
+    fi
 else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
@@ -68,7 +72,7 @@ ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$mnodes[1] "
 MANGEMENT_NODE_IP=${mnodes[1]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
-sbcli cluster unsuspend \${CLUSTER_ID}
+sbcli-dev cluster unsuspend \${CLUSTER_ID}
 
 for node in ${storage_private_ips}; do
     echo ""
