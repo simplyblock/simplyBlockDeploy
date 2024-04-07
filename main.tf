@@ -177,7 +177,7 @@ resource "aws_instance" "mgmt_nodes" {
 #!/bin/bash
 echo "installing sbcli.."
 sudo  yum install -y pip jq
-pip install sbcli-dev
+pip install sbcli-mig
 
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
@@ -206,8 +206,8 @@ sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip
-pip install sbcli-dev
-sbcli-dev storage-node deploy
+pip install sbcli-mig
+sbcli-mig storage-node deploy
 EOF
 }
 
@@ -244,8 +244,8 @@ sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip
-pip install sbcli-dev
-sbcli-dev caching-node deploy
+pip install sbcli-mig
+sbcli-mig caching-node deploy
 EOF
 }
 

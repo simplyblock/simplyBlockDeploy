@@ -48,7 +48,7 @@ echo ""
 
 # node 1
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-sbcli-dev cluster create
+sbcli-mig cluster create
 "
 
 echo ""
@@ -64,7 +64,7 @@ for ((i = 2; i <= $#mnodes; i++)); do
     MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
-    sbcli-dev mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
+    sbcli-mig mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
     "
 done
 
@@ -82,7 +82,7 @@ sbcli cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli-dev storage-node add-node \$CLUSTER_ID \${node}:5000 eth0
+    sbcli-mig storage-node add-node \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "
@@ -94,7 +94,7 @@ echo ""
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-CLUSTER_SECRET=(sbcli-dev cluster get-secret \${CLUSTER_ID})
+CLUSTER_SECRET=(sbcli-mig cluster get-secret \${CLUSTER_ID})
 "
 
 echo ""
@@ -102,7 +102,7 @@ echo "adding pool testing1"
 echo ""
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-sbcli-dev pool add testing1
+sbcli-mig pool add testing1
 "
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
