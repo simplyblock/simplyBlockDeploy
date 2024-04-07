@@ -80,4 +80,4 @@ jobs:
 
       - name: Destroy Cluster
         if: always()
-        run: terraform apply -var "mgmt_nodes=0" -var "storage_nodes=0" -var "extra_nodes=0" --auto-approve
+        run: terraform destroy --auto-approve
