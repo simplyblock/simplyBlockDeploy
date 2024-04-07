@@ -38,6 +38,8 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]
 sudo /usr/local/bin/k3s kubectl get node
 sudo sysctl -w vm.nr_hugepages=4096
 sudo systemctl restart k3s
+sudo yum install -y pciutils
+lspci
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 sudo yum install -y yum-utils
