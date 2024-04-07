@@ -65,7 +65,6 @@ jobs:
       - name: Update ConfigMap
         run: |
           cd spdk-csi
-          echo "${{ steps.bootstrap_cluster.outputs.cluster_id }}"
           sed -i "s/\"uuid\": \".*\"/\"uuid\": \"${{ steps.bootstrap_cluster.outputs.cluster_id }}\"/" deploy/kubernetes/config-map.yaml
           sed -i "s/\"ip\": \".*\"/\"ip\": \"${{ steps.bootstrap_cluster.outputs.cluster_ip }}\"/" deploy/kubernetes/config-map.yaml
 

@@ -88,14 +88,25 @@ done
 "
 
 echo ""
+echo "getting cluster id"
+echo ""
+
+CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+MANGEMENT_NODE_IP=${mnodes[0]}
+CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+echo \"Cluster ID is: \${CLUSTER_ID}\"
+echo \${CLUSTER_ID}
+")
+
+echo ""
 echo "getting cluster secret"
 echo ""
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-CLUSTER_SECRET=(sbcli-mig cluster get-secret \${CLUSTER_ID})
-"
+sbcli-mig cluster get-secret \${CLUSTER_ID}
+")
 
 echo ""
 echo "adding pool testing1"
@@ -107,7 +118,7 @@ sbcli-mig pool add testing1
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
 echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
-echo "::set-output name=cluster_ip::$MANGEMENT_NODE_IP"
+echo "::set-output name=cluster_ip::${mnodes[0]}"
 
 echo ""
 echo "Successfully deployed the cluster"
