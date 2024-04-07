@@ -73,6 +73,13 @@ resource "aws_security_group" "container_inst_sg" {
     description = "VNC from world"
   }
   ingress {
+  from_port   = 6443
+  to_port     = 6443
+  protocol    = "tcp"
+  cidr_blocks = var.whitelist_ips
+  description = "k3s cluster"
+  }
+  ingress {
     from_port   = 8404
     to_port     = 8404
     protocol    = "tcp"
