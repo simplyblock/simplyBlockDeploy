@@ -48,16 +48,16 @@ sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl start docker
 "
 
-echo ""
-echo "labeling node type=cache"
-echo ""
+# echo ""
+# echo "labeling node type=cache"
+# echo ""
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
+# ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+# nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 
-for node in $nodes; do
-    kubectl label nodes $node type=cache
-done
+# for node in $nodes; do
+#     kubectl label nodes $node type=cache
+# done
 
-kubectl get nodes --show-labels
-"
+# kubectl get nodes --show-labels
+# "

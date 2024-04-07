@@ -73,6 +73,16 @@ jobs:
           cd spdk-csi
           sed -i "s/\"secret\": \".*\"/\"secret\": \"${{ steps.bootstrap_cluster.outputs.cluster_secret }}\"/" deploy/kubernetes/secret.yaml
       
+      - name: Label Node type=cache
+        run: |
+          nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
+
+          for node in $nodes; do
+              kubectl label nodes $node type=cache
+          done
+
+          kubectl get nodes --show-labels
+
       - name: Run tests
         run: | 
           cd spdk-csi
