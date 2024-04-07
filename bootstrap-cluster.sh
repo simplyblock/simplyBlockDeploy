@@ -94,7 +94,6 @@ echo ""
 CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-echo \"Cluster ID is: \${CLUSTER_ID}\"
 echo \${CLUSTER_ID}
 ")
 
