@@ -57,7 +57,7 @@ jobs:
 
       - name: update .kube/config address
         run: |
-          sed "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
+          sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
       - name: Clone spdk-csi repo
         run: git clone https://github.com/simplyblock-io/spdk-csi.git
