@@ -46,13 +46,18 @@ sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo systemctl start docker
+"
 
+echo ""
+echo "labeling node type=cache"
+echo ""
+
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 
 for node in $nodes; do
-    echo "labeling node \${node}"
     kubectl label nodes $node type=cache
 done
 
-kubectl get nodes
+kubectl get nodes --show-labels
 "
