@@ -15,6 +15,7 @@ else
 fi
 
 if [[ -n "$SECRET_VALUE" ]]; then
+<<<<<<< HEAD
     key_name="$HOME/.ssh/$KEY_NAME"
     if [ ! -f "$key_name" ]; then
         echo "$SECRET_VALUE" > "$HOME/.ssh/$KEY_NAME"
@@ -26,6 +27,12 @@ if [[ -n "$SECRET_VALUE" ]]; then
         KEY="$HOME/.ssh/$KEY_NAME"
         echo "$key_name already exists."
     fi
+=======
+    rm $HOME/.ssh/$KEY_NAME
+    echo $SECRET_VALUE > $HOME/.ssh/$KEY_NAME
+    KEY=$HOME/.ssh/$KEY_NAME
+    chmod 400 $KEY
+>>>>>>> main
 else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
