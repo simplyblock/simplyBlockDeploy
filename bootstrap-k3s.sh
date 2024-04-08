@@ -36,8 +36,6 @@ sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
 sudo /usr/local/bin/k3s kubectl get node
-sudo sysctl -w vm.nr_hugepages=4096
-sudo systemctl restart k3s
 sudo yum install -y pciutils
 lspci
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
@@ -47,17 +45,3 @@ sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/dock
 sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo systemctl start docker
 "
-
-# echo ""
-# echo "labeling node type=cache"
-# echo ""
-
-# ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-# nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
-
-# for node in $nodes; do
-#     kubectl label nodes $node type=cache
-# done
-
-# kubectl get nodes --show-labels
-# "

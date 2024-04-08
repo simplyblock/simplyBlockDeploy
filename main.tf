@@ -255,10 +255,6 @@ resource "aws_instance" "extra_nodes" {
 #!/bin/bash
 sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
-echo "installing sbcli.."
-sudo yum install -y pip
-pip install sbcli-mig
-sbcli-mig caching-node deploy
 EOF
 }
 
