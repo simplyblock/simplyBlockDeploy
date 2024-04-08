@@ -48,7 +48,22 @@ variable "extra_nodes" {
   type    = number
 }
 
+variable "mgmt_nodes_instance_type" {
+  default = "m5.large"
+  type    = string 
+}
+
+variable "storage_nodes_instance_type" {
+  default = "m5.large"
+  type    = string 
+}
+
 variable "extra_nodes_instance_type" {
   default = "m5.large"
   type    = string
+}
+
+variable "storage_nodes_ebs_size" {
+  default = 50
+  type    = number
 }

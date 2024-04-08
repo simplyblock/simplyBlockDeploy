@@ -163,7 +163,7 @@ resource "aws_security_group" "container_inst_sg" {
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -190,7 +190,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -214,13 +214,13 @@ EOF
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = 50
+  size              = var.storage_nodes_ebs_size
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = 50
+  size              = var.storage_nodes_ebs_size
 }
 
 resource "aws_volume_attachment" "attach_sn2" {

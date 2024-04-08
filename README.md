@@ -11,11 +11,18 @@ Terraform template to setup simple cluster
 terraform plan
 
 terraform init
+
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
 # Deploying with eks
-terraform init
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
+
+# Specifying the instance types to use 
+terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 \
+                -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
+
+# Specifying the size of ebs volumes for storage nodes
+terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size=50 --auto-approve
 ```
 
 ### Cluster bootstrapping
