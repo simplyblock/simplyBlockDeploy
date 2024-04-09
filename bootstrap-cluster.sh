@@ -68,6 +68,38 @@ for ((i = 2; i <= $#mnodes; i++)); do
     "
 done
 
+MEMORY=""
+CPU_MASK=""
+IOBUF_SMALL_POOL_COUNT=""
+IOBUF_LARGE_POOL_COUNT=""
+
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+        --memory)
+            MEMORY="$2"
+            shift
+            ;;
+        --cpu-mask)
+            CPU_MASK="$2"
+            shift
+            ;;
+        --iobuf_small_pool_count)
+            IOBUF_SMALL_POOL_COUNT="$2"
+            shift
+            ;;
+        --iobuf_large_pool_count)
+            IOBUF_LARGE_POOL_COUNT="$2"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 echo ""
 sleep 60
 echo "Adding storage nodes..."
@@ -77,12 +109,17 @@ ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
-sbcli-dev cluster unsuspend \${CLUSTER_ID}
+sbcli-mig cluster unsuspend \${CLUSTER_ID}
 
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli-mig storage-node add-node \$CLUSTER_ID \${node}:5000 eth0
+    sbcli-mig storage-node add-node \
+        --memory "$MEMORY" \
+        --cpu-mask "$CPU_MASK" \
+        --iobuf_small_pool_count "$IOBUF_SMALL_POOL_COUNT" \
+        --iobuf_large_pool_count "$IOBUF_LARGE_POOL_COUNT" \
+        \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "

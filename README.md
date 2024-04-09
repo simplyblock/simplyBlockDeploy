@@ -28,11 +28,13 @@ terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var
 ### Cluster bootstrapping
 
 ```
-# in the boostrap-cluster.sh update KEY
+# The boostrap-cluster.sh creates the KEY in `.ssh` directory in the home directory
 
 chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
 
+# specifying cluster argument to use
+./bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
 ```
 ### Destroy Cluster
 ```
