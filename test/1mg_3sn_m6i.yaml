@@ -1,0 +1,46 @@
+---
+# eu-west AMI with Rocky Linux
+# default root disk /dev/sda1 is only 10 Gb
+# root disk must be configured to be at last 30 Gb. Recommended value: 50 Gb.
+ImageId: ami-0ddb9546f87cf308a
+instances:
+- Name: m00
+  Role: management
+  InstanceType: m6i.large
+  SubnetId: PublicSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 30
+- Name: s00
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PrivateSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 30
+    - DeviceName: /dev/sdc
+      Size: 10
+    - DeviceName: /dev/sdd
+      Size: 10
+- Name: s01
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PrivateSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 30
+    - DeviceName: /dev/sdc
+      Size: 10
+    - DeviceName: /dev/sdd
+      Size: 10
+- Name: s02
+  Role: storage
+  InstanceType: m6i.large
+  SubnetId: PrivateSubnet
+  EBS:
+    - DeviceName: /dev/sda1
+      Size: 30
+    - DeviceName: /dev/sdc
+      Size: 10
+    - DeviceName: /dev/sdd
+      Size: 10
