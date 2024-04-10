@@ -33,6 +33,9 @@ terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var
 chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
 
+# To see supported option 
+./bootstrap-cluster.sh --help
+
 # specifying cluster argument to use
 ./bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
 ```

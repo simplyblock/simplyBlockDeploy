@@ -68,17 +68,6 @@ jobs:
       - name: Clone spdk-csi repo
         run: git clone https://github.com/simplyblock-io/spdk-csi.git
 
-      # - name: Update ConfigMap
-      #   run: |
-      #     cd spdk-csi
-      #     sed -i "s/\"uuid\": \".*\"/\"uuid\": \"${{ steps.bootstrap_cluster.outputs.cluster_id }}\"/" deploy/kubernetes/config-map.yaml
-      #     sed -i "s/\"ip\": \".*\"/\"ip\": \"${{ steps.bootstrap_cluster.outputs.cluster_ip }}\"/" deploy/kubernetes/config-map.yaml
-
-      # - name: Update Secret
-      #   run: |
-      #     cd spdk-csi
-      #     sed -i "s/\"secret\": \".*\"/\"secret\": \"${{ steps.bootstrap_cluster.outputs.cluster_secret }}\"/" deploy/kubernetes/secret.yaml
-      
       - name: Label Node type=cache
         run: |
           nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')

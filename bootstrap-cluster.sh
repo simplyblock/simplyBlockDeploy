@@ -2,6 +2,53 @@
 
 KEY="$HOME/.ssh/simplyblock-ohio.pem"
 
+print_help() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  --memory <value>                     Set memory for storage nodes"
+    echo "  --cpu-mask <value>                   Set CPU mask for storage nodes"
+    echo "  --iobuf_small_pool_count <value>     Set buffer pool count for small IO buffer"
+    echo "  --iobuf_large_pool_count <value>     Set buffer pool count for large IO buffer"
+    echo "  --help                               Print this help message"
+    exit 0
+}
+
+MEMORY=""
+CPU_MASK=""
+IOBUF_SMALL_POOL_COUNT=""
+IOBUF_LARGE_POOL_COUNT=""
+
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+        --memory)
+            MEMORY="$2"
+            shift
+            ;;
+        --cpu-mask)
+            CPU_MASK="$2"
+            shift
+            ;;
+        --iobuf_small_pool_count)
+            IOBUF_SMALL_POOL_COUNT="$2"
+            shift
+            ;;
+        --iobuf_large_pool_count)
+            IOBUF_LARGE_POOL_COUNT="$2"
+            shift
+            ;;
+        --help)
+            print_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            print_help
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 
@@ -66,38 +113,6 @@ for ((i = 2; i <= $#mnodes; i++)); do
     echo \"Cluster ID is: \${CLUSTER_ID}\"
     sbcli-mig mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
     "
-done
-
-MEMORY=""
-CPU_MASK=""
-IOBUF_SMALL_POOL_COUNT=""
-IOBUF_LARGE_POOL_COUNT=""
-
-while [[ $# -gt 0 ]]; do
-    arg="$1"
-    case $arg in
-        --memory)
-            MEMORY="$2"
-            shift
-            ;;
-        --cpu-mask)
-            CPU_MASK="$2"
-            shift
-            ;;
-        --iobuf_small_pool_count)
-            IOBUF_SMALL_POOL_COUNT="$2"
-            shift
-            ;;
-        --iobuf_large_pool_count)
-            IOBUF_LARGE_POOL_COUNT="$2"
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
-    esac
-    shift
 done
 
 echo ""
