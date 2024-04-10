@@ -155,7 +155,7 @@ resource "aws_security_group" "container_inst_sg" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
+  ami                    = var.region_ami_map[var.region] # RHEL 9
   instance_type          = "m5.large"
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -182,7 +182,7 @@ EOF
 
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
-  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
+  ami                    = var.region_ami_map[var.region] # RHEL 9
   instance_type          = "m5.large"
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -233,7 +233,7 @@ resource "aws_volume_attachment" "attach_sn" {
 # can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = "ami-0ef50c2b2eb330511" # RHEL 9
+  ami                    = var.region_ami_map[var.region] # RHEL 9
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]

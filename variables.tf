@@ -52,3 +52,11 @@ variable "extra_nodes_instance_type" {
   default = "m5.large"
   type    = string
 }
+
+variable "region_ami_map" {
+  type = map(string)
+  default = {
+    "us-east-1" = "ami-023c11a32b0207432"
+    "us-east-2" = "ami-0ef50c2b2eb330511"
+  }
+}
