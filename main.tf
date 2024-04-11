@@ -214,13 +214,13 @@ EOF
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = var.storage_nodes_ebs_size
+  size              = var.storage_nodes_ebs_size1
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = var.storage_nodes_ebs_size
+  size              = var.storage_nodes_ebs_size2
 }
 
 resource "aws_volume_attachment" "attach_sn2" {
@@ -362,6 +362,10 @@ output "vpc_id" {
 
 output "storage_private_ips" {
   value = join(" ", aws_instance.storage_nodes[*].private_ip)
+}
+
+output "storage_public_ips" {
+  value = join(" ", aws_instance.storage_nodes[*].public_ip)
 }
 
 output "mgmt_private_ips" {
