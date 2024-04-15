@@ -5,11 +5,11 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --memory <value>                     Set SPDK huge memory allocation"
-    echo "  --cpu-mask <value>                   Set SPDK app CPU mask"
-    echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param"
-    echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param"
-    echo "  --help                               Print this help message"
+    echo "  --memory <value>                     Set SPDK huge memory allocation(optional)"
+    echo "  --cpu-mask <value>                   Set SPDK app CPU mask(optional)"
+    echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param(optional)"
+    echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param(optional)"
+    echo "  --help                               Print this help message(optional)"
     exit 0
 }
 
@@ -48,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+DESIRED_SIZE_BYTES=2147483648  # 2 GB in bytes
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 
@@ -61,10 +62,13 @@ else
 fi
 
 if [[ -n "$SECRET_VALUE" ]]; then
-    rm "$HOME/.ssh/$KEY_NAME"
-    echo "$SECRET_VALUE" > "$HOME/.ssh/$KEY_NAME"
     KEY="$HOME/.ssh/$KEY_NAME"
-    chmod 400 "$KEY"
+    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+        echo "the ssh key: ${KEY} already exits on local"
+    else
+        echo "$SECRET_VALUE" >"$KEY"
+        chmod 400 "$KEY"
+    fi
 else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
@@ -118,8 +122,7 @@ done
 storage_public_ip=$(echo ${storage_public_ips} | cut -d' ' -f1)
 
 DEVICE_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${storage_public_ip} "
-desired_size_bytes=2147483648  # 2 GB in bytes
-device_name=\$(lsblk -b -o NAME,SIZE | grep -w "\$desired_size_bytes" | awk '{print \$1}')
+device_name=\$(lsblk -b -o NAME,SIZE | grep -w "$DESIRED_SIZE_BYTES" | awk '{print \$1}')
 if [ -n "\$device_name" ]; then
     device_id=\$(udevadm info --query=property --name="/dev/\$device_name" | grep ID_PATH= | awk -F'[:-]' '{print \$3 \".\" \$4}')
     echo "\$device_id"
@@ -136,6 +139,21 @@ sleep 60
 echo "Adding storage nodes..."
 echo ""
 # node 1
+command="sbcli-mig storage-node add-node --jm-pcie $DEVICE_ID"
+
+if [[ -n "$MEMORY" ]]; then
+    command+=" --memory $MEMORY"
+fi
+if [[ -n "$CPU_MASK" ]]; then
+    command+=" --cpu-mask $CPU_MASK"
+fi
+if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
+    command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
+fi
+if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
+    command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
+fi
+
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
@@ -145,13 +163,8 @@ sbcli-mig cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-    sbcli-mig storage-node add-node \
-        --jm-pcie "$DEVICE_ID" \
-        --memory "$MEMORY" \
-        --cpu-mask "$CPU_MASK" \
-        --iobuf_small_pool_count "$IOBUF_SMALL_POOL_COUNT" \
-        --iobuf_large_pool_count "$IOBUF_LARGE_POOL_COUNT" \
-        \$CLUSTER_ID \${node}:5000 eth0
+
+    $command \$CLUSTER_ID \${node}:5000 eth0
     sleep 5
 done
 "
