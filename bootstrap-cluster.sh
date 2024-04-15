@@ -9,7 +9,7 @@ print_help() {
     echo "  --cpu-mask <value>                   Set SPDK app CPU mask(optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param(optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param(optional)"
-    echo "  --help                               Print this help message(optional)"
+    echo "  --help                               Print this help message"
     exit 0
 }
 
