@@ -15,10 +15,13 @@ else
 fi
 
 if [[ -n "$SECRET_VALUE" ]]; then
-    rm "$HOME/.ssh/$KEY_NAME"
-    echo "$SECRET_VALUE" > "$HOME/.ssh/$KEY_NAME"
     KEY="$HOME/.ssh/$KEY_NAME"
-    chmod 400 "$KEY"
+    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+        echo "the ssh key: ${KEY} already exits on local"
+    else
+        echo "$SECRET_VALUE" >"$KEY"
+        chmod 400 "$KEY"
+    fi
 else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
