@@ -139,8 +139,11 @@ sleep 60
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="sbcli-mig storage-node add-node --jm-pcie $DEVICE_ID"
+command="sbcli-mig storage-node add-node"
 
+if [[ -n "$DEVICE_ID" ]]; then
+    command+=" --jm-pcie $DEVICE_ID"
+fi
 if [[ -n "$MEMORY" ]]; then
     command+=" --memory $MEMORY"
 fi
