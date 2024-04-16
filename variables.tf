@@ -4,7 +4,7 @@ variable "region" {
   type        = string
   validation {
     condition     = can(regex("^us-east-1$|^us-east-2$|^us-west-1$|^us-west-2$|^eu-west-1$|^eu-west-2$|^eu-central-1$", var.region))
-    error_message = "Invalid AWS region. Please choose one of: us-east-1, us-east-2, us-west-1, us-west-2, eu-west-1, eu-west-2, eu-central-1"
+    error_message = "Invalid AWS region. Please choose one of: us-east-1, us-east-2, us-west-1, us-west-2, eu-west-1, eu-west-2, eu-central-1."
   }
 }
 
@@ -48,9 +48,29 @@ variable "extra_nodes" {
   type    = number
 }
 
-variable "extra_nodes_instance_type" {
+variable "mgmt_nodes_instance_type" {
   default = "m5.large"
+  type    = string 
+}
+
+variable "storage_nodes_instance_type" {
+  default = "m5.large"
+  type    = string 
+}
+
+variable "extra_nodes_instance_type" {
+  default = "m6id.large"
   type    = string
+}
+
+variable "storage_nodes_ebs_size1" {
+  default = 2
+  type    = number
+}
+
+variable "storage_nodes_ebs_size2" {
+  default = 50
+  type    = number
 }
 
 variable "region_ami_map" {

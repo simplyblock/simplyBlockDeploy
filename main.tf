@@ -73,6 +73,13 @@ resource "aws_security_group" "container_inst_sg" {
     description = "VNC from world"
   }
   ingress {
+  from_port   = 6443
+  to_port     = 6443
+  protocol    = "tcp"
+  cidr_blocks = var.whitelist_ips
+  description = "k3s cluster"
+  }
+  ingress {
     from_port   = 8404
     to_port     = 8404
     protocol    = "tcp"
@@ -156,7 +163,7 @@ resource "aws_security_group" "container_inst_sg" {
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = var.region_ami_map[var.region] # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -183,7 +190,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   count                  = var.storage_nodes
   ami                    = var.region_ami_map[var.region] # RHEL 9
-  instance_type          = "m5.large"
+  instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
@@ -207,13 +214,13 @@ EOF
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = 50
+  size              = var.storage_nodes_ebs_size1
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
   count             = var.storage_nodes
   availability_zone = data.aws_availability_zones.available.names[1]
-  size              = 50
+  size              = var.storage_nodes_ebs_size2
 }
 
 resource "aws_volume_attachment" "attach_sn2" {
@@ -248,10 +255,6 @@ resource "aws_instance" "extra_nodes" {
 #!/bin/bash
 sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
-echo "installing sbcli.."
-sudo yum install -y pip
-pip install sbcli-dev
-sbcli-dev caching-node deploy
 EOF
 }
 
@@ -359,6 +362,10 @@ output "vpc_id" {
 
 output "storage_private_ips" {
   value = join(" ", aws_instance.storage_nodes[*].private_ip)
+}
+
+output "storage_public_ips" {
+  value = join(" ", aws_instance.storage_nodes[*].public_ip)
 }
 
 output "mgmt_private_ips" {
