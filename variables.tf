@@ -64,7 +64,7 @@ variable "extra_nodes_instance_type" {
 }
 
 variable "storage_nodes_ebs_size1" {
-  default = 50
+  default = 2
   type    = number
 }
 
