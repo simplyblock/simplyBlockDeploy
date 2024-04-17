@@ -1,9 +1,6 @@
 name: Terraform Workflow
 
 on:
-  push:
-    branches:
-      - slack_alert
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
 
