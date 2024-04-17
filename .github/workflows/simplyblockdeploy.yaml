@@ -1,12 +1,8 @@
 name: Terraform Workflow
 
 on:
-  push:
-    branches:
-      - main
-      - github_action
-      - s3_docker_log
-
+  schedule:
+    - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
 
 jobs:
   terraform:
