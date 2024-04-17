@@ -1,6 +1,9 @@
 name: Terraform Workflow
 
 on:
+  push:
+    branches:
+      - slack_alert
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
 
@@ -97,6 +100,17 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_BUCKET_NAME: "simplyblock-terraform-state-bucket"
+
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ ${{ job.status }} == 'success' ]]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Workflow completed successfully!"}' $SLACK_WEBHOOK_URL
+          else
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Workflow failed!"}' $SLACK_WEBHOOK_URL
+          fi
 
       - name: Destroy Cluster
         if: always()
