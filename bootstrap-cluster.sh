@@ -106,7 +106,7 @@ echo ""
 echo "Adding other management nodes if they exist.."
 echo ""
 
-for ((i = 2; i <= $#mnodes; i++)); do
+for ((i = 2; i <= ${#mnodes[@]}; i++)); do
     echo ""
     echo "Adding mgmt node ${i}.."
     echo ""
