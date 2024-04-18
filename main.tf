@@ -3,14 +3,13 @@ provider "aws" {
 }
 
 terraform {
-  # backend "s3" {
-  #   bucket = "simplyblock-terraform-state-bucket"
-  #   key    = "csi"
-  #   region = "us-east-2"
-  #   # dynamodb_table = "terraform-up-and-running-locks"
-  #   encrypt = true
-  # }
-  backend "local" {}
+  backend "s3" {
+    bucket = "simplyblock-terraform-state-bucket"
+    key    = "csi"
+    region = "us-east-2"
+    dynamodb_table = "terraform-up-and-running-locks"
+    encrypt = true
+  }
 }
 
 data "aws_availability_zones" "available" {
@@ -33,7 +32,7 @@ data "aws_secretsmanager_secret_version" "simply" {
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = "${var.namespace}-sb-storage-vpc"
+  name = "${var.namespace}-storage-vpc-sb"
   cidr = "10.0.0.0/16"
 
   azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]

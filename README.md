@@ -20,6 +20,8 @@ After installing AWS CLI, configure it with your AWS credentials by running the 
 
 ### Intro
 
+
+
 Terraform template to setup simple cluster
 
 ### Deploy infra
@@ -28,6 +30,8 @@ Terraform template to setup simple cluster
 # change count for mgmt_nodes and storage_nodes variables in variables.tf
 
 # review the resources
+terraform init
+
 terraform plan
 
 terraform init
@@ -37,7 +41,7 @@ terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 --au
 # Deploying with eks
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
 
-# Specifying the instance types to use 
+# Specifying the instance types to use
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
 
@@ -56,7 +60,7 @@ terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var
 chmod +x ./bootstrap-cluster.sh
 ./bootstrap-cluster.sh
 
-# To see supported option 
+# To see supported option
 ./bootstrap-cluster.sh --help
 
 # specifying cluster argument to use
@@ -64,7 +68,12 @@ chmod +x ./bootstrap-cluster.sh
 ```
 ### Destroy Cluster
 ```
-terraform apply -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
+terraform apply -var namespace="csi" -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
+```
+
+or you could destroy all the resources created
+```
+terraform destory --auto-approve
 ```
 
 
