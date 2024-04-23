@@ -53,8 +53,10 @@ terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var
 ### -var storage_nodes_ebs_size2=50 for Storage node
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
                 -var storage_nodes_ebs_size2=50 for Storage node --auto-approve
-```
 
+# Save terraform output to a file 
+terraform output -json > outputs.json
+```
 
 
 ### Cluster bootstrapping
