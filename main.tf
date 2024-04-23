@@ -5,7 +5,7 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket         = "simplyblock-terraform-state-bucket"
-    key            = "csi"
+    key            = "israel"
     region         = "us-east-2"
     dynamodb_table = "terraform-up-and-running-locks"
     encrypt        = true
@@ -18,8 +18,10 @@ data "aws_availability_zones" "available" {
 
 locals {
   key_name = {
-    "us-east-1" = "simplyblock-us-east-1.pem"
-    "us-east-2" = "simplyblock-us-east-2.pem"
+    "us-east-1"  = "simplyblock-us-east-1.pem"
+    "us-east-2"  = "simplyblock-us-east-2.pem"
+    "eu-north-1" = "simplyblock-eu-north-1.pem" 
+    "eu-west-1"  = "simplyblock-eu-west-1.pem"
   }
 
   selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
@@ -176,7 +178,7 @@ data "aws_iam_policy_document" "assume_role_policy" {
 
 # create a policy
 resource "aws_iam_policy" "codeartifact_policy" {
-  name        = "codeartifact_policy_policy"
+  name        = "${var.namespace}-codeartifact_policy_policy"
   description = "Policy for allowing EC2 to get objects from codeartifact"
 
   policy = jsonencode({
