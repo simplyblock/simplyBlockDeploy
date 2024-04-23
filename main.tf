@@ -183,14 +183,21 @@ resource "aws_iam_policy" "codeartifact_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        "Effect" : "Allow",
+        "Action" : "sts:GetServiceBearerToken",
+        "Resource" : "*"
+      },
+      {
         Action = [
-          # todo: restrict
-          "codeartifact:*",
-          "sts:GetServiceBearerToken"
+          "codeartifact:GetAuthorizationToken",
+          "codeartifact:GetRepositoryEndpoint",
+          "codeartifact:ReadFromRepository",
         ],
-        Effect   = "Allow",
-        Resource = ["*"]
-        # todo: restrict
+        Effect = "Allow",
+        Resource = [
+          "arn:aws:codeartifact:eu-west-1:565979732541:repository/simplyblock/sbcli",
+          "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
+        ]
       },
     ]
   })
@@ -203,7 +210,7 @@ resource "aws_iam_role" "role" {
 }
 
 # attach policy to the role
-resource "aws_iam_role_policy_attachment" "codeartifact_get_object_attachment" {
+resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
   role       = aws_iam_role.role.name
   policy_arn = aws_iam_policy.codeartifact_policy.arn
 }
