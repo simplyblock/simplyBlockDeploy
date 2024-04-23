@@ -4,11 +4,11 @@ provider "aws" {
 
 terraform {
   backend "s3" {
-    bucket = "simplyblock-terraform-state-bucket"
-    key    = "csi"
-    region = "us-east-2"
+    bucket         = "simplyblock-terraform-state-bucket"
+    key            = "csi"
+    region         = "us-east-2"
     dynamodb_table = "terraform-up-and-running-locks"
-    encrypt = true
+    encrypt        = true
   }
 }
 
@@ -72,11 +72,11 @@ resource "aws_security_group" "container_inst_sg" {
     description = "VNC from world"
   }
   ingress {
-  from_port   = 6443
-  to_port     = 6443
-  protocol    = "tcp"
-  cidr_blocks = var.whitelist_ips
-  description = "k3s cluster"
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "k3s cluster"
   }
   ingress {
     from_port   = 8404
@@ -159,6 +159,68 @@ resource "aws_security_group" "container_inst_sg" {
   }
 }
 
+# create assumed role
+data "aws_iam_policy_document" "assume_role_policy" {
+
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+    actions = [
+      "sts:AssumeRole",
+    ]
+  }
+}
+
+# create a policy
+resource "aws_iam_policy" "codeartifact_policy" {
+  name        = "codeartifact_policy_policy"
+  description = "Policy for allowing EC2 to get objects from codeartifact"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        "Effect" : "Allow",
+        "Action" : "sts:GetServiceBearerToken",
+        "Resource" : "*"
+      },
+      {
+        Action = [
+          "codeartifact:GetAuthorizationToken",
+          "codeartifact:GetRepositoryEndpoint",
+          "codeartifact:ReadFromRepository",
+        ],
+        Effect = "Allow",
+        Resource = [
+          "arn:aws:codeartifact:eu-west-1:565979732541:repository/simplyblock/sbcli",
+          "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
+        ]
+      },
+    ]
+  })
+}
+
+# create a role with an assumed policy
+resource "aws_iam_role" "role" {
+  path               = "/"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# attach policy to the role
+resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
+  role       = aws_iam_role.role.name
+  policy_arn = aws_iam_policy.codeartifact_policy.arn
+}
+
+# create instance profile
+resource "aws_iam_instance_profile" "inst_profile" {
+  name = "simplyblock-instance-profile-${terraform.workspace}"
+  role = aws_iam_role.role.name
+}
+
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = var.region_ami_map[var.region] # RHEL 9
@@ -166,6 +228,7 @@ resource "aws_instance" "mgmt_nodes" {
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 100
   }
@@ -178,11 +241,13 @@ echo "installing sbcli.."
 sudo  yum install -y pip jq
 pip install sbcli-dev
 
-sudo yum install -y fio nvme-cli;
+sudo yum install -y fio nvme-cli unzip;
 sudo modprobe nvme-tcp
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 EOF
 }
 
@@ -193,6 +258,7 @@ resource "aws_instance" "storage_nodes" {
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 25
   }
@@ -204,8 +270,11 @@ resource "aws_instance" "storage_nodes" {
 sudo sysctl -w vm.nr_hugepages=2048
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
-sudo yum install -y pip
+sudo yum install -y pip unzip
 pip install sbcli-dev
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 sbcli-dev storage-node deploy
 EOF
 }
@@ -244,6 +313,7 @@ resource "aws_instance" "extra_nodes" {
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 25
   }

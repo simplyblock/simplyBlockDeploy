@@ -59,7 +59,7 @@ variable "storage_nodes_instance_type" {
 }
 
 variable "extra_nodes_instance_type" {
-  default = "m6id.large"
+  default = "m5.large"
   type    = string
 }
 
