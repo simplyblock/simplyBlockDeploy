@@ -203,7 +203,7 @@ resource "aws_iam_role" "role" {
 }
 
 # attach policy to the role
-resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
+resource "aws_iam_role_policy_attachment" "codeartifact_get_object_attachment" {
   role       = aws_iam_role.role.name
   policy_arn = aws_iam_policy.codeartifact_policy.arn
 }
