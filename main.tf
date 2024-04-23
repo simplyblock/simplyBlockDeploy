@@ -17,6 +17,14 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
+
+  snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
+
+  node_disks = { for pair in setproduct(local.snodes, slice(var.volume_device_names,0,var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
+  node_name     = pair[0]
+  disk_dev_path = pair[1]
+  } }
+
   key_name = {
     "us-east-1" = "simplyblock-us-east-1.pem"
     "us-east-2" = "simplyblock-us-east-2.pem"
@@ -187,7 +195,8 @@ EOF
 }
 
 resource "aws_instance" "storage_nodes" {
-  count                  = var.storage_nodes
+  for_each               = local.snodes
+  
   ami                    = var.region_ami_map[var.region] # RHEL 9
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
@@ -197,7 +206,7 @@ resource "aws_instance" "storage_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-storage-${count.index + 1}"
+    Name = "${var.namespace}-storage-${each.value + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -217,16 +226,18 @@ resource "aws_ebs_volume" "storage_nodes_ebs" {
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
-  count             = var.storage_nodes
+  for_each          = local.node_disks
+
   availability_zone = data.aws_availability_zones.available.names[1]
   size              = var.storage_nodes_ebs_size2
 }
 
 resource "aws_volume_attachment" "attach_sn2" {
-  count       = var.storage_nodes
-  device_name = "/dev/sdj"
-  volume_id   = aws_ebs_volume.storage_nodes_ebs2[count.index].id
-  instance_id = aws_instance.storage_nodes[count.index].id
+  for_each    = local.node_disks
+
+  device_name = each.value.disk_dev_path
+  volume_id   = aws_ebs_volume.storage_nodes_ebs2[each.key].id
+  instance_id = aws_instance.storage_nodes[each.value.node_name].id
 }
 
 resource "aws_volume_attachment" "attach_sn" {
@@ -360,11 +371,11 @@ output "vpc_id" {
 }
 
 output "storage_private_ips" {
-  value = join(" ", aws_instance.storage_nodes[*].private_ip)
+  value = join(" ", [for inst in aws_instance.storage_nodes : inst.private_ip])
 }
 
 output "storage_public_ips" {
-  value = join(" ", aws_instance.storage_nodes[*].public_ip)
+  value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
 }
 
 output "mgmt_private_ips" {

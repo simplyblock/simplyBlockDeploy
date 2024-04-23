@@ -80,3 +80,14 @@ variable "region_ami_map" {
     "us-east-2" = "ami-0ef50c2b2eb330511"
   }
 }
+
+variable "volume_device_names" {
+  description = "List of device names for the volumes"
+  type        = list(string)
+    default     = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn"]
+}
+
+variable "volumes_per_storage_nodes" {
+  default = 1
+  type    = number
+}
