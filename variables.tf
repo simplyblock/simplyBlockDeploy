@@ -87,7 +87,6 @@ variable "volume_device_names" {
 variable "volumes_per_storage_nodes" {
   default = 1
   type    = number
-
   validation {
     condition     = var.volumes_per_storage_nodes <= 6
     error_message = "The number of volumes per storage node must not exceed 6."
