@@ -116,6 +116,6 @@ jobs:
             curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
           fi
 
-      - name: Destroy Cluster
-        if: always()
-        run: terraform destroy --auto-approve
+      # - name: Destroy Cluster
+      #   if: always()
+      #   run: terraform destroy --auto-approve
