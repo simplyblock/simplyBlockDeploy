@@ -146,7 +146,7 @@ data "aws_iam_policy_document" "assume_role_policy" {
 
 # create a policy
 resource "aws_iam_policy" "codeartifact_policy" {
-  name        = "${var.namespace}-codeartifact_policy_policy"
+  name        = "${terraform.workspace}-codeartifact_policy_policy"
   description = "Policy for allowing EC2 to get objects from codeartifact"
 
   policy = jsonencode({
