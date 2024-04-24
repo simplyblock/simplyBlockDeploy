@@ -32,9 +32,10 @@ Terraform template to setup simple cluster
 # review the resources
 terraform init
 
-terraform plan
+### switch to workspace 
+terraform workspace select -or-create <workspace_name>
 
-terraform init
+terraform plan
 
 terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
