@@ -1,4 +1,4 @@
-name: Terraform Workflow
+name: E2E Tests
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
 
 jobs:
-  terraform:
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -31,7 +31,7 @@ jobs:
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      
+
       - name: Install Helm
         run: |
           curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
@@ -41,7 +41,7 @@ jobs:
       - name: Initialize Terraform
         run: terraform init
 
-      - name: select or create workspace 
+      - name: select or create workspace
         run: terraform workspace select -or-create githubactions
 
       - name: Validate Terraform Configuration
@@ -62,7 +62,7 @@ jobs:
         id: bootstrap_k3s
 
       - name: copying  Kubeconfig file
-        run: | 
+        run: |
           mkdir -p ${HOME}/.kube
           scp -o StrictHostKeyChecking=no -i ${{ steps.bootstrap_k3s.outputs.KEY }} ec2-user@${{ steps.bootstrap_k3s.outputs.extra_node_ip }}:/etc/rancher/k3s/k3s.yaml ${HOME}/.kube/config
 
@@ -93,7 +93,7 @@ jobs:
             --set logicalVolume.pool_name=testing1
 
       - name: Run tests
-        run: | 
+        run: |
           cd spdk-csi
           make e2e-test
 
