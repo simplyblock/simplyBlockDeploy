@@ -238,7 +238,7 @@ resource "aws_instance" "storage_nodes" {
   }
   user_data = <<EOF
 #!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.hugepage_size}
+sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip unzip
@@ -295,7 +295,7 @@ resource "aws_instance" "extra_nodes" {
   }
   user_data = <<EOF
 #!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.hugepage_size}
+sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 EOF
 }

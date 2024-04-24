@@ -77,7 +77,8 @@ variable "volumes_per_storage_nodes" {
   }
 }
 
-variable "hugepage_size" {
+variable "nr_hugepages" {
   default = 2048
+  description = "number of huge pages"
   type    = number
 }
