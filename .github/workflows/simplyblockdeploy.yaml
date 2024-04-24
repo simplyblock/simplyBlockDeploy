@@ -38,11 +38,11 @@ jobs:
           chmod 700 get_helm.sh
           ./get_helm.sh
 
-      - name: create workspace 
-        run: terraform workspace new githubactions
-
       - name: Initialize Terraform
         run: terraform init
+
+      - name: create workspace 
+        run: terraform workspace new githubactions
 
       - name: Validate Terraform Configuration
         run: terraform validate
