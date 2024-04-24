@@ -110,5 +110,5 @@ jobs:
           fi
 
       - name: Destroy Cluster
-        if: always()
+        #if: always()
         run: terraform destroy --auto-approve
