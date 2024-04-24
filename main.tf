@@ -1,38 +1,6 @@
-provider "aws" {
-  region = var.region
-}
-
-terraform {
-  backend "s3" {
-    bucket         = "simplyblock-terraform-state-bucket"
-    key            = "csi"
-    region         = "us-east-2"
-    dynamodb_table = "terraform-up-and-running-locks"
-    encrypt        = true
-  }
-}
 
 data "aws_availability_zones" "available" {
   state = "available"
-}
-
-locals {
-
-  snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
-
-  node_disks = { for pair in setproduct(local.snodes, slice(var.volume_device_names,0,var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
-  node_name     = pair[0]
-  disk_dev_path = pair[1]
-  } }
-
-  key_name = {
-    "us-east-1"  = "simplyblock-us-east-1.pem"
-    "us-east-2"  = "simplyblock-us-east-2.pem"
-    "eu-north-1" = "simplyblock-eu-north-1.pem" 
-    "eu-west-1"  = "simplyblock-eu-west-1.pem"
-  }
-
-  selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
 }
 
 data "aws_secretsmanager_secret_version" "simply" {
@@ -233,7 +201,7 @@ resource "aws_iam_instance_profile" "inst_profile" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = var.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -264,7 +232,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   for_each               = local.snodes
   
-  ami                    = var.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -278,7 +246,7 @@ resource "aws_instance" "storage_nodes" {
   }
   user_data = <<EOF
 #!/bin/bash
-sudo sysctl -w vm.nr_hugepages=2048
+sudo sysctl -w vm.nr_hugepages=${var.hugepage_size}
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip unzip
@@ -321,7 +289,7 @@ resource "aws_volume_attachment" "attach_sn" {
 # can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = var.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
@@ -335,7 +303,7 @@ resource "aws_instance" "extra_nodes" {
   }
   user_data = <<EOF
 #!/bin/bash
-sudo sysctl -w vm.nr_hugepages=2048
+sudo sysctl -w vm.nr_hugepages=${var.hugepage_size}
 cat /proc/meminfo | grep -i hug
 EOF
 }

@@ -68,22 +68,6 @@ variable "storage_nodes_ebs_size2" {
   type    = number
 }
 
-variable "region_ami_map" {
-  type = map(string)
-  default = {
-    "us-east-1"  = "ami-023c11a32b0207432"
-    "us-east-2"  = "ami-0ef50c2b2eb330511"
-    "eu-north-1" = "ami-01d565a5f2da42e6f"
-    "eu-west-1"  = "ami-049b0abf844cab8d7"
-  }
-}
-
-variable "volume_device_names" {
-  description = "List of device names for the volumes"
-  type        = list(string)
-    default     = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn"]
-}
-
 variable "volumes_per_storage_nodes" {
   default = 1
   type    = number
@@ -91,4 +75,9 @@ variable "volumes_per_storage_nodes" {
     condition     = var.volumes_per_storage_nodes <= 6
     error_message = "The number of volumes per storage node must not exceed 6."
   }
+}
+
+variable "hugepage_size" {
+  default = 2048
+  type    = number
 }
