@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - add_workspace
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
 
@@ -36,6 +37,9 @@ jobs:
           curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
           chmod 700 get_helm.sh
           ./get_helm.sh
+
+      - name: create workspace 
+        run: terraform workspace new githubactions
 
       - name: Initialize Terraform
         run: terraform init
