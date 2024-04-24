@@ -42,7 +42,7 @@ jobs:
         run: terraform init
 
       - name: create workspace 
-        run: terraform workspace new githubactions
+        run: terraform workspace select githubactions
 
       - name: Validate Terraform Configuration
         run: terraform validate
