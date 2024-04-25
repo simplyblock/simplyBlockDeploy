@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - add_workspace
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
   workflow_dispatch:
@@ -88,10 +87,10 @@ jobs:
         run: |
           cd spdk-csi/charts/spdk-csi
           helm install spdk-csi ./ \
-            --set csiConfig.simplybk.uuid=c27d03f4-70c8-44bd-b767-4954c33dc694 \
-            --set csiConfig.simplybk.ip=18.216.220.66 \
-            --set csiSecret.simplybk.secret=358hRW88fBc1ioJEMAb5 \
-            --set logicalVolume.pool_name=testing1
+             --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
+             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
+             --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
+             --set logicalVolume.pool_name=testing1
 
       - name: Run tests
         run: |
