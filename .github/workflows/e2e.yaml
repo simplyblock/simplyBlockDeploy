@@ -7,6 +7,7 @@ on:
       - add_workspace
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
+  workflow_dispatch:
 
 jobs:
   e2e:
@@ -53,9 +54,9 @@ jobs:
       - name: Apply Terraform Changes
         run: terraform apply tfplan
 
-      - name: Bootstrap Cluster
-        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
-        id: bootstrap_cluster
+      # - name: Bootstrap Cluster
+      #   run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
+      #   id: bootstrap_cluster
 
       - name: Bootstrap K3s
         run: $GITHUB_WORKSPACE/bootstrap-k3s.sh
@@ -87,9 +88,9 @@ jobs:
         run: |
           cd spdk-csi/charts/spdk-csi
           helm install spdk-csi ./ \
-            --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-            --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
-            --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
+            --set csiConfig.simplybk.uuid=c27d03f4-70c8-44bd-b767-4954c33dc694 \
+            --set csiConfig.simplybk.ip=18.216.220.66 \
+            --set csiSecret.simplybk.secret=358hRW88fBc1ioJEMAb5 \
             --set logicalVolume.pool_name=testing1
 
       - name: Run tests
