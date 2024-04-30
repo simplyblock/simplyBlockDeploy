@@ -45,12 +45,12 @@ variable "extra_nodes" {
 
 variable "mgmt_nodes_instance_type" {
   default = "m5.large"
-  type    = string 
+  type    = string
 }
 
 variable "storage_nodes_instance_type" {
   default = "m5.large"
-  type    = string 
+  type    = string
 }
 
 variable "extra_nodes_instance_type" {
@@ -78,7 +78,7 @@ variable "volumes_per_storage_nodes" {
 }
 
 variable "nr_hugepages" {
-  default = 2048
+  default     = 2048
   description = "number of huge pages"
-  type    = number
+  type        = number
 }
