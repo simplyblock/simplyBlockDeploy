@@ -1,5 +1,5 @@
 resource "aws_apigatewayv2_api" "simplyblock_api" {
-  name          = "${var.namespace}-simplyblock-mgmt-api"
+  name          = "${var.namespace}-simplyblock-mgmt-api-http"
   protocol_type = "HTTP"
 }
 
