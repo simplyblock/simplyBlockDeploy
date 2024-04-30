@@ -72,6 +72,9 @@ chmod +x ./bootstrap-cluster.sh
 
 # specifying cluster argument to use
 ./bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
+
+# specifying the log deletion interval and metrics retention period
+./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h
 ```
 ### Destroy Cluster
 ```
