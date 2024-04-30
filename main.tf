@@ -76,13 +76,7 @@ resource "aws_security_group" "container_inst_sg" {
     cidr_blocks = var.whitelist_ips
     description = "graylog security group"
   }
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "grafana security group"
-  }
+
   ingress {
     from_port   = 22
     to_port     = 22
@@ -97,27 +91,7 @@ resource "aws_security_group" "container_inst_sg" {
     protocol  = -1
     self      = true
   }
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = ""
-  }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = ""
-  }
-  ingress {
-    from_port   = 2222
-    to_port     = 2222
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = ""
-  }
+
 
 
   ## Egress traffic

@@ -11,7 +11,7 @@ resource "aws_apigatewayv2_vpc_link" "vpc_link" {
 
 resource "aws_apigatewayv2_route" "root" {
   api_id    = aws_apigatewayv2_api.simplyblock_api.id
-  route_key = "ANY /"
+  route_key = "ANY /{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.root_integration.id}"
 }
 
