@@ -9,6 +9,8 @@ print_help() {
     echo "  --cpu-mask <value>                   Set SPDK app CPU mask(optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param(optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param(optional)"
+    echo "  --log-del-interval <value>           Set log deletion interval(optional)"
+    echo "  --metrics-retention-period <value>   Set metrics retention interval(optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -17,6 +19,8 @@ MEMORY=""
 CPU_MASK=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
+LOG_DEL_INTERVAL=""
+METRICS_RETENTION_PERIOD=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -35,6 +39,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --iobuf_large_pool_count)
             IOBUF_LARGE_POOL_COUNT="$2"
+            shift
+            ;;
+        --log-del-interval)
+            LOG_DEL_INTERVAL="$2"
+            shift
+            ;;
+        --metrics-retention-period)
+            METRICS_RETENTION_PERIOD="$2"
             shift
             ;;
         --help)
@@ -97,9 +109,16 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
+command="sbcli-dev cluster create"
+if [[ -n "$LOG_DEL_INTERVAL" ]]; then
+    command+=" --log-del-interval $LOG_DEL_INTERVAL"
+fi
+if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
+    command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
+fi
 # node 1
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-sbcli-dev cluster create
+$command
 "
 
 echo ""
