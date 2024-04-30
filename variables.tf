@@ -82,3 +82,7 @@ variable "nr_hugepages" {
   description = "number of huge pages"
   type        = number
 }
+
+output "storage_public_ips" {
+  value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
+}
