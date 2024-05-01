@@ -65,6 +65,14 @@ resource "aws_security_group" "container_inst_sg" {
   }
 
   ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "access the mgmt node from the bootstrap script"
+  }
+
+  ingress {
     from_port = 0
     to_port   = 0
     protocol  = -1
