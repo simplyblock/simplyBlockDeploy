@@ -49,27 +49,6 @@ resource "aws_security_group" "container_inst_sg" {
     description = "k3s cluster"
   }
   ingress {
-    from_port   = 8404
-    to_port     = 8404
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = ""
-  }
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = ""
-  }
-  ingress {
-    from_port   = 8081
-    to_port     = 8081
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = ""
-  }
-  ingress {
     from_port   = 9000
     to_port     = 9000
     protocol    = "tcp"
@@ -84,15 +63,13 @@ resource "aws_security_group" "container_inst_sg" {
     cidr_blocks = var.whitelist_ips
     description = ""
   }
-  # all traffic from 172.30.0.0/16
+
   ingress {
     from_port = 0
     to_port   = 0
     protocol  = -1
     self      = true
   }
-
-
 
   ## Egress traffic
   egress {
