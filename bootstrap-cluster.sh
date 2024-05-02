@@ -22,6 +22,7 @@ IOBUF_LARGE_POOL_COUNT=""
 LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD=""
+SPDK_IMAGE=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -52,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --sbcli-cmd)
             SBCLI_CMD="$2"
+            shift
+            ;;
+        --spdk-image)
+            SPDK_IMAGE="$2"
             shift
             ;;
         --help)
@@ -184,6 +189,10 @@ fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
 fi
+if [[ -n "$SPDK_IMAGE" ]]; then
+    command+=" --spdk-image SPDK_IMAGE"
+fi
+
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
