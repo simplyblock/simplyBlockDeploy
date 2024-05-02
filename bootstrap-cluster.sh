@@ -205,8 +205,9 @@ ${SBCLI_CMD} cluster unsuspend \${CLUSTER_ID}
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-
-    $command \$CLUSTER_ID \${node}:5000 eth0
+    add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
+    echo "add node command: \${add_node_command}"
+    \$add_node_command
     sleep 5
 done
 "
