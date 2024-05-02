@@ -87,7 +87,7 @@ terraform apply -var namespace="csi" -var mgmt_nodes=0 -var storage_nodes=0 --au
 
 or you could destroy all the resources created
 ```
-terraform destory --auto-approve
+terraform destroy --auto-approve
 ```
 
 

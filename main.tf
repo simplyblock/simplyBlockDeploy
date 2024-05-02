@@ -25,6 +25,7 @@ module "vpc" {
   tags = {
     Terraform   = "true"
     Environment = "${var.namespace}-dev"
+    long-term-test = "true"
   }
 }
 
@@ -168,7 +169,7 @@ resource "aws_instance" "mgmt_nodes" {
 #!/bin/bash
 echo "installing sbcli.."
 sudo  yum install -y pip jq
-pip install sbcli-dev
+pip install ${var.sbcli_pkg}
 
 sudo yum install -y fio nvme-cli unzip;
 sudo modprobe nvme-tcp
@@ -201,11 +202,11 @@ sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip unzip
-pip install sbcli-dev
+pip install ${var.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-sbcli-dev storage-node deploy
+${var.sbcli_pkg} storage-node deploy
 EOF
 }
 
