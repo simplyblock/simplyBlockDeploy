@@ -167,7 +167,7 @@ sleep 60
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} storage-node add-node"
+command="${SBCLI_CMD} -d storage-node add-node"
 
 if [[ -n "$DEVICE_ID" ]]; then
     command+=" --jm-pcie $DEVICE_ID"
