@@ -192,7 +192,7 @@ if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
 fi
 if [[ -n "$SPDK_IMAGE" ]]; then
-    command+=" --spdk-image SPDK_IMAGE"
+    command+=" --spdk-image $SPDK_IMAGE"
 fi
 
 
