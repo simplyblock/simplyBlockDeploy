@@ -25,7 +25,7 @@ module "vpc" {
   tags = {
     Terraform   = "true"
     Environment = "${var.namespace}-dev"
-    long-term-test = "true"
+    # long-term-test = "true"
   }
 }
 
@@ -208,6 +208,34 @@ unzip awscliv2.zip
 sudo ./aws/install
 ${var.sbcli_pkg} storage-node deploy
 EOF
+}
+
+resource "aws_ebs_volume" "storage_nodes_ebs" {
+  count             = var.storage_nodes
+  availability_zone = data.aws_availability_zones.available.names[1]
+  size              = var.storage_nodes_ebs_size1
+}
+
+resource "aws_ebs_volume" "storage_nodes_ebs2" {
+  for_each = local.node_disks
+
+  availability_zone = data.aws_availability_zones.available.names[1]
+  size              = var.storage_nodes_ebs_size2
+}
+
+resource "aws_volume_attachment" "attach_sn2" {
+  for_each = local.node_disks
+
+  device_name = each.value.disk_dev_path
+  volume_id   = aws_ebs_volume.storage_nodes_ebs2[each.key].id
+  instance_id = aws_instance.storage_nodes[each.value.node_name].id
+}
+
+resource "aws_volume_attachment" "attach_sn" {
+  count       = var.storage_nodes
+  device_name = "/dev/sdh"
+  volume_id   = aws_ebs_volume.storage_nodes_ebs[count.index].id
+  instance_id = aws_instance.storage_nodes[count.index].id
 }
 
 # can be used for testing caching nodes
