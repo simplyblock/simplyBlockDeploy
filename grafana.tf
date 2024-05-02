@@ -25,6 +25,8 @@ resource "aws_service_discovery_service" "grafana_service" {
 }
 
 resource "aws_service_discovery_instance" "grafana_endpoint" {
+  count = length(aws_instance.mgmt_nodes) > 0 ? 1 : 0
+
   instance_id = aws_instance.mgmt_nodes[0].id
   service_id  = aws_service_discovery_service.grafana_service.id
 
