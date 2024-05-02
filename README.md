@@ -1,5 +1,6 @@
 ## Prerequisites
 
+
 Before deploying the infrastructure using Terraform, ensure that Terraform and AWS CLI are installed on your local machine. Also, configure AWS CLI with your AWS credentials.
 
 ### Installing Terraform
