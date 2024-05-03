@@ -211,7 +211,7 @@ EOF
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
-  count             = var.storage_nodes
+  count             = var.volumes_per_storage_nodes > 0 ? var.storage_nodes : 0
   availability_zone = data.aws_availability_zones.available.names[1]
   size              = var.storage_nodes_ebs_size1
 }
