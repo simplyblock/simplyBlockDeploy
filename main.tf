@@ -232,7 +232,7 @@ resource "aws_volume_attachment" "attach_sn2" {
 }
 
 resource "aws_volume_attachment" "attach_sn" {
-  count       = var.storage_nodes
+  count       = var.volumes_per_storage_nodes > 0 ? var.storage_nodes : 0
   device_name = "/dev/sdh"
   volume_id   = aws_ebs_volume.storage_nodes_ebs[count.index].id
   instance_id = aws_instance.storage_nodes[count.index].id
