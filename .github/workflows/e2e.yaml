@@ -48,7 +48,7 @@ jobs:
         run: terraform validate
 
       - name: Plan Terraform Changes
-        run: terraform plan -var "namespace=github-action" -var "mgmt_nodes=1" -var "storage_nodes=3" -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" -out=tfplan
+        run: terraform plan -var "namespace=github-action" -var "mgmt_nodes=1" -var "storage_nodes=3" -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" -lock=false -out=tfplan
 
       - name: Apply Terraform Changes
         run: terraform apply tfplan
