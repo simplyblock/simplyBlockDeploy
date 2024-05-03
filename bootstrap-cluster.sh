@@ -5,12 +5,14 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --memory <value>                     Set SPDK huge memory allocation(optional)"
-    echo "  --cpu-mask <value>                   Set SPDK app CPU mask(optional)"
-    echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param(optional)"
-    echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param(optional)"
-    echo "  --log-del-interval <value>           Set log deletion interval(optional)"
-    echo "  --metrics-retention-period <value>   Set metrics retention interval(optional)"
+    echo "  --memory <value>                     Set SPDK huge memory allocation (optional)"
+    echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
+    echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
+    echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
+    echo "  --log-del-interval <value>           Set log deletion interval (optional)"
+    echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
+    echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
+    echo "  --spdk-img <value>                   Set spdk image (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -21,6 +23,8 @@ IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
 LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
+SBCLI_CMD="sbcli-dev"
+SPDK_IMAGE=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -47,6 +51,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --metrics-retention-period)
             METRICS_RETENTION_PERIOD="$2"
+            shift
+            ;;
+        --sbcli-cmd)
+            SBCLI_CMD="$2"
+            shift
+            ;;
+        --spdk-image)
+            SPDK_IMAGE="$2"
             shift
             ;;
         --help)
@@ -109,7 +121,8 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sbcli-dev cluster create"
+command="${SBCLI_CMD} cluster create"
+echo $command
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -134,23 +147,26 @@ for ((i = 2; i <= ${#mnodes[@]}; i++)); do
     MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
-    sbcli-dev mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
+    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
     "
 done
 
 storage_public_ip=$(echo ${storage_public_ips} | cut -d' ' -f1)
 
-DEVICE_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${storage_public_ip} "
-device_name=\$(lsblk -b -o NAME,SIZE | grep -w "$DESIRED_SIZE_BYTES" | awk '{print \$1}')
-if [ -n "\$device_name" ]; then
-    device_id=\$(udevadm info --query=property --name="/dev/\$device_name" | grep ID_PATH= | awk -F'[:-]' '{print \$3 \".\" \$4}')
-    echo "\$device_id"
-    exit 0
+if [ "$SBCLI_CMD" != "sbcli-release" ]; then
+    DEVICE_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${storage_public_ip} "
+    device_name=\$(lsblk -b -o NAME,SIZE | grep -w "$DESIRED_SIZE_BYTES" | awk '{print \$1}')
+    if [ -n "\$device_name" ]; then
+        device_id=\$(udevadm info --query=property --name="/dev/\$device_name" | grep ID_PATH= | awk -F'[:-]' '{print \$3 \".\" \$4}')
+        echo "\$device_id"
+        exit 0
+    fi
+    echo "No matching device found."
+    exit 1
+    ")
+else
+    DEVICE_ID=""
 fi
-echo "No matching device found."
-exit 1
-")
-
 echo "$DEVICE_ID"
 
 echo ""
@@ -158,7 +174,7 @@ sleep 60
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="sbcli-dev storage-node add-node"
+command="${SBCLI_CMD} -d storage-node add-node"
 
 if [[ -n "$DEVICE_ID" ]]; then
     command+=" --jm-pcie $DEVICE_ID"
@@ -175,18 +191,23 @@ fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
 fi
+if [[ -n "$SPDK_IMAGE" ]]; then
+    command+=" --spdk-image $SPDK_IMAGE"
+fi
+
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
-sbcli-dev cluster unsuspend \${CLUSTER_ID}
+${SBCLI_CMD} cluster unsuspend \${CLUSTER_ID}
 
 for node in ${storage_private_ips}; do
     echo ""
     echo "joining node \${node}"
-
-    $command \$CLUSTER_ID \${node}:5000 eth0
+    add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
+    echo "add node command: \${add_node_command}"
+    \$add_node_command
     sleep 5
 done
 "
@@ -208,7 +229,7 @@ echo ""
 CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-sbcli-dev cluster get-secret \${CLUSTER_ID}
+${SBCLI_CMD} cluster get-secret \${CLUSTER_ID}
 ")
 
 echo ""
@@ -216,7 +237,7 @@ echo "adding pool testing1"
 echo ""
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-sbcli-dev pool add testing1
+${SBCLI_CMD} pool add testing1
 "
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
