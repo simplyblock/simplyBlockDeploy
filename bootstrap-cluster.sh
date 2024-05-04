@@ -117,7 +117,7 @@ if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
     command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
 fi
 # node 1
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i $KEY -o IPQoS=throughput -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ec2-user@${mnodes[0]} "
 $command
 "
 
