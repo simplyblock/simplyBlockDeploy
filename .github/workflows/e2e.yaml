@@ -97,7 +97,7 @@ jobs:
       - name: Discover CSI Namespace
         id: get-namespace
         run: |
-          CSI_NS=$(kubectl get pods -l app=spdkcsi-controller -o jsonpath="{.items[0].metadata.namespace}")
+          CSI_NS=$(kubectl get pods --all-namespaces -l app=spdkcsi-controller -o jsonpath="{.items[0].metadata.namespace}")
           echo "Discovered CSI Namespace: $CSI_NS"
           echo "::set-output name=namespace::$CSI_NS"
 
