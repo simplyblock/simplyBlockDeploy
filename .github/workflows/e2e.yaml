@@ -86,26 +86,18 @@ jobs:
 
       - name: Install SPDK-CSI using Helm
         run: |
-          helm repo add spdk-csi https://raw.githubusercontent.com/simplyblock-io/spdk-csi/master/charts
-          helm repo update
-          helm install -n spdk-csi --create-namespace spdk-csi spdk-csi/spdk-csi \
+          cd spdk-csi/charts/latest/spdk-csi
+          helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1
              
-      - name: Discover CSI Namespace
-        id: get-namespace
-        run: |
-          CSI_NS=$(kubectl get pods --all-namespaces -l app=spdkcsi-controller -o jsonpath="{.items[0].metadata.namespace}")
-          echo "Discovered CSI Namespace: $CSI_NS"
-          echo "::set-output name=namespace::$CSI_NS"
-
       - name: Run tests
         run: |
           cd spdk-csi
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
-          export CSI_NAMESPACE=${{ steps.get-namespace.outputs.namespace }}
+          export CSI_NAMESPACE=spdk-csi
           make e2e-test
 
       - name: Upload docker logs to s3
