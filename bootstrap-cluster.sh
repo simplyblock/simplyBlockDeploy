@@ -240,9 +240,12 @@ ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 ${SBCLI_CMD} pool add testing1
 "
 
+API_INVOKE_URL=$(terraform output -raw api_invoke_url)
+
 echo "::set-output name=cluster_id::$CLUSTER_ID"
 echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
 echo "::set-output name=cluster_ip::${mnodes[0]}"
+echo "::set-output name=cluster_api_gateway_endpoint::$API_INVOKE_URL"
 
 echo ""
 echo "Successfully deployed the cluster"

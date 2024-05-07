@@ -87,9 +87,9 @@ jobs:
       - name: Install SPDK-CSI using Helm
         run: |
           cd spdk-csi/charts/latest/spdk-csi
-          helm install spdk-csi ./ \
+          helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
+             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1
 
@@ -106,17 +106,17 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_BUCKET_NAME: "simplyblock-terraform-state-bucket"
 
-      - name: Send Slack Notification
-        if: always()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          if [[ ${{ job.status }} == 'success' ]]; then
-            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
-          else
-            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
-          fi
+      # - name: Send Slack Notification
+      #   if: always()
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #   run: |
+      #     if [[ ${{ job.status }} == 'success' ]]; then
+      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
+      #     else
+      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
+      #     fi
 
-      - name: Destroy Cluster
-        if: always()
-        run: terraform destroy --auto-approve
+      # - name: Destroy Cluster
+      #   if: always()
+      #   run: terraform destroy --auto-approve
