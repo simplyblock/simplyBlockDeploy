@@ -98,13 +98,14 @@ else
 fi
 
 mnodes=$(terraform output -raw mgmt_public_ips)
+echo "mgmt_public_ips: ${mnodes}"
+IFS=' ' read -ra mnodes <<< "$mnodes"
 storage_private_ips=$(terraform output -raw storage_private_ips)
 storage_public_ips=$(terraform output -raw storage_public_ips)
 
 echo "bootstrapping cluster..."
 
 while true; do
-    echo "mgmt_public_ips: ${mnodes[0]}"
     dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
     echo "Current status: $dstatus"
 
@@ -138,9 +139,9 @@ echo ""
 echo "Adding other management nodes if they exist.."
 echo ""
 
-for ((i = 2; i <= ${#mnodes[@]}; i++)); do
+for ((i = 1; i < ${#mnodes[@]}; i++)); do
     echo ""
-    echo "Adding mgmt node ${i}.."
+    echo "Adding mgmt node ${mnodes[${i}]}.."
     echo ""
 
     ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
