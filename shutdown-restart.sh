@@ -115,7 +115,7 @@ elif [ "$RESTART" = true ]; then
     echo \"\$output_snode\" | awk 'BEGIN {FS = \"|\"} {gsub(/ /, \"\", \$2); gsub(/ /, \"\", \$9); print \$2, \$9}' | while read uuid ec2_id; do
         if [ -n \"\$uuid\" ] && [ -n \"\$ec2_id\" ]; then
 
-            echo \"Rebooting EC2 instance: \$ec2_id\"
+            echo \"Starting EC2 instance: \$ec2_id\"
             aws ec2 start-instances --instance-ids \"\$ec2_id\"
             sleep 10
             
