@@ -7,6 +7,8 @@ print_help() {
     echo "Options:"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-img <value>                   Set spdk image (optional)"
+    echo "  --shutdown <value>                   Set for cluster shutdown (optional)"
+    echo "  --restart <value>                    Set fot cluster restart (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
