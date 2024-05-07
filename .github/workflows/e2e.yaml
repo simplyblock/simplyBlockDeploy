@@ -86,7 +86,7 @@ jobs:
 
       - name: Install SPDK-CSI using Helm
         run: |
-          cd spdk-csi/charts/spdk-csi
+          cd spdk-csi/charts/latest/spdk-csi
           helm install spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
