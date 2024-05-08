@@ -86,15 +86,17 @@ jobs:
       - name: Install SPDK-CSI using Helm
         run: |
           cd spdk-csi/charts/latest/spdk-csi
-          helm install spdk-csi ./ \
+          helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1
-
+             
       - name: Run tests
         run: |
           cd spdk-csi
+          echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
+          export CSI_NAMESPACE=spdk-csi
           make e2e-test
 
       - name: Upload docker logs to s3
