@@ -129,6 +129,23 @@ resource "aws_iam_policy" "codeartifact_policy" {
           "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
         ]
       },
+      {
+        Action = [
+          "ec2:StopInstances",
+          "ec2:StartInstances",
+          "ec2:RebootInstances",
+        ],
+        Effect = "Allow",
+        Resource = [
+         "*"
+        ],
+        "Condition": {
+          "StringEquals": {
+            "ec2:ResourceTag/Related": "${var.namespace}-Simplyblock"
+          }
+        }
+
+      },
     ]
   })
 }
@@ -164,6 +181,7 @@ resource "aws_instance" "mgmt_nodes" {
   }
   tags = {
     Name = "${var.namespace}-mgmt-${count.index + 1}"
+    Related = "${var.namespace}-Simplyblock"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -195,6 +213,7 @@ resource "aws_instance" "storage_nodes" {
   }
   tags = {
     Name = "${var.namespace}-storage-${each.value + 1}"
+    Related  = "${var.namespace}-Simplyblock"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -252,6 +271,7 @@ resource "aws_instance" "extra_nodes" {
   }
   tags = {
     Name = "${var.namespace}-k8scluster-${count.index + 1}"
+    Related = "${var.namespace}-Simplyblock"
   }
   user_data = <<EOF
 #!/bin/bash
