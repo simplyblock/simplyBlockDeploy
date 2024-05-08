@@ -101,7 +101,6 @@ mnodes=$(terraform output -raw mgmt_public_ips)
 echo "mgmt_public_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<< "$mnodes"
 storage_private_ips=$(terraform output -raw storage_private_ips)
-storage_public_ips=$(terraform output -raw storage_public_ips)
 
 echo "bootstrapping cluster..."
 
@@ -152,24 +151,6 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     "
 done
 
-storage_public_ip=$(echo ${storage_public_ips} | cut -d' ' -f1)
-
-if [ "$SBCLI_CMD" != "sbcli-release" ]; then
-    DEVICE_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${storage_public_ip} "
-    device_name=\$(lsblk -b -o NAME,SIZE | grep -w "$DESIRED_SIZE_BYTES" | awk '{print \$1}')
-    if [ -n "\$device_name" ]; then
-        device_id=\$(udevadm info --query=property --name="/dev/\$device_name" | grep ID_PATH= | awk -F'[:-]' '{print \$3 \".\" \$4}')
-        echo "\$device_id"
-        exit 0
-    fi
-    echo "No matching device found."
-    exit 1
-    ")
-else
-    DEVICE_ID=""
-fi
-echo "$DEVICE_ID"
-
 echo ""
 sleep 60
 echo "Adding storage nodes..."
@@ -177,9 +158,6 @@ echo ""
 # node 1
 command="${SBCLI_CMD} -d storage-node add-node"
 
-if [[ -n "$DEVICE_ID" ]]; then
-    command+=" --jm-pcie $DEVICE_ID"
-fi
 if [[ -n "$MEMORY" ]]; then
     command+=" --memory $MEMORY"
 fi
