@@ -83,6 +83,12 @@ chmod +x ./bootstrap-cluster.sh
 ```
 
 ### Shutting Down and Restarting Cluster
+##### Add variables to local.env file
+```
+API_INVOKE_URL=https://x8dg1t0y1k.execute-api.us-east-2.amazonaws.com
+CLUSTER_ID=10b8b609-7b28-4797-a3a1-0a64fed1fad2
+CLUSTER_SECRET=I7U9C0daZ64RsxmNG4NK
+```
 ##### shutdown
 ```
 export $(xargs <local.env) && ./shutdown-restart.sh shutdown
