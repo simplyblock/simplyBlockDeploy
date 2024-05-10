@@ -81,6 +81,17 @@ chmod +x ./bootstrap-cluster.sh
 # specifying the log deletion interval and metrics retention period
 ./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h
 ```
+
+### Shutting Down and Restarting Cluster
+##### shutdown
+```
+export $(xargs <local.env) && ./shutdown-restart.sh shutdown
+```
+##### restart
+```
+export $(xargs <local.env) && ./shutdown-restart.sh restart
+```
+
 ### Destroy Cluster
 ```
 terraform apply -var namespace="csi" -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
