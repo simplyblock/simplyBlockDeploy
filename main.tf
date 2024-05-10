@@ -129,23 +129,6 @@ resource "aws_iam_policy" "codeartifact_policy" {
           "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
         ]
       },
-      {
-        Action = [
-          "ec2:StopInstances",
-          "ec2:StartInstances",
-          "ec2:RebootInstances",
-        ],
-        Effect = "Allow",
-        Resource = [
-         "*"
-        ],
-        "Condition": {
-          "StringEquals": {
-            "ec2:ResourceTag/Related": "${var.namespace}-Simplyblock"
-          }
-        }
-
-      },
     ]
   })
 }

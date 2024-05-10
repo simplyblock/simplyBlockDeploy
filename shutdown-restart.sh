@@ -39,7 +39,7 @@ if [ "$SHUTDOWN" = true ]; then
                 --header "Content-Type: application/json" \
                 --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET"
 
-    sleep 10
+    sleep 20
 
     ec2_instance_ids=$(curl -X GET "$API_INVOKE_URL/storagenode" \
                             --header "Content-Type: application/json" \
@@ -65,7 +65,7 @@ elif [ "$RESTART" = true ]; then
             aws ec2 start-instances --instance-ids "$instance_id"
         fi
     done
-    sleep 10
+    sleep 20
     
     curl -X PUT $API_INVOKE_URL/cluster/gracefulstartup/$CLUSTER_ID \
                 --header "Content-Type: application/json" \
