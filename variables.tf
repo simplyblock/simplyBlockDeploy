@@ -94,6 +94,14 @@ variable "nr_hugepages" {
 }
 
 variable "enable_apigateway" {
-  default = 0
+  default = 1
   type    = number
+}
+
+output "grafana_invoke_url" {
+  value = try(module.apigatewayendpoint[0].grafana_invoke_url, "")
+}
+
+output "api_invoke_url" {
+  value = try(module.apigatewayendpoint[0].api_invoke_url, "")
 }

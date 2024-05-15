@@ -39,7 +39,7 @@ resource "aws_service_discovery_instance" "root_endpoint" {
   service_id  = aws_service_discovery_service.root_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = var.mgmt_node_instance_id
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
     AWS_INSTANCE_PORT = "80"
   }
 }
