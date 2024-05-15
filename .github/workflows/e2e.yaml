@@ -53,7 +53,7 @@ jobs:
           terraform plan -var "namespace=github-action" \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
             -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
-            -var "region=us-east-2" -out=tfplan
+            -var "region=us-east-1" -out=tfplan
 
       - name: Apply Terraform Changes
         run: terraform apply tfplan
