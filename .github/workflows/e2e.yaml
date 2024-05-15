@@ -93,7 +93,7 @@ jobs:
           cd spdk-csi/charts/latest/spdk-csi
           helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
+             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=dev
