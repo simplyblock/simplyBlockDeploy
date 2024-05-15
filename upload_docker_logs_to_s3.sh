@@ -34,8 +34,12 @@ AWS_DEFAULT_REGION=$AWS_REGION
 S3_BUCKET=$S3_BUCKET_NAME
 
 mnodes=$(terraform output -raw mgmt_public_ips)
+BASTION_IP=$(terraform output -raw bastion_public_ip)
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+    -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
 sudo yum install -y unzip
 if [ ! -f "awscliv2.zip" ]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
