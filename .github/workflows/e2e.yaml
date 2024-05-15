@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - set_csi_namespace_env
+      - switch_to_workspace
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
   workflow_dispatch:
