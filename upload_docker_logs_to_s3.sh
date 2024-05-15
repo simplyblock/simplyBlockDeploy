@@ -33,7 +33,9 @@ AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 AWS_DEFAULT_REGION=$AWS_REGION
 S3_BUCKET=$S3_BUCKET_NAME
 
-mnodes=$(terraform output -raw mgmt_public_ips)
+mnodes=$(terraform output -raw mgmt_private_ips)
+echo "mgmt_private_ips: ${mnodes}"
+IFS=' ' read -ra mnodes <<<"$mnodes"
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
