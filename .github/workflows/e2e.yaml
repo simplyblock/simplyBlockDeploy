@@ -50,7 +50,7 @@ jobs:
 
       - name: Plan Terraform Changes
         run: |
-          terraform plan -var "namespace=github-action" \
+          terraform plan \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
             -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
             -var "region=us-east-2" -out=tfplan
