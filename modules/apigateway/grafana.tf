@@ -25,13 +25,11 @@ resource "aws_service_discovery_service" "grafana_service" {
 }
 
 resource "aws_service_discovery_instance" "grafana_endpoint" {
-  count = length(aws_instance.mgmt_nodes) > 0 ? 1 : 0
-
-  instance_id = aws_instance.mgmt_nodes[0].id
+  instance_id = var.mgmt_node_instance_id
   service_id  = aws_service_discovery_service.grafana_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = aws_instance.mgmt_nodes[0].private_ip
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
     AWS_INSTANCE_PORT = "3000"
   }
 }

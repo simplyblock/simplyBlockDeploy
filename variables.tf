@@ -93,6 +93,7 @@ variable "nr_hugepages" {
   type        = number
 }
 
-output "storage_public_ips" {
-  value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
+variable "enable_apigateway" {
+  default = 0
+  type    = number
 }
