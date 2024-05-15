@@ -6,6 +6,10 @@ output "mgmt_public_ips" {
   value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
 }
 
+output "mgmt_private_ips" {
+  value = join(" ", aws_instance.mgmt_nodes[*].private_ip)
+}
+
 output "extra_nodes_public_ips" {
   value = join(" ", aws_instance.extra_nodes[*].public_ip)
 }
@@ -43,4 +47,8 @@ output "storage_node_details" {
 
 output "storage_public_ips" {
   value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
+}
+
+output "bastion_public_ip" {
+  value = aws_instance.bastion.public_ip
 }
