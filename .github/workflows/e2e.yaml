@@ -113,16 +113,16 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_BUCKET_NAME: "simplyblock-terraform-state-bucket"
 
-      # - name: Send Slack Notification
-      #   if: always()
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #   run: |
-      #     if [[ ${{ job.status }} == 'success' ]]; then
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
-      #     else
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
-      #     fi
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ ${{ job.status }} == 'success' ]]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
+          else
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
+          fi
 
       - name: Destroy Cluster
         if: always()
