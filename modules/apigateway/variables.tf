@@ -1,7 +1,3 @@
-variable "namespace" {
-  default = "simplyblock"
-}
-
 variable "region" {
   default = "us-west-2"
 }

@@ -2,7 +2,7 @@
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = "${var.namespace}-storage-vpc-sb"
+  name = "${terraform.workspace}-storage-vpc-sb"
   cidr = "10.0.0.0/16"
 
   azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]
@@ -24,7 +24,7 @@ module "vpc" {
 
   tags = {
     Terraform   = "true"
-    Environment = "${var.namespace}-dev"
+    Environment = "${terraform.workspace}-dev"
     # long-term-test = "true"
   }
 }
@@ -32,7 +32,6 @@ module "vpc" {
 module "apigatewayendpoint" {
   count                 = var.enable_apigateway
   source                = "./modules/apigateway"
-  namespace             = var.namespace
   region                = var.region
   mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
   mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
@@ -41,7 +40,7 @@ module "apigatewayendpoint" {
 }
 
 resource "aws_security_group" "container_inst_sg" {
-  name        = "${var.namespace}-container-instance-sg"
+  name        = "${terraform.workspace}-container-instance-sg"
   description = "CSI Cluster Container Security Group"
 
   vpc_id = module.vpc.vpc_id
@@ -187,7 +186,7 @@ resource "aws_instance" "bastion" {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-bastion"
+    Name = "${terraform.workspace}-bastion"
   }
 }
 
@@ -203,7 +202,7 @@ resource "aws_instance" "mgmt_nodes" {
     volume_size = 100
   }
   tags = {
-    Name = "${var.namespace}-mgmt-${count.index + 1}"
+    Name = "${terraform.workspace}-mgmt-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -234,7 +233,7 @@ resource "aws_instance" "storage_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-storage-${each.value + 1}"
+    Name = "${terraform.workspace}-storage-${each.value + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -291,7 +290,7 @@ resource "aws_instance" "extra_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-k8scluster-${count.index + 1}"
+    Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -323,7 +322,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.16.0"
 
-  cluster_name    = "${var.namespace}-${var.cluster_name}"
+  cluster_name    = "${terraform.workspace}-${var.cluster_name}"
   cluster_version = "1.28"
 
   cluster_endpoint_private_access = true # default is true
@@ -393,7 +392,7 @@ module "eks" {
   }
 
   tags = {
-    Name        = "${var.namespace}-${var.cluster_name}"
-    Environment = "${var.namespace}-dev"
+    Name        = "${terraform.workspace}-${var.cluster_name}"
+    Environment = "${terraform.workspace}-dev"
   }
 }
