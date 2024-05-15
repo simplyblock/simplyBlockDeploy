@@ -130,7 +130,7 @@ if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
     command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
 fi
 # node 1
-ssh -i $KEY -o IPQoS=throughput -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ec2-user@${mnodes[0]} "
 $command
 "
 
@@ -143,7 +143,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     echo "Adding mgmt node ${mnodes[${i}]}.."
     echo ""
 
-    ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
+    ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
@@ -175,7 +175,7 @@ if [[ -n "$SPDK_IMAGE" ]]; then
 fi
 
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
@@ -215,7 +215,7 @@ echo ""
 echo "adding pool testing1"
 echo ""
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 ${SBCLI_CMD} pool add testing1
 "
 
