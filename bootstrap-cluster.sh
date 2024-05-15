@@ -223,7 +223,7 @@ API_INVOKE_URL=$(terraform output -raw api_invoke_url)
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
 echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
-echo "::set-output name=cluster_ip::${mnodes[0]}"
+echo "::set-output name=cluster_ip::http://${mnodes[0]}"
 echo "::set-output name=cluster_api_gateway_endpoint::$API_INVOKE_URL"
 
 echo ""

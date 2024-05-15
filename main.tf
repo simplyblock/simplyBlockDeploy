@@ -29,6 +29,17 @@ module "vpc" {
   }
 }
 
+module "apigatewayendpoint" {
+  count                 = var.enable_apigateway
+  source                = "./modules/apigateway"
+  namespace             = var.namespace
+  region                = var.region
+  mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
+  mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
+  container_inst_sg_id  = aws_security_group.container_inst_sg.id
+  public_subnets        = module.vpc.public_subnets
+}
+
 resource "aws_security_group" "container_inst_sg" {
   name        = "${var.namespace}-container-instance-sg"
   description = "CSI Cluster Container Security Group"
@@ -66,14 +77,6 @@ resource "aws_security_group" "container_inst_sg" {
   }
 
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "access the mgmt node from the bootstrap script"
-  }
-
-  ingress {
     from_port = 0
     to_port   = 0
     protocol  = -1
@@ -87,6 +90,28 @@ resource "aws_security_group" "container_inst_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_security_group_rule" "mgmt_api" {
+  count = var.enable_apigateway == 0 ? 1 : 0
+
+  security_group_id = aws_security_group.container_inst_sg.id
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "grafana_api" {
+  count = var.enable_apigateway == 0 ? 1 : 0
+
+  security_group_id = aws_security_group.container_inst_sg.id
+  type              = "ingress"
+  from_port         = 3000
+  to_port           = 3000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 # create assumed role
@@ -356,47 +381,4 @@ module "eks" {
     Name        = "${var.namespace}-${var.cluster_name}"
     Environment = "${var.namespace}-dev"
   }
-}
-
-output "storage_private_ips" {
-  value = join(" ", [for inst in aws_instance.storage_nodes : inst.private_ip])
-}
-
-output "mgmt_public_ips" {
-  value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
-}
-
-output "extra_nodes_public_ips" {
-  value = join(" ", aws_instance.extra_nodes[*].public_ip)
-}
-
-output "key_name" {
-  value = local.selected_key_name
-}
-
-output "secret_value" {
-  sensitive = true
-  value     = data.aws_secretsmanager_secret_version.simply.secret_string
-}
-
-output "mgmt_node_details" {
-  value = { for i, instance in aws_instance.mgmt_nodes :
-    instance.tags["Name"] => {
-      type       = instance.instance_type
-      public_ip  = instance.public_ip
-      private_ip = instance.private_ip
-    }
-  }
-  description = "Details of the mgmt nodes."
-}
-
-output "storage_node_details" {
-  value = { for i, instance in aws_instance.storage_nodes :
-    instance.tags["Name"] => {
-      type       = instance.instance_type
-      public_ip  = instance.public_ip
-      private_ip = instance.private_ip
-    }
-  }
-  description = "Details of the storage node nodes."
 }
