@@ -10,7 +10,7 @@ module "vpc" {
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
 
-  enable_nat_gateway = false
+  enable_nat_gateway = true
 
   public_subnet_tags = {
     "kubernetes.io/role/elb"                    = 1
@@ -176,13 +176,28 @@ resource "aws_iam_instance_profile" "inst_profile" {
   role = aws_iam_role.role.name
 }
 
+resource "aws_instance" "bastion" {
+  ami                    = local.region_ami_map[var.region] # RHEL 9
+  instance_type          = "t2.micro"
+  key_name               = local.selected_key_name
+  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  subnet_id              = module.vpc.public_subnets[0]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
+  root_block_device {
+    volume_size = 25
+  }
+  tags = {
+    Name = "${var.namespace}-bastion"
+  }
+}
+
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
+  subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 100
@@ -213,7 +228,7 @@ resource "aws_instance" "storage_nodes" {
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
+  subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 25

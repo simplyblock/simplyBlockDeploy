@@ -29,52 +29,53 @@ SPDK_IMAGE=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-        --memory)
-            MEMORY="$2"
-            shift
-            ;;
-        --cpu-mask)
-            CPU_MASK="$2"
-            shift
-            ;;
-        --iobuf_small_pool_count)
-            IOBUF_SMALL_POOL_COUNT="$2"
-            shift
-            ;;
-        --iobuf_large_pool_count)
-            IOBUF_LARGE_POOL_COUNT="$2"
-            shift
-            ;;
-        --log-del-interval)
-            LOG_DEL_INTERVAL="$2"
-            shift
-            ;;
-        --metrics-retention-period)
-            METRICS_RETENTION_PERIOD="$2"
-            shift
-            ;;
-        --sbcli-cmd)
-            SBCLI_CMD="$2"
-            shift
-            ;;
-        --spdk-image)
-            SPDK_IMAGE="$2"
-            shift
-            ;;
-        --help)
-            print_help
-            ;;
-        *)
-            echo "Unknown option: $1"
-            print_help
-            ;;
+    --memory)
+        MEMORY="$2"
+        shift
+        ;;
+    --cpu-mask)
+        CPU_MASK="$2"
+        shift
+        ;;
+    --iobuf_small_pool_count)
+        IOBUF_SMALL_POOL_COUNT="$2"
+        shift
+        ;;
+    --iobuf_large_pool_count)
+        IOBUF_LARGE_POOL_COUNT="$2"
+        shift
+        ;;
+    --log-del-interval)
+        LOG_DEL_INTERVAL="$2"
+        shift
+        ;;
+    --metrics-retention-period)
+        METRICS_RETENTION_PERIOD="$2"
+        shift
+        ;;
+    --sbcli-cmd)
+        SBCLI_CMD="$2"
+        shift
+        ;;
+    --spdk-image)
+        SPDK_IMAGE="$2"
+        shift
+        ;;
+    --help)
+        print_help
+        ;;
+    *)
+        echo "Unknown option: $1"
+        print_help
+        ;;
     esac
     shift
 done
 
-DESIRED_SIZE_BYTES=2147483648  # 2 GB in bytes
+DESIRED_SIZE_BYTES=2147483648 # 2 GB in bytes
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
+BASTION_IP=$(terraform output -raw bastion_public_ip)
 
 ssh_dir="$HOME/.ssh"
 
@@ -97,15 +98,18 @@ else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
 
-mnodes=$(terraform output -raw mgmt_public_ips)
-echo "mgmt_public_ips: ${mnodes}"
-IFS=' ' read -ra mnodes <<< "$mnodes"
+mnodes=$(terraform output -raw mgmt_private_ips)
+echo "mgmt_private_ips: ${mnodes}"
+IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
 echo "bootstrapping cluster..."
 
 while true; do
-    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
+    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
+
     echo "Current status: $dstatus"
 
     if [[ "$dstatus" == "status: done" ]]; then
@@ -129,8 +133,12 @@ fi
 if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
     command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
 fi
+
 # node 1
-ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+    -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
+    -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
 $command
 "
 
@@ -174,8 +182,9 @@ if [[ -n "$SPDK_IMAGE" ]]; then
     command+=" --spdk-image $SPDK_IMAGE"
 fi
 
-
-ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o StrictHostKeyChecking=no \
+              -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+              ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \"Cluster ID is: \${CLUSTER_ID}\"
@@ -195,7 +204,7 @@ echo ""
 echo "getting cluster id"
 echo ""
 
-CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 echo \${CLUSTER_ID}
@@ -205,7 +214,7 @@ echo ""
 echo "getting cluster secret"
 echo ""
 
-CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
 ${SBCLI_CMD} cluster get-secret \${CLUSTER_ID}
@@ -215,7 +224,7 @@ echo ""
 echo "adding pool testing1"
 echo ""
 
-ssh -i "$KEY" -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+ssh -i "$KEY" -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" ec2-user@${mnodes[0]} "
 ${SBCLI_CMD} pool add testing1
 "
 
