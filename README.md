@@ -91,3 +91,26 @@ or you could destroy all the resources created
 terraform destroy --auto-approve
 
 ```
+
+### Connecting to Cluster using Bastion 
+
+##### Steps
+1. Copy keypair to the bastion host home directory
+
+```bash
+scp -i "$HOME/.ssh/simplyblock-us-east-2.pem" $HOME/.ssh/simplyblock-us-east-2.pem ec2-user@<Bastion-Public-IP>:/home/ec2-user/
+```
+2. Connect to the Bastion Host:
+
+SSH into the bastion host.
+
+```bash
+ssh -i "$HOME/.ssh/simplyblock-us-east-2.pem" ec2-user@<Bastion-Public-IP>
+```
+
+3. SSH into the Management Node from the Bastion Host:
+Use the key pair to SSH into the management node from the bastion host.
+
+```bash
+ssh -i "/home/ec2-user/simplyblock-us-east-2.pem" ec2-user@<Management-Node-Private-IP>
+```
