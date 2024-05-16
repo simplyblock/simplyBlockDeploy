@@ -94,6 +94,9 @@ terraform destroy --auto-approve
 
 ### Connecting to Cluster using Bastion 
 
+#### Assuming the following:
+Key pair file name: simplyblock-us-east-2.pem
+
 ##### Steps
 1. Copy keypair to the bastion host home directory
 
