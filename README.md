@@ -112,6 +112,7 @@ ssh -i "$HOME/.ssh/simplyblock-us-east-2.pem" ec2-user@<Bastion-Public-IP>
 ```
 
 3. SSH into the Management Node from the Bastion Host:
+
    Use the key pair to SSH into the management node from the bastion host.
 
 ```bash
