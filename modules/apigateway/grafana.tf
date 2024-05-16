@@ -1,5 +1,5 @@
 resource "aws_apigatewayv2_api" "grafana_api" {
-  name          = "${var.namespace}-simplyblock-mgmt-api-grafana"
+  name          = "${terraform.workspace}-simplyblock-mgmt-api-grafana"
   protocol_type = "HTTP"
 }
 
@@ -19,7 +19,7 @@ resource "aws_apigatewayv2_integration" "grafana_integration" {
 }
 
 resource "aws_service_discovery_service" "grafana_service" {
-  name         = "${var.namespace}-simplyblock-grafana-svc"
+  name         = "${terraform.workspace}-simplyblock-grafana-svc"
   namespace_id = aws_service_discovery_http_namespace.mgmt_api.id
   type         = "HTTP"
 }

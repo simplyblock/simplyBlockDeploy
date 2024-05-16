@@ -38,26 +38,26 @@ terraform workspace select -or-create <workspace_name>
 
 terraform plan
 
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
 # Deploying with eks
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
 
 # Specifying the instance types to use
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
 
 # Specifying the number of ebs volumes to attach to storage nodes
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
 
 # Specifying the size of ebs volumes for storage nodes
 ### -var storage_nodes_ebs_size1=2 for Journal Manaher
 ### -var storage_nodes_ebs_size2=50 for Storage node
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
                 -var storage_nodes_ebs_size2=50 for Storage node --auto-approve
 
 # specifying the size of hugepage to use
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
 
 # Save terraform output to a file
 terraform output -json > outputs.json
@@ -83,10 +83,11 @@ chmod +x ./bootstrap-cluster.sh
 ```
 ### Destroy Cluster
 ```
-terraform apply -var namespace="csi" -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
+terraform apply -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
 ```
 
 or you could destroy all the resources created
 ```
 terraform destroy --auto-approve
+
 ```

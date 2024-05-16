@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - set_csi_namespace_env
+      - switch_to_workspace
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
 
       - name: Plan Terraform Changes
         run: |
-          terraform plan -var "namespace=github-action" \
+          terraform plan \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
             -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
             -var "region=us-east-2" -out=tfplan
@@ -93,7 +93,7 @@ jobs:
           cd spdk-csi/charts/latest/spdk-csi
           helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_ip }} \
+             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=dev
