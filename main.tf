@@ -30,7 +30,7 @@ module "vpc" {
 }
 
 module "apigatewayendpoint" {
-  count                 = var.enable_apigateway
+  count                 = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
   source                = "./modules/apigateway"
   region                = var.region
   mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
