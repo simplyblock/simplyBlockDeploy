@@ -95,26 +95,10 @@ terraform destroy --auto-approve
 ### SSH to Cluster using Bastion 
 
 #### Assuming the following:
-Key pair file name: simplyblock-us-east-2.pem
+Key pair file name: simplyblock-us-east-1.pem
 
-##### Steps
-1. Copy keypair to the bastion host home directory
+##### Step
 
-```bash
-scp -i "$HOME/.ssh/simplyblock-us-east-2.pem" $HOME/.ssh/simplyblock-us-east-2.pem ec2-user@<Bastion-Public-IP>:/home/ec2-user/
-```
-2. Connect to the Bastion Host:
+Use this command to ssh into the mgmt node 
 
-   SSH into the bastion host.
-
-```bash
-ssh -i "$HOME/.ssh/simplyblock-us-east-2.pem" ec2-user@<Bastion-Public-IP>
-```
-
-3. SSH into the Management Node from the Bastion Host:
-
-   Use the key pair to SSH into the management node from the bastion host.
-
-```bash
-ssh -i "/home/ec2-user/simplyblock-us-east-2.pem" ec2-user@<Management-Node-Private-IP>
-```
+ssh -i ~/.ssh/simplyblock-us-east-1.pem -o ProxyCommand="ssh -i ~/.ssh/simplyblock-us-east-1.pem -W %h:%p ec2-user@<Bastion-Public-IP>" ec2-user@<Management-Node-Private-IP or Storage-Node-Private-IP>
