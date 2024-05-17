@@ -91,3 +91,16 @@ or you could destroy all the resources created
 terraform destroy --auto-approve
 
 ```
+
+### SSH to Cluster using Bastion 
+
+#### Assuming the following:
+Key pair file name: simplyblock-us-east-1.pem
+
+##### Step
+
+Use this command to ssh into the mgmt node or storage nodes in private subnets
+
+```bash
+ssh -i ~/.ssh/simplyblock-us-east-1.pem -o ProxyCommand="ssh -i ~/.ssh/simplyblock-us-east-1.pem -W %h:%p ec2-user@<Bastion-Public-IP>" ec2-user@<Management-Node-Private-IP or Storage-Node-Private-IP>
+```
