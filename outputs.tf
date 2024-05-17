@@ -52,3 +52,12 @@ output "storage_public_ips" {
 output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
 }
+
+
+output "grafana_invoke_url" {
+  value = try(module.apigatewayendpoint[0].grafana_invoke_url, "")
+}
+
+output "api_invoke_url" {
+  value = try(module.apigatewayendpoint[0].api_invoke_url, "")
+}
