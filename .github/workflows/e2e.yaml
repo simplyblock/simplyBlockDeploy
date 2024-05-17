@@ -12,6 +12,9 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
