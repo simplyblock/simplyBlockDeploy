@@ -18,11 +18,6 @@ variable "sbcli_pkg" {
   }
 }
 
-variable "namespace" {
-  default     = "csi"
-  description = "global naming"
-}
-
 variable "cluster_name" {
   default     = "simplyblock-eks-cluster"
   description = "EKS Cluster name"
@@ -93,6 +88,7 @@ variable "nr_hugepages" {
   type        = number
 }
 
-output "storage_public_ips" {
-  value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
+variable "enable_apigateway" {
+  default = 1
+  type    = number
 }

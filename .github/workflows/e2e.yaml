@@ -11,6 +11,9 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -48,7 +51,11 @@ jobs:
         run: terraform validate
 
       - name: Plan Terraform Changes
-        run: terraform plan -var "namespace=github-action" -var "mgmt_nodes=1" -var "storage_nodes=3" -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" -out=tfplan
+        run: |
+          terraform plan \
+            -var "mgmt_nodes=1" -var "storage_nodes=3" \
+            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
+            -var "region=us-east-2" -out=tfplan
 
       - name: Apply Terraform Changes
         run: terraform apply tfplan
@@ -90,8 +97,9 @@ jobs:
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
-             --set logicalVolume.pool_name=testing1
-             
+             --set logicalVolume.pool_name=testing1 \
+             --set image.simplyblock.tag=dev
+
       - name: Run tests
         run: |
           cd spdk-csi

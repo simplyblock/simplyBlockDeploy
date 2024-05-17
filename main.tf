@@ -2,7 +2,7 @@
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = "${var.namespace}-storage-vpc-sb"
+  name = "${terraform.workspace}-storage-vpc-sb"
   cidr = "10.0.0.0/16"
 
   azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]
@@ -10,7 +10,7 @@ module "vpc" {
   public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
   map_public_ip_on_launch = true
 
-  enable_nat_gateway = false
+  enable_nat_gateway = true
 
   public_subnet_tags = {
     "kubernetes.io/role/elb"                    = 1
@@ -24,13 +24,23 @@ module "vpc" {
 
   tags = {
     Terraform   = "true"
-    Environment = "${var.namespace}-dev"
+    Environment = "${terraform.workspace}-dev"
     # long-term-test = "true"
   }
 }
 
+module "apigatewayendpoint" {
+  count                 = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
+  source                = "./modules/apigateway"
+  region                = var.region
+  mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
+  mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
+  container_inst_sg_id  = aws_security_group.container_inst_sg.id
+  public_subnets        = module.vpc.public_subnets
+}
+
 resource "aws_security_group" "container_inst_sg" {
-  name        = "${var.namespace}-container-instance-sg"
+  name        = "${terraform.workspace}-container-instance-sg"
   description = "CSI Cluster Container Security Group"
 
   vpc_id = module.vpc.vpc_id
@@ -66,14 +76,6 @@ resource "aws_security_group" "container_inst_sg" {
   }
 
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "access the mgmt node from the bootstrap script"
-  }
-
-  ingress {
     from_port = 0
     to_port   = 0
     protocol  = -1
@@ -87,6 +89,28 @@ resource "aws_security_group" "container_inst_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_security_group_rule" "mgmt_api" {
+  count = var.enable_apigateway == 0 ? 1 : 0
+
+  security_group_id = aws_security_group.container_inst_sg.id
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "grafana_api" {
+  count = var.enable_apigateway == 0 ? 1 : 0
+
+  security_group_id = aws_security_group.container_inst_sg.id
+  type              = "ingress"
+  from_port         = 3000
+  to_port           = 3000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 # create assumed role
@@ -151,20 +175,34 @@ resource "aws_iam_instance_profile" "inst_profile" {
   role = aws_iam_role.role.name
 }
 
+resource "aws_instance" "bastion" {
+  ami                    = local.region_ami_map[var.region] # RHEL 9
+  instance_type          = "t2.micro"
+  key_name               = local.selected_key_name
+  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  subnet_id              = module.vpc.public_subnets[0]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
+  root_block_device {
+    volume_size = 25
+  }
+  tags = {
+    Name = "${terraform.workspace}-bastion"
+  }
+}
+
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
+  subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 100
   }
   tags = {
-    Name = "${var.namespace}-mgmt-${count.index + 1}"
-    Related = "${var.namespace}-Simplyblock"
+    Name = "${terraform.workspace}-mgmt-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -189,14 +227,13 @@ resource "aws_instance" "storage_nodes" {
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
+  subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-storage-${each.value + 1}"
-    Related  = "${var.namespace}-Simplyblock"
+    Name = "${terraform.workspace}-storage-${each.value + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -253,8 +290,7 @@ resource "aws_instance" "extra_nodes" {
     volume_size = 25
   }
   tags = {
-    Name = "${var.namespace}-k8scluster-${count.index + 1}"
-    Related = "${var.namespace}-Simplyblock"
+    Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
   }
   user_data = <<EOF
 #!/bin/bash
@@ -263,143 +299,3 @@ cat /proc/meminfo | grep -i hug
 EOF
 }
 
-
-# resource "aws_ebs_volume" "extra_nodes_ebs" {
-#   count             = var.extra_nodes
-#   availability_zone = "us-east-2b"
-#   size              = 50
-# }
-
-# resource "aws_volume_attachment" "attach_cn" {
-#   count       = var.extra_nodes
-#   device_name = "/dev/sdh"
-#   volume_id   = aws_ebs_volume.extra_nodes_ebs[count.index].id
-#   instance_id = aws_instance.extra_nodes[count.index].id
-# }
-
-
-################################################################################
-# EKS
-################################################################################
-module "eks" {
-  count   = var.enable_eks
-  source  = "terraform-aws-modules/eks/aws"
-  version = "19.16.0"
-
-  cluster_name    = "${var.namespace}-${var.cluster_name}"
-  cluster_version = "1.28"
-
-  cluster_endpoint_private_access = true # default is true
-  cluster_endpoint_public_access  = true
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.public_subnets
-
-  cluster_addons = {
-    coredns = {
-      most_recent = true
-    }
-    kube-proxy = {
-      most_recent = true
-    }
-    vpc-cni = {
-      most_recent = true
-    }
-  }
-
-  enable_irsa = true
-
-  eks_managed_node_group_defaults = {
-    disk_size                  = 30
-    iam_role_attach_cni_policy = true
-  }
-
-  eks_managed_node_groups = {
-    eks-nodes = {
-      desired_size = 1
-      min_size     = 1
-      max_size     = 4
-
-      labels = {
-        role = "general"
-      }
-
-      instance_types          = ["t3.large"]
-      capacity_type           = "ON_DEMAND"
-      key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
-      pre_bootstrap_user_data = <<-EOT
-        echo "installing nvme-cli.."
-        sudo yum install -y nvme-cli
-        sudo modprobe nvme-tcp
-      EOT
-    }
-
-    cache-nodes = {
-      desired_size = 2
-      min_size     = 2
-      max_size     = 3
-      labels = {
-        role = "cache"
-      }
-
-      instance_types          = ["i3en.large"]
-      capacity_type           = "ON_DEMAND"
-      key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
-      pre_bootstrap_user_data = <<-EOT
-        echo "installing nvme-cli.."
-        sudo yum install -y nvme-cli
-        sudo modprobe nvme-tcp
-      EOT
-    }
-  }
-
-  tags = {
-    Name        = "${var.namespace}-${var.cluster_name}"
-    Environment = "${var.namespace}-dev"
-  }
-}
-
-output "storage_private_ips" {
-  value = join(" ", [for inst in aws_instance.storage_nodes : inst.private_ip])
-}
-
-output "mgmt_public_ips" {
-  value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
-}
-
-output "extra_nodes_public_ips" {
-  value = join(" ", aws_instance.extra_nodes[*].public_ip)
-}
-
-output "key_name" {
-  value = local.selected_key_name
-}
-
-output "secret_value" {
-  sensitive = true
-  value     = data.aws_secretsmanager_secret_version.simply.secret_string
-}
-
-output "mgmt_node_details" {
-  value = { for i, instance in aws_instance.mgmt_nodes :
-    instance.tags["Name"] => {
-      type       = instance.instance_type
-      public_ip  = instance.public_ip
-      private_ip = instance.private_ip
-    }
-  }
-  description = "Details of the mgmt nodes."
-}
-
-output "storage_node_details" {
-  value = { for i, instance in aws_instance.storage_nodes :
-    instance.tags["Name"] => {
-      type       = instance.instance_type
-      public_ip  = instance.public_ip
-      private_ip = instance.private_ip
-    }
-  }
-  description = "Details of the storage node nodes."
-}

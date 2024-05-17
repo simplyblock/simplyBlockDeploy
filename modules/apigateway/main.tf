@@ -1,12 +1,12 @@
 resource "aws_apigatewayv2_api" "simplyblock_api" {
-  name          = "${var.namespace}-simplyblock-mgmt-api-http"
+  name          = "${terraform.workspace}-simplyblock-mgmt-api-http"
   protocol_type = "HTTP"
 }
 
 resource "aws_apigatewayv2_vpc_link" "vpc_link" {
-  name               = "${var.namespace}-simplyblock-vpclink"
-  security_group_ids = [aws_security_group.container_inst_sg.id]
-  subnet_ids         = module.vpc.public_subnets
+  name               = "${terraform.workspace}-simplyblock-vpclink"
+  security_group_ids = [var.container_inst_sg_id]
+  subnet_ids         = var.public_subnets
 }
 
 resource "aws_apigatewayv2_route" "root" {
@@ -25,23 +25,21 @@ resource "aws_apigatewayv2_integration" "root_integration" {
 }
 
 resource "aws_service_discovery_http_namespace" "mgmt_api" {
-  name = "${var.namespace}-simplyblock-mgmt-api"
+  name = "${terraform.workspace}-simplyblock-mgmt-api"
 }
 
 resource "aws_service_discovery_service" "root_service" {
-  name         = "${var.namespace}-simplyblock-root-svc"
+  name         = "${terraform.workspace}-simplyblock-root-svc"
   namespace_id = aws_service_discovery_http_namespace.mgmt_api.id
   type         = "HTTP"
 }
 
 resource "aws_service_discovery_instance" "root_endpoint" {
-  count = length(aws_instance.mgmt_nodes) > 0 ? 1 : 0
-
-  instance_id = aws_instance.mgmt_nodes[0].id
+  instance_id = var.mgmt_node_instance_id
   service_id  = aws_service_discovery_service.root_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = aws_instance.mgmt_nodes[0].private_ip
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
     AWS_INSTANCE_PORT = "80"
   }
 }

@@ -38,26 +38,26 @@ terraform workspace select -or-create <workspace_name>
 
 terraform plan
 
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
 # Deploying with eks
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
 
 # Specifying the instance types to use
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
 
 # Specifying the number of ebs volumes to attach to storage nodes
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
 
 # Specifying the size of ebs volumes for storage nodes
 ### -var storage_nodes_ebs_size1=2 for Journal Manaher
 ### -var storage_nodes_ebs_size2=50 for Storage node
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
                 -var storage_nodes_ebs_size2=50 for Storage node --auto-approve
 
 # specifying the size of hugepage to use
-terraform apply -var namespace="csi" -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
 
 # Save terraform output to a file
 terraform output -json > outputs.json
@@ -100,18 +100,24 @@ export $(xargs <local.env) && ./shutdown-restart.sh restart
 
 ### Destroy Cluster
 ```
-terraform apply -var namespace="csi" -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
+terraform apply -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
 ```
 
 or you could destroy all the resources created
 ```
 terraform destroy --auto-approve
+
 ```
 
+### SSH to Cluster using Bastion 
 
-create sn nodes of type: m6id.large
-add sn to cluster --> wil get an error: nvme devices not found.
+#### Assuming the following:
+Key pair file name: simplyblock-us-east-1.pem
 
-and change to i3en.large
-we observe that the private IPs didn't change.
-add sn to cluster  -->wil get an error: nvme devices not found.
+##### Step
+
+Use this command to ssh into the mgmt node or storage nodes in private subnets
+
+```bash
+ssh -i ~/.ssh/simplyblock-us-east-1.pem -o ProxyCommand="ssh -i ~/.ssh/simplyblock-us-east-1.pem -W %h:%p ec2-user@<Bastion-Public-IP>" ec2-user@<Management-Node-Private-IP or Storage-Node-Private-IP>
+```

@@ -1,5 +1,5 @@
 resource "aws_apigatewayv2_api" "grafana_api" {
-  name          = "${var.namespace}-simplyblock-mgmt-api-grafana"
+  name          = "${terraform.workspace}-simplyblock-mgmt-api-grafana"
   protocol_type = "HTTP"
 }
 
@@ -19,19 +19,17 @@ resource "aws_apigatewayv2_integration" "grafana_integration" {
 }
 
 resource "aws_service_discovery_service" "grafana_service" {
-  name         = "${var.namespace}-simplyblock-grafana-svc"
+  name         = "${terraform.workspace}-simplyblock-grafana-svc"
   namespace_id = aws_service_discovery_http_namespace.mgmt_api.id
   type         = "HTTP"
 }
 
 resource "aws_service_discovery_instance" "grafana_endpoint" {
-  count = length(aws_instance.mgmt_nodes) > 0 ? 1 : 0
-
-  instance_id = aws_instance.mgmt_nodes[0].id
+  instance_id = var.mgmt_node_instance_id
   service_id  = aws_service_discovery_service.grafana_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = aws_instance.mgmt_nodes[0].private_ip
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
     AWS_INSTANCE_PORT = "3000"
   }
 }
