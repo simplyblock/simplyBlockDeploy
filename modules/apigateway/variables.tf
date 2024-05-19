@@ -10,7 +10,7 @@ variable "mgmt_node_instance_id" {
     type = string
 }
 
-variable "container_inst_sg_id" {
+variable "api_gateway_id" {
     type = string
 }
 

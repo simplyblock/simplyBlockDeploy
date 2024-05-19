@@ -1,3 +1,19 @@
+resource "aws_security_group" "eks_nodes_sg" {
+  count       = var.enable_eks
+  name        = "${terraform.workspace}-eks-sg"
+  description = "EKS Worker nodes Security Group"
+
+  vpc_id = module.vpc.vpc_id
+
+  egress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "allow traffic from API gateway to Mgmt nodes"
+  }
+}
+
 module "eks" {
   count   = var.enable_eks
   source  = "terraform-aws-modules/eks/aws"
@@ -44,7 +60,7 @@ module "eks" {
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
+      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli
@@ -63,7 +79,7 @@ module "eks" {
       instance_types          = ["i3en.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.container_inst_sg.id]
+      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli

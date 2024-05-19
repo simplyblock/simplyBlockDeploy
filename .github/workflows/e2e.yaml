@@ -95,9 +95,9 @@ jobs:
         run: |
           cd spdk-csi/charts/latest/spdk-csi
           helm install -n spdk-csi --create-namespace spdk-csi ./ \
-             --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
-             --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
+             --set csiConfig.simplybk.uuid=00bac0e5-8224-4749-b510-37979e5e661f \
+             --set csiConfig.simplybk.ip=https://prtzjsfa6j.execute-api.us-east-1.amazonaws.com \
+             --set csiSecret.simplybk.secret=TYERZx3ZcjXSU64udylI \
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=dev
 
