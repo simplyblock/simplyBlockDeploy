@@ -84,10 +84,40 @@ resource "aws_security_group" "mgmt_node_sg" {
     description     = "Grafana from API gatewway"
   }
 
+  # Docker Swarm Manager Ports
+  ingress {
+    from_port       = 2377
+    to_port         = 2377
+    protocol        = "tcp"
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description     = "Docker Swarm Manager Communication"
+  }
+  ingress {
+    from_port       = 7946
+    to_port         = 7946
+    protocol        = "tcp"
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description     = "Docker Swarm Node Communication TCP"
+  }
+  ingress {
+    from_port       = 7946
+    to_port         = 7946
+    protocol        = "udp"
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description     = "Docker Swarm Node Communication UDP"
+  }
+  ingress {
+    from_port       = 4789
+    to_port         = 4789
+    protocol        = "udp"
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description     = "Docker Swarm Overlay Network"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
+    protocol    = -1
     cidr_blocks = ["0.0.0.0/0"]
     description = "all output traffic so that packages can be downloaded"
   }
@@ -131,10 +161,41 @@ resource "aws_security_group" "storage_nodes_sg" {
     description     = "SSH from Bastion Server"
   }
 
+  # Docker Swarm Ports
+  ingress {
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Manager Communication"
+  }
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication TCP"
+  }
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication UDP"
+  }
+
+  ingress {
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Overlay Network"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
+    protocol    = -1
     cidr_blocks = ["0.0.0.0/0"]
     description = "all output traffic so that packages can be downloaded"
   }
