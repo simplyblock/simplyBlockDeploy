@@ -136,12 +136,12 @@ fi
 
 # node 1
 
-# ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
-#     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-#     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-#     ec2-user@${mnodes[0]} "
-# $command
-# "
+ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+    -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
+$command
+"
 
 echo ""
 echo "Adding other management nodes if they exist.."
@@ -163,7 +163,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
 done
 
 echo ""
-# sleep 60
+sleep 60
 echo "Adding storage nodes..."
 echo ""
 # node 1
