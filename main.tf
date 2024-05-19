@@ -86,32 +86,50 @@ resource "aws_security_group" "mgmt_node_sg" {
 
   # Docker Swarm Manager Ports
   ingress {
-    from_port       = 2377
-    to_port         = 2377
-    protocol        = "tcp"
-    cidr_blocks = [ "0.0.0.0/0" ]
-    description     = "Docker Swarm Manager Communication"
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Manager Communication"
   }
+
   ingress {
-    from_port       = 7946
-    to_port         = 7946
-    protocol        = "tcp"
-    cidr_blocks = [ "0.0.0.0/0" ]
-    description     = "Docker Swarm Node Communication TCP"
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication TCP"
   }
+
   ingress {
-    from_port       = 7946
-    to_port         = 7946
-    protocol        = "udp"
-    cidr_blocks = [ "0.0.0.0/0" ]
-    description     = "Docker Swarm Node Communication UDP"
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication UDP"
   }
+
   ingress {
-    from_port       = 4789
-    to_port         = 4789
-    protocol        = "udp"
-    cidr_blocks = [ "0.0.0.0/0" ]
-    description     = "Docker Swarm Overlay Network"
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Overlay Network"
+  }
+
+  # db
+  ingress {
+    from_port   = 4800
+    to_port     = 4800
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 4500
+    to_port     = 4500
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
