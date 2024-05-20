@@ -110,6 +110,7 @@ jobs:
 
       - name: Upload docker logs to s3
         run: $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
+        if: always()
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
