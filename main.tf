@@ -141,6 +141,16 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
 }
 
+// FIXME: This should be removed
+resource "aws_security_group_rule" "all_traffic_storage_to_mgmt" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.mgmt_node_sg.id
+  security_group_id        = aws_security_group.storage_nodes_sg.id
+}
+
 resource "aws_security_group" "storage_nodes_sg" {
   name        = "${terraform.workspace}-storage_nodes_sg"
   description = "CSI Cluster Container Security Group"
@@ -161,6 +171,32 @@ resource "aws_security_group" "storage_nodes_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
     description     = "access SNodeAPI from mgmt nodes"
+  }
+
+  // FIXME: This should be removed
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow all TCP traffic from mgmt nodes"
+  }
+
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "udp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow all UDP traffic from mgmt nodes"
+  }
+  //
+
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "For Storage and Mgmt nodes communication"
   }
 
   ingress {
