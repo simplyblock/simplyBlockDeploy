@@ -8,6 +8,11 @@ variable "region" {
   }
 }
 
+variable env{
+  default = "dev"
+  type    = string
+}
+
 variable "sbcli_pkg" {
   default     = "sbcli-dev"
   description = "sbcli package to be used"

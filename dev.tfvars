@@ -1,4 +1,4 @@
-region                      = " us-east-1"
+region                      = "us-east-1"
 sbcli_pkg                   = "sbcli-dev"
 mgmt_nodes                  = 1
 storage_nodes               = 3

@@ -59,6 +59,9 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_si
 # specifying the size of hugepage to use
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
 
+# using dev.tfvars or prod.tfvars
+terraform apply -var-file="dev.tfvars" --auto-approve
+
 # Save terraform output to a file
 terraform output -json > outputs.json
 ```
