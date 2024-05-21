@@ -35,36 +35,238 @@ module "apigatewayendpoint" {
   region                = var.region
   mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
   mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
-  container_inst_sg_id  = aws_security_group.container_inst_sg.id
+  api_gateway_id        = aws_security_group.api_gateway_sg.id
   public_subnets        = module.vpc.public_subnets
 }
 
-resource "aws_security_group" "container_inst_sg" {
-  name        = "${terraform.workspace}-container-instance-sg"
+resource "aws_security_group" "api_gateway_sg" {
+  name        = "${terraform.workspace}-api_gateway_sg"
+  description = "API Gateway Security Group"
+
+  vpc_id = module.vpc.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "allow traffic from API gateway to Mgmt nodes"
+  }
+}
+
+resource "aws_security_group" "mgmt_node_sg" {
+  name        = "${terraform.workspace}-mgmt_node_sg"
   description = "CSI Cluster Container Security Group"
 
   vpc_id = module.vpc.vpc_id
 
   ingress {
-    from_port   = 5900
-    to_port     = 5909
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "VNC from world"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+    description     = "SSH from Bastion Server"
   }
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "HTTP from API gatewway"
+  }
+
+  ingress {
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "Grafana from API gatewway"
+  }
+
+  # Docker Swarm Manager Ports
+  ingress {
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Manager Communication"
+  }
+
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication TCP"
+  }
+
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication UDP"
+  }
+
+  ingress {
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Overlay Network"
+  }
+
+  # db
+  ingress {
+    from_port   = 4800
+    to_port     = 4800
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 4500
+    to_port     = 4500
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = -1
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "all output traffic so that packages can be downloaded"
+  }
+}
+
+// FIXME: This should be removed
+resource "aws_security_group_rule" "all_traffic_storage_to_mgmt" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.mgmt_node_sg.id
+  security_group_id        = aws_security_group.storage_nodes_sg.id
+}
+
+resource "aws_security_group" "storage_nodes_sg" {
+  name        = "${terraform.workspace}-storage_nodes_sg"
+  description = "CSI Cluster Container Security Group"
+
+  vpc_id = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 4420
+    to_port     = 4420
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "storage node lvol connect"
+  }
+
+  ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "access SNodeAPI from mgmt nodes"
+  }
+
+  // FIXME: This should be removed
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow all TCP traffic from mgmt nodes"
+  }
+
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "udp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow all UDP traffic from mgmt nodes"
+  }
+  //
+
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "For Storage and Mgmt nodes communication"
+  }
+
+  ingress {
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "prometheus scrape from mgmt nodes"
+  }
+
+  ingress {
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+    description     = "SSH from Bastion Server"
+  }
+
+  # Docker Swarm Ports
+  ingress {
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Manager Communication"
+  }
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication TCP"
+  }
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Node Communication UDP"
+  }
+
+  ingress {
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Docker Swarm Overlay Network"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = -1
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "all output traffic so that packages can be downloaded"
+  }
+}
+
+resource "aws_security_group" "extra_nodes_sg" {
+  name        = "${terraform.workspace}-extra_nodes_sg"
+  description = "CSI Cluster Container Security Group"
+
+  vpc_id = module.vpc.vpc_id
+
   ingress {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
     cidr_blocks = var.whitelist_ips
     description = "k3s cluster"
-  }
-  ingress {
-    from_port   = 9000
-    to_port     = 9000
-    protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "graylog security group"
   }
 
   ingress {
@@ -75,14 +277,6 @@ resource "aws_security_group" "container_inst_sg" {
     description = ""
   }
 
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = -1
-    self      = true
-  }
-
-  ## Egress traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -91,26 +285,24 @@ resource "aws_security_group" "container_inst_sg" {
   }
 }
 
-resource "aws_security_group_rule" "mgmt_api" {
-  count = var.enable_apigateway == 0 ? 1 : 0
+resource "aws_security_group" "bastion_sg" {
+  name        = "${terraform.workspace}-bastion_sg"
+  description = "CSI Cluster Container Security Group"
 
-  security_group_id = aws_security_group.container_inst_sg.id
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "grafana_api" {
-  count = var.enable_apigateway == 0 ? 1 : 0
-
-  security_group_id = aws_security_group.container_inst_sg.id
-  type              = "ingress"
-  from_port         = 3000
-  to_port           = 3000
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  vpc_id = module.vpc.vpc_id
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = ""
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # create assumed role
@@ -179,7 +371,7 @@ resource "aws_instance" "bastion" {
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = "t2.micro"
   key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
   subnet_id              = module.vpc.public_subnets[0]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
@@ -195,7 +387,7 @@ resource "aws_instance" "mgmt_nodes" {
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
   subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
@@ -226,7 +418,7 @@ resource "aws_instance" "storage_nodes" {
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
   subnet_id              = module.vpc.private_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
@@ -283,7 +475,7 @@ resource "aws_instance" "extra_nodes" {
   ami                    = local.region_ami_map[var.region] # RHEL 9
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.container_inst_sg.id]
+  vpc_security_group_ids = [aws_security_group.extra_nodes_sg.id]
   subnet_id              = module.vpc.public_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
@@ -298,4 +490,3 @@ sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 EOF
 }
-

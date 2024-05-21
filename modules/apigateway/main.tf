@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "simplyblock_api" {
 
 resource "aws_apigatewayv2_vpc_link" "vpc_link" {
   name               = "${terraform.workspace}-simplyblock-vpclink"
-  security_group_ids = [var.container_inst_sg_id]
+  security_group_ids = [var.api_gateway_id]
   subnet_ids         = var.public_subnets
 }
 
