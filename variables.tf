@@ -8,7 +8,7 @@ variable "region" {
   }
 }
 
-variable env{
+variable "env" {
   default = "dev"
   type    = string
 }
