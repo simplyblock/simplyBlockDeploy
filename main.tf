@@ -270,6 +270,14 @@ resource "aws_security_group" "extra_nodes_sg" {
   }
 
   ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "k3s cluster"
+  }
+
+  ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
