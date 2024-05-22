@@ -84,7 +84,7 @@ resource "aws_security_group" "mgmt_node_sg" {
     description     = "Grafana from API gatewway"
   }
 
-  # Docker Swarm Manager Ports
+  # Docker Swarm Manager Ports: start
   ingress {
     from_port   = 2377
     to_port     = 2377
@@ -116,8 +116,9 @@ resource "aws_security_group" "mgmt_node_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Docker Swarm Overlay Network"
   }
+  # end
 
-  # db
+  # fdb
   ingress {
     from_port   = 4800
     to_port     = 4800
@@ -131,6 +132,7 @@ resource "aws_security_group" "mgmt_node_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  #
 
   egress {
     from_port   = 0
@@ -139,16 +141,6 @@ resource "aws_security_group" "mgmt_node_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "all output traffic so that packages can be downloaded"
   }
-}
-
-// FIXME: This should be removed
-resource "aws_security_group_rule" "all_traffic_storage_to_mgmt" {
-  type                     = "ingress"
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  source_security_group_id = aws_security_group.mgmt_node_sg.id
-  security_group_id        = aws_security_group.storage_nodes_sg.id
 }
 
 resource "aws_security_group" "storage_nodes_sg" {
@@ -173,30 +165,36 @@ resource "aws_security_group" "storage_nodes_sg" {
     description     = "access SNodeAPI from mgmt nodes"
   }
 
-  // FIXME: This should be removed
   ingress {
-    from_port       = 0
-    to_port         = 0
+    from_port       = 8080
+    to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "allow all TCP traffic from mgmt nodes"
+    description     = "For SPDK Proxy for the storage node"
   }
 
   ingress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "udp"
+    from_port       = 2375
+    to_port         = 2375
+    protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "allow all UDP traffic from mgmt nodes"
+    description     = "docker engine API"
   }
-  //
+
+  ingress {
+    from_port       = 8
+    to_port         = 0
+    protocol        = "icmp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow ICMP Echo"
+  }
 
   ingress {
     from_port       = 8080
     to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "For Storage and Mgmt nodes communication"
+    description     = "For SPDK Proxy for the storage node"
   }
 
   ingress {
@@ -215,7 +213,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     description     = "SSH from Bastion Server"
   }
 
-  # Docker Swarm Ports
+  # Docker Swarm Ports: start
   ingress {
     from_port   = 2377
     to_port     = 2377
@@ -245,6 +243,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Docker Swarm Overlay Network"
   }
+  # end
 
   egress {
     from_port   = 0
@@ -264,6 +263,14 @@ resource "aws_security_group" "extra_nodes_sg" {
   ingress {
     from_port   = 6443
     to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "k3s cluster"
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
     protocol    = "tcp"
     cidr_blocks = var.whitelist_ips
     description = "k3s cluster"
