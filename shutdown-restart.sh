@@ -39,7 +39,30 @@ if [ "$SHUTDOWN" = true ]; then
                 --header "Content-Type: application/json" \
                 --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET"
 
-    sleep 20
+    echo "Initiated cluster shutdown. Waiting for storage nodes to go offline..."
+
+    all_nodes_offline=false
+    while [ "$all_nodes_offline" = false ]; do
+        sleep 20
+
+        node_status=$(curl -X GET "$API_INVOKE_URL/storagenode" \
+                           --header "Content-Type: application/json" \
+                           --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET" \
+                           | jq -r '.results[].status')
+
+        echo "$node_status"
+
+        all_nodes_offline=true
+        for status in $node_status; do
+            if [ "$status" != "offline" ]; then
+                all_nodes_offline=false
+                echo "Waiting for all storage nodes to go offline..."
+                break
+            fi
+        done
+    done
+
+    echo "All storage nodes are offline. Proceeding with EC2 instance shutdown..."
 
     ec2_instance_ids=$(curl -X GET "$API_INVOKE_URL/storagenode" \
                             --header "Content-Type: application/json" \
@@ -70,4 +93,30 @@ elif [ "$RESTART" = true ]; then
     curl -X PUT $API_INVOKE_URL/cluster/gracefulstartup/$CLUSTER_ID \
                 --header "Content-Type: application/json" \
                 --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET"
+
+    echo "Initiated cluster startup..."
+
+    all_nodes_online=false
+    while [ "$all_nodes_online" = false ]; do
+        sleep 20
+
+        node_status=$(curl -X GET "$API_INVOKE_URL/storagenode" \
+                           --header "Content-Type: application/json" \
+                           --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET" \
+                           | jq -r '.results[].status')
+
+        echo "$node_status"
+
+        all_nodes_online=true
+        for status in $node_status; do
+            if [ "$status" != "online" ]; then
+                all_nodes_online=false
+                echo "Waiting for all storage nodes to be online..."
+                break
+            fi
+        done
+    done
+
+    echo "All storage nodes are online now..."
+
 fi
