@@ -84,6 +84,23 @@ chmod +x ./bootstrap-cluster.sh
 # specifying the log deletion interval and metrics retention period
 ./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h
 ```
+
+### Shutting Down and Restarting Cluster
+##### Add variables to local.env file
+```
+API_INVOKE_URL=https://x8dg1t0y1k.execute-api.us-east-2.amazonaws.com
+CLUSTER_ID=10b8b609-7b28-4797-a3a1-0a64fed1fad2
+CLUSTER_SECRET=I7U9C0daZ64RsxmNG4NK
+```
+##### shutdown
+```
+export $(xargs <local.env) && ./shutdown-restart.sh shutdown
+```
+##### restart
+```
+export $(xargs <local.env) && ./shutdown-restart.sh restart
+```
+
 ### Destroy Cluster
 ```
 terraform apply -var mgmt_nodes=0 -var storage_nodes=0 --auto-approve
