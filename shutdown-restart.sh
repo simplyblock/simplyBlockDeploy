@@ -43,6 +43,8 @@ if [ "$SHUTDOWN" = true ]; then
 
     all_nodes_offline=false
     while [ "$all_nodes_offline" = false ]; do
+        sleep 20
+
         node_status=$(curl -X GET "$API_INVOKE_URL/storagenode" \
                            --header "Content-Type: application/json" \
                            --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET" \
@@ -96,6 +98,8 @@ elif [ "$RESTART" = true ]; then
 
     all_nodes_online=false
     while [ "$all_nodes_online" = false ]; do
+        sleep 20
+
         node_status=$(curl -X GET "$API_INVOKE_URL/storagenode" \
                            --header "Content-Type: application/json" \
                            --header "Authorization: $CLUSTER_ID $CLUSTER_SECRET" \
