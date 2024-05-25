@@ -190,14 +190,6 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "For SPDK Proxy for the storage node"
-  }
-
-  ingress {
     from_port       = 9100
     to_port         = 9100
     protocol        = "tcp"
@@ -291,7 +283,7 @@ resource "aws_security_group" "extra_nodes_sg" {
     security_groups = [aws_security_group.mgmt_node_sg.id]
     description     = "allow ICMP Echo"
   }
-  
+
   ingress {
     from_port   = 5000
     to_port     = 5000
