@@ -131,3 +131,10 @@ jobs:
       - name: Destroy Cluster
         if: always()
         run: terraform destroy --auto-approve
+
+      - name: 'Cleanup build folder'
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
