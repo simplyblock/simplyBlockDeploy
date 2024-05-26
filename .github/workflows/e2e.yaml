@@ -18,6 +18,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go version
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -105,6 +110,7 @@ jobs:
           cd spdk-csi
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
           export CSI_NAMESPACE=spdk-csi
+          export CGO_ENABLED=1
           make e2e-test
 
       - name: Upload docker logs to s3
