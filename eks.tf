@@ -5,6 +5,46 @@ resource "aws_security_group" "eks_nodes_sg" {
 
   vpc_id = module.vpc.vpc_id
 
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "eks cluster"
+  }
+
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "For SPDK Proxy for the storage node"
+  }
+
+  ingress {
+    from_port       = 2375
+    to_port         = 2375
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "docker engine API"
+  }
+
+  ingress {
+    from_port       = 8
+    to_port         = 0
+    protocol        = "icmp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow ICMP Echo"
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "caching node"
+  }
+  
   egress {
     from_port   = 0
     to_port     = 0
