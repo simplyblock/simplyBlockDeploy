@@ -6,8 +6,8 @@ resource "aws_security_group" "eks_nodes_sg" {
   vpc_id = module.vpc.vpc_id
 
   egress {
-    from_port   = -1
-    to_port     = -1
+    from_port   = 0
+    to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
     description = "allow traffic from API gateway to Mgmt nodes"
@@ -20,7 +20,7 @@ module "eks" {
   version = "19.16.0"
 
   cluster_name    = "${terraform.workspace}-${var.cluster_name}"
-  cluster_version = "1.28"
+  cluster_version = "1.30"
 
   cluster_endpoint_private_access = true # default is true
   cluster_endpoint_public_access  = true

@@ -24,7 +24,7 @@ variable "sbcli_pkg" {
 }
 
 variable "cluster_name" {
-  default     = "simplyblock-eks-cluster"
+  default     = "eks"
   description = "EKS Cluster name"
 }
 
