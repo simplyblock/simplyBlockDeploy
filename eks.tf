@@ -53,13 +53,13 @@ resource "aws_security_group" "eks_nodes_sg" {
     description = "caching node"
   }
   
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "allow traffic from API gateway to Mgmt nodes"
-  }
+  # ingress {
+  #   from_port   = 0
+  #   to_port     = 0
+  #   protocol    = "-1"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  #   description = "allow traffic from API gateway to Mgmt nodes"
+  # }
 
   egress {
     from_port   = 0
@@ -113,6 +113,7 @@ module "eks" {
         role = "general"
       }
 
+      ami_type                = "AL2_x86_64"
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
@@ -132,7 +133,8 @@ module "eks" {
         role = "cache"
       }
 
-      instance_types          = ["i3en.large"]
+      ami_type                = "AL2_x86_64"
+      instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
