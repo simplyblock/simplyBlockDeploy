@@ -84,6 +84,14 @@ resource "aws_security_group" "mgmt_node_sg" {
     description     = "Grafana from API gatewway"
   }
 
+  ingress {
+    from_port   = 2375
+    to_port     = 2375
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "docker engine API"
+  }
+
   # Docker Swarm Manager Ports: start
   ingress {
     from_port   = 2377
