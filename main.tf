@@ -134,14 +134,6 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
   #
 
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "allow traffic from API gateway to Mgmt nodes"
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
