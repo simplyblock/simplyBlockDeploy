@@ -84,6 +84,14 @@ resource "aws_security_group" "mgmt_node_sg" {
     description     = "Grafana from API gatewway"
   }
 
+  ingress {
+    from_port   = 2375
+    to_port     = 2375
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "docker engine API"
+  }
+
   # Docker Swarm Manager Ports: start
   ingress {
     from_port   = 2377
@@ -116,6 +124,24 @@ resource "aws_security_group" "mgmt_node_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Docker Swarm Overlay Network"
   }
+
+  # Graylog GELF
+    ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+
+  ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+
   # end
 
   # fdb
@@ -243,6 +269,24 @@ resource "aws_security_group" "storage_nodes_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Docker Swarm Overlay Network"
   }
+
+    # Graylog GELF
+    ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+
+  ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+
   # end
 
   egress {
