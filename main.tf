@@ -174,11 +174,11 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.storage_nodes_sg.id]
-    description     = "For SPDK Proxy for the storage node from other storage nodes"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    self        = true
+    description = "For SPDK Proxy for the storage node from other storage nodes"
   }
 
   ingress {
