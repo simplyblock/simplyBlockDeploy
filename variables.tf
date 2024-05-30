@@ -18,13 +18,13 @@ variable "sbcli_pkg" {
   description = "sbcli package to be used"
   type        = string
   validation {
-    condition     = can(regex("^sbcli-dev$|^sbcli-release$", var.sbcli_pkg))
+    condition     = can(regex("^sbcli-dev$|^sbcli-release$|^sbcli-mig$", var.sbcli_pkg))
     error_message = "Invalid sbcli package. Please choose one of: sbcli-dev, sbcli-release."
   }
 }
 
 variable "cluster_name" {
-  default     = "simplyblock-eks-cluster"
+  default     = "eks"
   description = "EKS Cluster name"
 }
 
