@@ -14,7 +14,7 @@ variable "env" {
 }
 
 variable "sbcli_pkg" {
-  default     = "sbcli-mig"
+  default     = "sbcli-dev"
   description = "sbcli package to be used"
   type        = string
   validation {
