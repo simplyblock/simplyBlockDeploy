@@ -14,11 +14,11 @@ variable "env" {
 }
 
 variable "sbcli_pkg" {
-  default     = "sbcli-dev"
+  default     = "sbcli-mig"
   description = "sbcli package to be used"
   type        = string
   validation {
-    condition     = can(regex("^sbcli-dev$|^sbcli-release$", var.sbcli_pkg))
+    condition     = can(regex("^sbcli-dev$|^sbcli-release$|^sbcli-mig$", var.sbcli_pkg))
     error_message = "Invalid sbcli package. Please choose one of: sbcli-dev, sbcli-release."
   }
 }
