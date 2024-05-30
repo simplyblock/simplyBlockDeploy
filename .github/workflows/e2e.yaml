@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - fix-eks-errors
   schedule:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
   workflow_dispatch:
@@ -84,7 +83,7 @@ jobs:
           sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
       - name: Clone spdk-csi repo
-        run: git clone -b deprecate_old_csi_function https://github.com/simplyblock-io/spdk-csi.git
+        run: git clone https://github.com/simplyblock-io/spdk-csi.git
 
       - name: Label Node type=cache
         run: |
@@ -124,16 +123,16 @@ jobs:
           S3_BUCKET_NAME: "simplyblock-e2e-test-logs"
           RUN_ID: ${{ github.run_id }}
 
-      # - name: Send Slack Notification
-      #   if: always()
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #   run: |
-      #     if [[ ${{ job.status }} == 'success' ]]; then
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
-      #     else
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
-      #     fi
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ ${{ job.status }} == 'success' ]]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
+          else
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
+          fi
 
       - name: Destroy Cluster
         if: always()
