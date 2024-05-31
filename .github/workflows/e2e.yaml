@@ -68,7 +68,7 @@ jobs:
           terraform plan \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
             -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
-            -var "region=us-east-2" -var "sbcli_pkg=${{ github.event.inputs.sbcli_cmd }}" -out=tfplan
+            -var "region=us-east-2" -var "sbcli_pkg=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" -out=tfplan
 
       - name: Apply Terraform Changes
         run: terraform apply tfplan
@@ -77,7 +77,7 @@ jobs:
         run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
         id: bootstrap_cluster
         env:
-          SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd }}
+          SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
 
       - name: Bootstrap K3s
         run: $GITHUB_WORKSPACE/bootstrap-k3s.sh
@@ -93,7 +93,7 @@ jobs:
           sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
       - name: Clone spdk-csi repo
-        run: git clone -b ${{ github.event.inputs.spdki_csi_branch }} https://github.com/simplyblock-io/spdk-csi.git
+        run: git clone -b ${{ github.event.inputs.spdki_csi_branch || 'master'}} https://github.com/simplyblock-io/spdk-csi.git
 
       - name: Label Node type=cache
         run: |
