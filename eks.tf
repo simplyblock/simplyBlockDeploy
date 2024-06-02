@@ -20,7 +20,7 @@ resource "aws_security_group" "eks_nodes_sg" {
     cidr_blocks = var.whitelist_ips
     description = ""
   }
-  
+
   ingress {
     from_port       = 8080
     to_port         = 8080
@@ -52,7 +52,7 @@ resource "aws_security_group" "eks_nodes_sg" {
     cidr_blocks = var.whitelist_ips
     description = "caching node"
   }
-  
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -105,7 +105,7 @@ module "eks" {
         role = "general"
       }
 
-      ami_type                = "AL2_x86_64"
+      ami_type                = "AL2023_x86_64_STANDARD"
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
@@ -125,7 +125,7 @@ module "eks" {
         role = "cache"
       }
 
-      ami_type                = "AL2_x86_64"
+      ami_type                = "AL2023_x86_64_STANDARD"
       instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
