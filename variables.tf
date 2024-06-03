@@ -17,11 +17,18 @@ variable "sbcli_pkg" {
   default     = "sbcli-dev"
   description = "sbcli package to be used"
   type        = string
+}
+
+variable "sbcli_cmd" {
+  default     = var.sbcli_pkg
+  description = "sbcli command to be used"
+  type        = string
   validation {
-    condition     = can(regex("^sbcli-dev$|^sbcli-release$|^sbcli-mig$", var.sbcli_pkg))
-    error_message = "Invalid sbcli package. Please choose one of: sbcli-dev, sbcli-release."
+    condition     = can(regex("^sbcli-dev$|^sbcli-release$|^sbcli-mig$|^sbcli-mc$", var.sbcli_cmd))
+    error_message = "Invalid sbcli command. Please choose one of: sbcli-dev, sbcli-release, sbcli-mig, sbcli-mc."
   }
 }
+
 
 variable "cluster_name" {
   default     = "eks"
