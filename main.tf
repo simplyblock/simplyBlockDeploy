@@ -77,6 +77,14 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
 
   ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    self            = true
+    description     = "HTTP from other mgmt nodes"
+  }
+
+  ingress {
     from_port       = 3000
     to_port         = 3000
     protocol        = "tcp"
