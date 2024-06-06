@@ -540,20 +540,20 @@ EOF
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
-  count             = var.volumes_per_storage_nodes > 0 ? var.storage_nodes : 0
+  count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
   availability_zone = data.aws_availability_zones.available.names[1]
   size              = var.storage_nodes_ebs_size1
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
-  for_each = local.node_disks
+  for_each = var.storage_nodes > 0 ? local.node_disks : {}
 
   availability_zone = data.aws_availability_zones.available.names[1]
   size              = var.storage_nodes_ebs_size2
 }
 
 resource "aws_volume_attachment" "attach_sn2" {
-  for_each = local.node_disks
+  for_each = var.storage_nodes > 0 ? local.node_disks : {}
 
   device_name = each.value.disk_dev_path
   volume_id   = aws_ebs_volume.storage_nodes_ebs2[each.key].id
@@ -561,7 +561,7 @@ resource "aws_volume_attachment" "attach_sn2" {
 }
 
 resource "aws_volume_attachment" "attach_sn" {
-  count       = var.volumes_per_storage_nodes > 0 ? var.storage_nodes : 0
+  count       = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
   device_name = "/dev/sdh"
   volume_id   = aws_ebs_volume.storage_nodes_ebs[count.index].id
   instance_id = aws_instance.storage_nodes[count.index].id
