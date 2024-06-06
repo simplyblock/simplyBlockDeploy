@@ -105,7 +105,7 @@ module "eks" {
         role = "general"
       }
 
-      ami_type                = "AL2023_x86_64_STANDARD"
+      ami_type                = "AL2_x86_64"
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
@@ -125,7 +125,7 @@ module "eks" {
         role = "cache"
       }
 
-      ami_type                = "AL2023_x86_64_STANDARD"
+      ami_type                = "AL2_x86_64"
       instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
