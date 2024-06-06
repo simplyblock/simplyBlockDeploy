@@ -149,15 +149,15 @@ module "eks" {
     }
 
     eks-nodes = {
-      desired_size = 0
-      min_size     = 0
+      desired_size = 1
+      min_size     = 1
       max_size     = 2
 
       labels = {
         role = "general"
       }
 
-      ami_type                = "BOTTLEROCKET_x86_64"
+      ami_type                = "AL2_x86_64"
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
@@ -177,7 +177,7 @@ module "eks" {
         role = "cache"
       }
 
-      ami_type                = "BOTTLEROCKET_x86_64"
+      ami_type                = "AL2_x86_64"
       instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
