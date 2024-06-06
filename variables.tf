@@ -24,8 +24,8 @@ variable "sbcli_cmd" {
 }
 
 variable "sbcli_pkg_version" {
-  default     = "sbcli-"
-  description = "sbcli package and version to be used. ex: sbcli-dev==2.0.0"
+  default     = ""
+  description = "sbcli package and version to be used. ex: 2.0.0"
   type        = string
 }
 
