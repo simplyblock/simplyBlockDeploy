@@ -187,7 +187,7 @@ resource "aws_security_group" "mgmt_node_sg" {
     from_port       = 8
     to_port         = 0
     protocol        = "icmp"
-    security_groups = [aws_security_group.mgmt_node_sg.id]
+    cidr_blocks     = ["0.0.0.0/0"]
     description     = "allow ICMP Echo"
   }
 }
