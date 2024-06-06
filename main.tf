@@ -89,7 +89,7 @@ resource "aws_security_group" "mgmt_node_sg" {
     to_port         = 9000
     protocol        = "tcp"
     security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "Grafana from API gatewway"
+    description     = "Graylog from API gatewway"
   }
 
   ingress {
