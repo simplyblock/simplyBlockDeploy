@@ -166,7 +166,6 @@ resource "aws_security_group" "mgmt_node_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  #
 
   egress {
     from_port   = 0
@@ -174,6 +173,14 @@ resource "aws_security_group" "mgmt_node_sg" {
     protocol    = -1
     cidr_blocks = ["0.0.0.0/0"]
     description = "all output traffic so that packages can be downloaded"
+  }
+
+  ingress {
+    from_port       = 8
+    to_port         = 0
+    protocol        = "icmp"
+    security_groups = [aws_security_group.mgmt_node_sg.id]
+    description     = "allow ICMP Echo"
   }
 }
 
@@ -520,7 +527,7 @@ pip install ${var.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-${var.sbcli_pkg} storage-node deploy
+${var.sbcli_cmd} storage-node deploy
 EOF
 }
 
