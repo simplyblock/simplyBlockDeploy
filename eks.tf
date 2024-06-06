@@ -20,7 +20,7 @@ resource "aws_security_group" "eks_nodes_sg" {
     cidr_blocks = var.whitelist_ips
     description = ""
   }
-  
+
   ingress {
     from_port       = 8080
     to_port         = 8080
@@ -52,7 +52,7 @@ resource "aws_security_group" "eks_nodes_sg" {
     cidr_blocks = var.whitelist_ips
     description = "caching node"
   }
-  
+
   egress {
     from_port   = 0
     to_port     = 0
