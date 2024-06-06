@@ -1,5 +1,5 @@
 region                      = " eu-central-1"
-sbcli_pkg                   = "sbcli-release"
+sbcli_cmd                   = "sbcli-release"
 mgmt_nodes                  = 1
 storage_nodes               = 3
 extra_nodes                 = 0

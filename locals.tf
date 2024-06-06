@@ -3,15 +3,15 @@ locals {
 
   snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
 
-  node_disks = { for pair in setproduct(local.snodes, slice(local.volume_device_names,0,var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
-  node_name     = pair[0]
-  disk_dev_path = pair[1]
+  node_disks = { for pair in setproduct(local.snodes, slice(local.volume_device_names, 0, var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
+    node_name     = pair[0]
+    disk_dev_path = pair[1]
   } }
 
   key_name = {
     "us-east-1"  = "simplyblock-us-east-1.pem"
     "us-east-2"  = "simplyblock-us-east-2.pem"
-    "eu-north-1" = "simplyblock-eu-north-1.pem" 
+    "eu-north-1" = "simplyblock-eu-north-1.pem"
     "eu-west-1"  = "simplyblock-eu-west-1.pem"
   }
 
@@ -23,4 +23,6 @@ locals {
     "eu-north-1" = "ami-01d565a5f2da42e6f"
     "eu-west-1"  = "ami-049b0abf844cab8d7"
   }
+
+  sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
 }

@@ -77,11 +77,11 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
 
   ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    self            = true
-    description     = "HTTP from other mgmt nodes"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    self        = true
+    description = "HTTP from other mgmt nodes"
   }
 
   ingress {
@@ -142,7 +142,7 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
 
   # Graylog GELF
-    ingress {
+  ingress {
     from_port   = 12201
     to_port     = 12201
     protocol    = "tcp"
@@ -184,11 +184,11 @@ resource "aws_security_group" "mgmt_node_sg" {
   }
 
   ingress {
-    from_port       = 8
-    to_port         = 0
-    protocol        = "icmp"
-    self            = true
-    description     = "allow ICMP Echo"
+    from_port   = 8
+    to_port     = 0
+    protocol    = "icmp"
+    self        = true
+    description = "allow ICMP Echo"
   }
 }
 
@@ -293,8 +293,8 @@ resource "aws_security_group" "storage_nodes_sg" {
     description = "Docker Swarm Overlay Network"
   }
 
-    # Graylog GELF
-    ingress {
+  # Graylog GELF
+  ingress {
     from_port   = 12201
     to_port     = 12201
     protocol    = "tcp"
@@ -498,7 +498,7 @@ resource "aws_instance" "mgmt_nodes" {
 #!/bin/bash
 echo "installing sbcli.."
 sudo  yum install -y pip jq
-pip install ${var.sbcli_pkg}
+pip install ${local.sbcli_pkg}
 
 sudo yum install -y fio nvme-cli unzip;
 sudo modprobe nvme-tcp
@@ -531,7 +531,7 @@ sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
 sudo yum install -y pip unzip
-pip install ${var.sbcli_pkg}
+pip install ${local.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install

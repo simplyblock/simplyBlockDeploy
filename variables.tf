@@ -23,12 +23,11 @@ variable "sbcli_cmd" {
   }
 }
 
-variable "sbcli_pkg" {
-  default     = var.sbcli_cmd
-  description = "sbcli package to be used"
+variable "sbcli_pkg_version" {
+  default     = ""
+  description = "sbcli package and version to be used. ex: 2.0.0"
   type        = string
 }
-
 
 variable "cluster_name" {
   default     = "eks"
