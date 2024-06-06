@@ -1,5 +1,5 @@
 region                      = "us-east-1"
-sbcli_pkg                   = "sbcli-dev"
+sbcli_cmd                   = "sbcli-dev"
 mgmt_nodes                  = 1
 storage_nodes               = 3
 extra_nodes                 = 0

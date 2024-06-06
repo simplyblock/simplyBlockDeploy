@@ -1,5 +1,5 @@
 variable "region" {
-  default     = "us-east-2"
+  default     = "us-east-1"
   description = "region to provision"
   type        = string
   validation {
@@ -23,12 +23,11 @@ variable "sbcli_cmd" {
   }
 }
 
-variable "sbcli_pkg" {
-  default     = var.sbcli_cmd
-  description = "sbcli package to be used"
+variable "sbcli_pkg_version" {
+  default     = "sbcli-"
+  description = "sbcli package and version to be used. ex: sbcli-dev==2.0.0"
   type        = string
 }
-
 
 variable "cluster_name" {
   default     = "eks"
