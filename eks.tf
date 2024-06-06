@@ -93,19 +93,71 @@ module "eks" {
   eks_managed_node_group_defaults = {
     disk_size                  = 30
     iam_role_attach_cni_policy = true
+    remote_access = {
+      ec2_ssh_key               = local.selected_key_name
+      source_security_group_ids = [aws_security_group.eks_nodes_sg[0].id]
+    }
   }
 
   eks_managed_node_groups = {
+
+    bottlerocket = {
+      instance_types = ["m6id.large"]
+      ami_type = "BOTTLEROCKET_x86_64"
+      capacity_type = "ON_DEMAND"
+      platform = "bottlerocket"
+      # release_version = "something here?"
+      #create_security_group = false
+      use_custom_launch_template = false
+      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
+      min_size     = 2
+      max_size     = 3
+      desired_size = 2
+      key_name     = local.selected_key_name
+      enable_bootstrap_user_data = true
+      # This will get added to the template
+      bootstrap_extra_args = <<-EOT
+        # The admin host container provides SSH access and runs with "superpowers".
+        # It is disabled by default, but can be disabled explicitly.
+        [settings.host-containers.admin]
+        enabled = true
+
+        # The control host container provides out-of-band access via SSM.
+        # It is enabled by default, and can be disabled if you do not expect to use SSM.
+        # This could leave you with no way to access the API and change settings on an existing node!
+        [settings.host-containers.control]
+        enabled = true
+
+        # extra args added
+        [settings.kernel]
+        lockdown = "integrity"
+
+        [settings.kubernetes.node-labels]
+        label1 = "foo"
+        label2 = "bar"
+
+        [settings.kubernetes.node-taints]
+        dedicated = "experimental:PreferNoSchedule"
+        special = "true:NoSchedule"
+      EOT
+
+      pre_bootstrap_user_data = <<-EOT
+        echo "installing nvme-cli.."
+        sudo yum install -y nvme-cli
+        sudo modprobe nvme-tcp
+      EOT
+    }
+
     eks-nodes = {
-      desired_size = 1
-      min_size     = 1
-      max_size     = 4
+      desired_size = 0
+      min_size     = 0
+      max_size     = 2
 
       labels = {
         role = "general"
       }
 
-      ami_type                = "AL2_x86_64"
+      ami_type                = "BOTTLEROCKET_x86_64"
       instance_types          = ["t3.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
@@ -125,7 +177,7 @@ module "eks" {
         role = "cache"
       }
 
-      ami_type                = "AL2_x86_64"
+      ami_type                = "BOTTLEROCKET_x86_64"
       instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
