@@ -101,18 +101,18 @@ module "eks" {
 
   eks_managed_node_groups = {
 
+    # FIXME: Caching-node not working properly with bottlerocket ami_type
+    # https://simplyblock.atlassian.net/browse/SFAM-865
+
     bottlerocket = {
       instance_types = ["m6id.large"]
       ami_type = "BOTTLEROCKET_x86_64"
       capacity_type = "ON_DEMAND"
-      platform = "bottlerocket"
-      # release_version = "something here?"
-      #create_security_group = false
       use_custom_launch_template = false
       vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
-      min_size     = 2
-      max_size     = 3
-      desired_size = 2
+      min_size     = 0
+      max_size     = 1
+      desired_size = 0
       key_name     = local.selected_key_name
       enable_bootstrap_user_data = true
       # This will get added to the template
