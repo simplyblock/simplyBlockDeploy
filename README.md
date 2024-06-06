@@ -37,7 +37,11 @@ terraform init
 terraform workspace select -or-create <workspace_name>
 
 terraform plan
+```
+> [!WARNING]  
+> Do not specify -var region during terraform apply but rather update the region default value in the variable.tf to avoid redudant resources.
 
+```
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 
 # Deploying with eks
