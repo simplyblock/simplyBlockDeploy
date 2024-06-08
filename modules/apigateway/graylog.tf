@@ -15,7 +15,8 @@ resource "aws_apigatewayv2_integration" "graylog_integration" {
   integration_method = "ANY"
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
-  integration_uri    = aws_service_discovery_service.graylog_service.arn
+  integration_uri    = length(var.mgmt_node_instance_ids) > 1 ? aws_lb_listener.graylog_lb_listener.arn : aws_service_discovery_service.graylog_service.arn
+
 }
 
 resource "aws_service_discovery_service" "graylog_service" {
@@ -25,11 +26,11 @@ resource "aws_service_discovery_service" "graylog_service" {
 }
 
 resource "aws_service_discovery_instance" "graylog_endpoint" {
-  instance_id = var.mgmt_node_instance_id
+  instance_id = var.mgmt_node_instance_ids[0]
   service_id  = aws_service_discovery_service.graylog_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ips[0]
     AWS_INSTANCE_PORT = "9000"
   }
 }
@@ -38,6 +39,42 @@ resource "aws_apigatewayv2_stage" "graylog" {
   api_id      = aws_apigatewayv2_api.graylog_api.id
   name        = "$default"
   auto_deploy = true
+}
+
+# Create Load Balancer
+resource "aws_lb" "graylog_internal_lb" {
+  name               = "${terraform.workspace}-graylog-lb"
+  internal           = true
+  load_balancer_type = "network"
+  subnets            = var.public_subnets
+  security_groups    = [var.api_gateway_id]
+}
+
+# Create Target Group
+resource "aws_lb_target_group" "graylog_target" {
+  name     = "${terraform.workspace}-graylog-target-group"
+  port     = 80
+  protocol = "TCP"
+  vpc_id   = var.vpc_id
+}
+
+resource "aws_lb_target_group_attachment" "graylog_target_attachment" {
+  count              = length(var.mgmt_node_instance_ids)
+  target_group_arn   = aws_lb_target_group.graylog_target.arn
+  target_id          = var.mgmt_node_instance_ids[count.index]
+  port               = 9000
+}
+
+# Create Listener
+resource "aws_lb_listener" "graylog_lb_listener" {
+  load_balancer_arn = aws_lb.graylog_internal_lb.arn
+  port              = 80
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.graylog_target.arn
+  }
 }
 
 output "graylog_invoke_url" {

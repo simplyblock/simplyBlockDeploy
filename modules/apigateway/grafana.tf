@@ -15,7 +15,7 @@ resource "aws_apigatewayv2_integration" "grafana_integration" {
   integration_method = "ANY"
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
-  integration_uri    = aws_service_discovery_service.grafana_service.arn
+  integration_uri    = length(var.mgmt_node_instance_ids) > 1 ? aws_lb_listener.grafana_lb_listener.arn : aws_service_discovery_service.grafana_service.arn
 }
 
 resource "aws_service_discovery_service" "grafana_service" {
@@ -25,11 +25,11 @@ resource "aws_service_discovery_service" "grafana_service" {
 }
 
 resource "aws_service_discovery_instance" "grafana_endpoint" {
-  instance_id = var.mgmt_node_instance_id
+  instance_id = var.mgmt_node_instance_ids[0]
   service_id  = aws_service_discovery_service.grafana_service.id
 
   attributes = {
-    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ip
+    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ips[0]
     AWS_INSTANCE_PORT = "3000"
   }
 }
@@ -38,6 +38,42 @@ resource "aws_apigatewayv2_stage" "grafana" {
   api_id      = aws_apigatewayv2_api.grafana_api.id
   name        = "$default"
   auto_deploy = true
+}
+
+# Create Load Balancer
+resource "aws_lb" "grafana_internal_lb" {
+  name               = "${terraform.workspace}-grafana-lb"
+  internal           = true
+  load_balancer_type = "network"
+  subnets            = var.public_subnets
+  security_groups    = [var.api_gateway_id]
+}
+
+# Create Target Group
+resource "aws_lb_target_group" "grafana_target" {
+  name     = "${terraform.workspace}-grafana-target-group"
+  port     = 80
+  protocol = "TCP"
+  vpc_id   = var.vpc_id
+}
+
+resource "aws_lb_target_group_attachment" "grafana_target_attachment" {
+  count              = length(var.mgmt_node_instance_ids)
+  target_group_arn   = aws_lb_target_group.grafana_target.arn
+  target_id          = var.mgmt_node_instance_ids[count.index]
+  port               = 3000
+}
+
+# Create Listener
+resource "aws_lb_listener" "grafana_lb_listener" {
+  load_balancer_arn = aws_lb.grafana_internal_lb.arn
+  port              = 80
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.grafana_target.arn
+  }
 }
 
 output "grafana_invoke_url" {

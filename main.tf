@@ -30,13 +30,14 @@ module "vpc" {
 }
 
 module "apigatewayendpoint" {
-  count                 = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
-  source                = "./modules/apigateway"
-  region                = var.region
-  mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
-  mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
-  api_gateway_id        = aws_security_group.api_gateway_sg.id
-  public_subnets        = module.vpc.public_subnets
+  count                  = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
+  source                 = "./modules/apigateway"
+  region                 = var.region
+  mgmt_node_instance_ids = aws_instance.mgmt_nodes[*].id
+  mgmt_node_private_ips  = aws_instance.mgmt_nodes[*].private_ip
+  api_gateway_id         = aws_security_group.api_gateway_sg.id
+  public_subnets         = module.vpc.public_subnets
+  vpc_id                 = module.vpc.vpc_id
 }
 
 resource "aws_security_group" "api_gateway_sg" {
@@ -45,6 +46,13 @@ resource "aws_security_group" "api_gateway_sg" {
 
   vpc_id = module.vpc.vpc_id
 
+  # ingress {
+  #   from_port   = 0
+  #   to_port     = 0
+  #   protocol    = "-1"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
+  
   egress {
     from_port   = 0
     to_port     = 0

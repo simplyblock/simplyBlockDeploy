@@ -105,15 +105,15 @@ module "eks" {
     # https://simplyblock.atlassian.net/browse/SFAM-865
 
     bottlerocket = {
-      instance_types = ["m6id.large"]
-      ami_type = "BOTTLEROCKET_x86_64"
-      capacity_type = "ON_DEMAND"
+      instance_types             = ["m6id.large"]
+      ami_type                   = "BOTTLEROCKET_x86_64"
+      capacity_type              = "ON_DEMAND"
       use_custom_launch_template = false
-      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
-      min_size     = 0
-      max_size     = 1
-      desired_size = 0
-      key_name     = local.selected_key_name
+      vpc_security_group_ids     = [aws_security_group.eks_nodes_sg[0].id]
+      min_size                   = 0
+      max_size                   = 1
+      desired_size               = 0
+      key_name                   = local.selected_key_name
       enable_bootstrap_user_data = true
       # This will get added to the template
       bootstrap_extra_args = <<-EOT
