@@ -21,28 +21,7 @@ resource "aws_apigatewayv2_integration" "root_integration" {
   integration_method = "ANY"
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
-  integration_uri    = length(var.mgmt_node_instance_ids) > 1 ? aws_lb_listener.root_lb_listener.arn : aws_service_discovery_service.root_service.arn
-}
-
-resource "aws_service_discovery_http_namespace" "mgmt_api" {
-  name = "${terraform.workspace}-simplyblock-mgmt-api"
-}
-
-resource "aws_service_discovery_service" "root_service" {
-  name         = "${terraform.workspace}-simplyblock-root-svc"
-  namespace_id = aws_service_discovery_http_namespace.mgmt_api.id
-  type         = "HTTP"
-}
-
-resource "aws_service_discovery_instance" "root_endpoint" {
-  instance_id = var.mgmt_node_instance_ids[0]
-  service_id  = aws_service_discovery_service.root_service.id
-
-  attributes = {
-    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ips[0]
-    AWS_INSTANCE_PORT = "80"
-  }
-}
+  integration_uri    = aws_lb_listener.root_lb_listener.arn
 
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.simplyblock_api.id

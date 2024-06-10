@@ -15,24 +15,8 @@ resource "aws_apigatewayv2_integration" "graylog_integration" {
   integration_method = "ANY"
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
-  integration_uri    = length(var.mgmt_node_instance_ids) > 1 ? aws_lb_listener.graylog_lb_listener.arn : aws_service_discovery_service.graylog_service.arn
+  integration_uri    = aws_lb_listener.graylog_lb_listener.arn
 
-}
-
-resource "aws_service_discovery_service" "graylog_service" {
-  name         = "${terraform.workspace}-simplyblock-graylog-svc"
-  namespace_id = aws_service_discovery_http_namespace.mgmt_api.id
-  type         = "HTTP"
-}
-
-resource "aws_service_discovery_instance" "graylog_endpoint" {
-  instance_id = var.mgmt_node_instance_ids[0]
-  service_id  = aws_service_discovery_service.graylog_service.id
-
-  attributes = {
-    AWS_INSTANCE_IPV4 = var.mgmt_node_private_ips[0]
-    AWS_INSTANCE_PORT = "9000"
-  }
 }
 
 resource "aws_apigatewayv2_stage" "graylog" {

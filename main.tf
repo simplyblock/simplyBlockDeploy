@@ -34,7 +34,6 @@ module "apigatewayendpoint" {
   source                 = "./modules/apigateway"
   region                 = var.region
   mgmt_node_instance_ids = aws_instance.mgmt_nodes[*].id
-  mgmt_node_private_ips  = aws_instance.mgmt_nodes[*].private_ip
   api_gateway_id         = aws_security_group.api_gateway_sg.id
   public_subnets         = module.vpc.public_subnets
   vpc_id                 = module.vpc.vpc_id
