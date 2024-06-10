@@ -30,14 +30,16 @@ module "vpc" {
 }
 
 module "apigatewayendpoint" {
-  count                 = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
-  source                = "./modules/apigateway"
-  region                = var.region
-  mgmt_node_instance_id = aws_instance.mgmt_nodes[0].id
-  mgmt_node_private_ip  = aws_instance.mgmt_nodes[0].private_ip
-  api_gateway_id        = aws_security_group.api_gateway_sg.id
-  public_subnets        = module.vpc.public_subnets
+  count                  = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
+  source                 = "./modules/apigateway"
+  region                 = var.region
+  mgmt_node_instance_ids = aws_instance.mgmt_nodes[*].id
+  api_gateway_id         = aws_security_group.api_gateway_sg.id
+  loadbalancer_id        = aws_security_group.loadbalancer_sg.id
+  public_subnets         = module.vpc.public_subnets
+  vpc_id                 = module.vpc.vpc_id
 }
+
 
 resource "aws_security_group" "api_gateway_sg" {
   name        = "${terraform.workspace}-api_gateway_sg"
@@ -50,9 +52,49 @@ resource "aws_security_group" "api_gateway_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow traffic from API gateway to Loadbalancer"
+  }
+}
+
+resource "aws_security_group" "loadbalancer_sg" {
+  name        = "${terraform.workspace}-loadbalancer_sg"
+  description = "Loadbalancer Security Group"
+
+  vpc_id = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description = "HTTP from API gateway"
+  }
+
+  ingress {
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "Grafana from API gateway"
+  }
+
+  ingress {
+    from_port       = 9000
+    to_port         = 9000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.api_gateway_sg.id]
+    description     = "Graylog from API gateway"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
     description = "allow traffic from API gateway to Mgmt nodes"
   }
 }
+
 
 resource "aws_security_group" "mgmt_node_sg" {
   name        = "${terraform.workspace}-mgmt_node_sg"
@@ -72,8 +114,8 @@ resource "aws_security_group" "mgmt_node_sg" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "HTTP from API gatewway"
+    security_groups = [aws_security_group.loadbalancer_sg.id]
+    description     = "HTTP from Loadbalancer"
   }
 
   ingress {
@@ -88,16 +130,16 @@ resource "aws_security_group" "mgmt_node_sg" {
     from_port       = 3000
     to_port         = 3000
     protocol        = "tcp"
-    security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "Grafana from API gatewway"
+    security_groups = [aws_security_group.loadbalancer_sg.id]
+    description     = "Grafana from Loadbalancer"
   }
 
   ingress {
     from_port       = 9000
     to_port         = 9000
     protocol        = "tcp"
-    security_groups = [aws_security_group.api_gateway_sg.id]
-    description     = "Graylog from API gatewway"
+    security_groups = [aws_security_group.loadbalancer_sg.id]
+    description     = "Graylog from Loadbalancer"
   }
 
   ingress {
