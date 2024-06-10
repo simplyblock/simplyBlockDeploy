@@ -22,6 +22,7 @@ resource "aws_apigatewayv2_integration" "root_integration" {
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
   integration_uri    = aws_lb_listener.root_lb_listener.arn
+}
 
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.simplyblock_api.id

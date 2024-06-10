@@ -16,7 +16,6 @@ resource "aws_apigatewayv2_integration" "graylog_integration" {
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.vpc_link.id
   integration_uri    = aws_lb_listener.graylog_lb_listener.arn
-
 }
 
 resource "aws_apigatewayv2_stage" "graylog" {
