@@ -10,6 +10,10 @@ variable "api_gateway_id" {
     type = string
 }
 
+variable "loadbalancer_id" {
+    type = string
+}
+
 variable "public_subnets" {
     type = list(string)
 }

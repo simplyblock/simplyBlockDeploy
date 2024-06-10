@@ -30,7 +30,7 @@ resource "aws_lb" "graylog_internal_lb" {
   internal           = true
   load_balancer_type = "network"
   subnets            = var.public_subnets
-  security_groups    = [var.api_gateway_id]
+  security_groups    = [var.loadbalancer_id]
 }
 
 # Create Target Group
