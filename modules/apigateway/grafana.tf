@@ -35,7 +35,7 @@ resource "aws_lb" "grafana_internal_lb" {
 
 # Create Target Group
 resource "aws_lb_target_group" "grafana_target" {
-  name     = "${terraform.workspace}-grafana-target-group"
+  name     = "${terraform.workspace}-grafana-tg"
   port     = 80
   protocol = "TCP"
   vpc_id   = var.vpc_id

@@ -35,7 +35,7 @@ resource "aws_lb" "graylog_internal_lb" {
 
 # Create Target Group
 resource "aws_lb_target_group" "graylog_target" {
-  name     = "${terraform.workspace}-graylog-target-group"
+  name     = "${terraform.workspace}-graylog-tg"
   port     = 80
   protocol = "TCP"
   vpc_id   = var.vpc_id
