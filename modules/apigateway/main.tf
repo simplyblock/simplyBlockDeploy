@@ -41,7 +41,7 @@ resource "aws_lb" "root_internal_lb" {
 
 # Create Target Group
 resource "aws_lb_target_group" "root_target" {
-  name     = "${terraform.workspace}-root-target-group"
+  name     = "${terraform.workspace}-root-tg"
   port     = 80
   protocol = "TCP"
   vpc_id   = var.vpc_id
