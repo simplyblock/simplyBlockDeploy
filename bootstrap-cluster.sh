@@ -7,6 +7,7 @@ print_help() {
     echo "Options:"
     echo "  --memory <value>                     Set SPDK huge memory allocation (optional)"
     echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
+    echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --log-del-interval <value>           Set log deletion interval (optional)"
@@ -19,6 +20,7 @@ print_help() {
 
 MEMORY=""
 CPU_MASK=""
+NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
 LOG_DEL_INTERVAL=""
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --cpu-mask)
         CPU_MASK="$2"
+        shift
+        ;;
+    --partitions)
+        NUM_PARTITIONS="$2"
         shift
         ;;
     --iobuf_small_pool_count)
@@ -177,6 +183,9 @@ if [[ -n "$CPU_MASK" ]]; then
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
+fi
+if [[ -n "$NUM_PARTITIONS" ]]; then
+    command+=" --partitions $NUM_PARTITIONS"
 fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
