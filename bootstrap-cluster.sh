@@ -121,6 +121,9 @@ while true; do
     if [[ "$dstatus" == "status: done" ]]; then
         echo "Cloud-init is done. Exiting loop."
         break
+    elif [[ "$dstatus" == "status: error" ]]; then
+        echo "Cloud-init has failed"
+        exit 1
     fi
 
     echo "Waiting for cloud-init to finish..."
