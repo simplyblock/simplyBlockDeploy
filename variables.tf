@@ -14,7 +14,7 @@ variable "env" {
 }
 
 variable "sbcli_cmd" {
-  default     = "sbcli-mc"
+  default     = "sbcli-dev"
   description = "sbcli command to be used"
   type        = string
   validation {
