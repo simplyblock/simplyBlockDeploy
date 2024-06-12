@@ -8,6 +8,12 @@ variable "region" {
   }
 }
 
+variable "az" {
+  description = "availability zone to provision"
+  type        = string
+  default     = "us-east-2b"
+}
+
 variable "env" {
   default = "dev"
   type    = string

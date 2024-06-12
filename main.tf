@@ -528,7 +528,7 @@ resource "aws_instance" "mgmt_nodes" {
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
-  subnet_id              = module.vpc.private_subnets[1]
+  subnet_id              = module.vpc.private_subnets[local.az_index]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 100
@@ -536,6 +536,13 @@ resource "aws_instance" "mgmt_nodes" {
   tags = {
     Name = "${terraform.workspace}-mgmt-${count.index + 1}"
   }
+
+  lifecycle {
+    ignore_changes = [
+      subnet_id,
+    ]
+  }
+  
   user_data = <<EOF
 #!/bin/bash
 echo "installing sbcli.."
@@ -559,7 +566,7 @@ resource "aws_instance" "storage_nodes" {
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
-  subnet_id              = module.vpc.private_subnets[1]
+  subnet_id              = module.vpc.private_subnets[local.az_index]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
     volume_size = 25
@@ -567,6 +574,13 @@ resource "aws_instance" "storage_nodes" {
   tags = {
     Name = "${terraform.workspace}-storage-${each.value + 1}"
   }
+
+  lifecycle {
+    ignore_changes = [
+      subnet_id,
+    ]
+  }
+
   user_data = <<EOF
 #!/bin/bash
 sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
@@ -583,15 +597,27 @@ EOF
 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
-  availability_zone = data.aws_availability_zones.available.names[1]
+  availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size1
+ 
+  lifecycle {
+    ignore_changes = [
+      availability_zone,
+    ]
+  }
 }
 
 resource "aws_ebs_volume" "storage_nodes_ebs2" {
   for_each = var.storage_nodes > 0 ? local.node_disks : {}
 
-  availability_zone = data.aws_availability_zones.available.names[1]
+  availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size2
+
+  lifecycle {
+    ignore_changes = [
+      availability_zone,
+    ]
+  }
 }
 
 resource "aws_volume_attachment" "attach_sn2" {
