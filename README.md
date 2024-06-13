@@ -47,6 +47,9 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
 # Deploying with eks
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-approve
 
+# Specifying the az to deploy to
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var az=us-east-2b --auto-approve
+
 # Specifying the instance types to use
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve

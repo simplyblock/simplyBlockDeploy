@@ -25,4 +25,14 @@ locals {
   }
 
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
+
+  az_suffix_to_number = {
+    "a" = 0
+    "b" = 1
+    "c" = 2
+    "d" = 3
+  }
+
+  az_suffix = substr(var.az, -1, 1)
+  az_index  = lookup(local.az_suffix_to_number, local.az_suffix, -1)
 }
