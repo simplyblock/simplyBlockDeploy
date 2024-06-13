@@ -67,7 +67,7 @@ echo "\$DOCKER_CONTAINER_IDS"
 for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
     CONTAINER_NAME=\$(sudo docker inspect --format="{{.Name}}" "\$CONTAINER_ID" | sed 's/\///')
 
-    sudo docker logs "\$CONTAINER_ID" 2> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
+    sudo docker logs "\$CONTAINER_ID" &> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
 
     aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/\$CONTAINER_NAME.txt"
 done
@@ -107,7 +107,7 @@ echo "\$DOCKER_CONTAINER_IDS"
 for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
     CONTAINER_NAME=\$(sudo docker inspect --format="{{.Name}}" "\$CONTAINER_ID" | sed 's/\///')
 
-    sudo docker logs "\$CONTAINER_ID" 2> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
+    sudo docker logs "\$CONTAINER_ID" &> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
 
     aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/\$CONTAINER_NAME.txt"
 done
