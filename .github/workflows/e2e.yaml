@@ -74,7 +74,7 @@ jobs:
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
-        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
+        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --memory 4g --cpu-mask 0x3 --iobuf_small_pool_count 25000 --iobuf_large_pool_count 10000
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
