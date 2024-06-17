@@ -14,6 +14,8 @@ print_help() {
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-img <value>                   Set spdk image (optional)"
+    echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
+    echo "  --grafana-endpoint <value>           Set grafana dashboard endpoint url (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -27,6 +29,8 @@ LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
+CONTACT_POINT=""
+GRAFANA_ENDPOINT=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -65,6 +69,14 @@ while [[ $# -gt 0 ]]; do
         ;;
     --spdk-image)
         SPDK_IMAGE="$2"
+        shift
+        ;;
+    --contact-point)
+        CONTACT_POINT="$2"
+        shift
+        ;;
+    --grafana-endpoint)
+        GRAFANA_ENDPOINT="$2"
         shift
         ;;
     --help)
@@ -142,7 +154,12 @@ fi
 if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
     command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
 fi
-
+if [[ -n "$CONTACT_POINT" ]]; then
+    command+=" --contact-point $CONTACT_POINT"
+fi
+if [[ -n "$GRAFANA_ENDPOINT" ]]; then
+    command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+fi
 # node 1
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
