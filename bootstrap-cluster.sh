@@ -15,7 +15,6 @@ print_help() {
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-img <value>                   Set spdk image (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
-    echo "  --grafana-endpoint <value>           Set grafana dashboard endpoint url (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -30,7 +29,6 @@ METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
 CONTACT_POINT=""
-GRAFANA_ENDPOINT=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -75,10 +73,6 @@ while [[ $# -gt 0 ]]; do
         CONTACT_POINT="$2"
         shift
         ;;
-    --grafana-endpoint)
-        GRAFANA_ENDPOINT="$2"
-        shift
-        ;;
     --help)
         print_help
         ;;
@@ -90,10 +84,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-DESIRED_SIZE_BYTES=2147483648 # 2 GB in bytes
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 BASTION_IP=$(terraform output -raw bastion_public_ip)
+GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
 
 ssh_dir="$HOME/.ssh"
 
