@@ -154,6 +154,7 @@ fi
 # if [[ -n "$GRAFANA_ENDPOINT" ]]; then
 #     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
 # fi
+
 # node 1
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
