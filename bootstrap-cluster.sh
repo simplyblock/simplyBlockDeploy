@@ -14,6 +14,7 @@ print_help() {
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-img <value>                   Set spdk image (optional)"
+    echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -27,6 +28,7 @@ LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
+CONTACT_POINT=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
         SPDK_IMAGE="$2"
         shift
         ;;
+    --contact-point)
+        CONTACT_POINT="$2"
+        shift
+        ;;
     --help)
         print_help
         ;;
@@ -78,10 +84,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-DESIRED_SIZE_BYTES=2147483648 # 2 GB in bytes
 SECRET_VALUE=$(terraform output -raw secret_value)
 KEY_NAME=$(terraform output -raw key_name)
 BASTION_IP=$(terraform output -raw bastion_public_ip)
+GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
 
 ssh_dir="$HOME/.ssh"
 
@@ -142,7 +148,12 @@ fi
 if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
     command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
 fi
-
+if [[ -n "$CONTACT_POINT" ]]; then
+    command+=" --contact-point $CONTACT_POINT"
+fi
+if [[ -n "$GRAFANA_ENDPOINT" ]]; then
+    command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+fi
 # node 1
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
