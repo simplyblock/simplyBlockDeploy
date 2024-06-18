@@ -195,3 +195,13 @@ Use this command to SSH into the management node or storage nodes in private sub
 ```bash
 ssh -i ~/.ssh/simplyblock-us-east-1.pem -o ProxyCommand="ssh -i ~/.ssh/simplyblock-us-east-1.pem -W %h:%p ec2-user@<Bastion-Public-IP>" ec2-user@<Management-Node-Private-IP or Storage-Node-Private-IP>
 ```
+
+### Connecting using SSM Session Manager
+
+please make sure that [session manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-macos-overview.html) is installed
+
+start session by running
+
+```
+aws ssm start-session --target i-040f2ed69d42bcabc
+```

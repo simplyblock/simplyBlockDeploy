@@ -9,32 +9,61 @@ data "aws_ami" "this" {
   }
 }
 
-
 resource "aws_autoscaling_group" "tfengine_asg" {
-  min_size             = 1
-  max_size             = 1
-  desired_capacity     = 1
-  vpc_zone_identifier  = [module.vpc.private_subnets[0]]
-  launch_configuration = aws_launch_configuration.tfengine_lc.name
+  min_size            = 1
+  max_size            = 1
+  desired_capacity    = 1
+  vpc_zone_identifier = [module.vpc.private_subnets[0]]
   tag {
     key                 = "Name"
     value               = "tfengine"
     propagate_at_launch = true
   }
+  lifecycle {
+    create_before_destroy = true
+  }
+  launch_template {
+    id      = aws_launch_template.tfengine_lc.id
+    version = "$Latest"
+  }
 }
 
-resource "aws_launch_configuration" "tfengine_lc" {
-  image_id             = data.aws_ami.this.id
-  instance_type        = "t2.micro"
-  security_groups      = [aws_security_group.tfengine_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.tfengine.name
-  user_data            = <<EOF
+resource "aws_launch_template" "tfengine_lc" {
+  name_prefix   = "tfengine"
+  image_id      = data.aws_ami.this.id
+  instance_type = "t2.micro"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.tfengine_sg.id]
+  }
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.tfengine.name
+  }
+
+  user_data = base64encode(<<EOF
 #!/bin/bash
 dnf install -y docker
 systemctl enable docker
 systemctl start docker
 dnf install -y amazon-ecr-credential-helper
+mkdir -p ~/.docker
+echo '{"credsStore": "ecr-login"}' > ~/.docker/config.json
 EOF
+)
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = {
+      Name = "tfengine"
+    }
+  }
 }
 
 resource "aws_security_group" "tfengine_sg" {
