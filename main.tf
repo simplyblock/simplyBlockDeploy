@@ -469,9 +469,9 @@ data "aws_iam_policy_document" "assume_role_policy" {
 }
 
 # create a policy
-resource "aws_iam_policy" "codeartifact_policy" {
-  name        = "${terraform.workspace}-codeartifact_policy_policy"
-  description = "Policy for allowing EC2 to get objects from codeartifact"
+resource "aws_iam_policy" "mgmt_policy" {
+  name        = "${terraform.workspace}-mgmt_node_policy"
+  description = "Policy for allowing EC2 to communicate with other resources"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -522,7 +522,7 @@ resource "aws_iam_role" "role" {
 # attach policy to the role
 resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
   role       = aws_iam_role.role.name
-  policy_arn = aws_iam_policy.codeartifact_policy.arn
+  policy_arn = aws_iam_policy.mgmt_policy.arn
 }
 
 # create instance profile
