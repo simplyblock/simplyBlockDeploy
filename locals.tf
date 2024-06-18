@@ -35,4 +35,14 @@ locals {
 
   az_suffix = substr(var.az, -1, 1)
   az_index  = lookup(local.az_suffix_to_number, local.az_suffix, -1)
+
+  efs_file_systems = {
+    mongodb_data    = "mongodb_data"
+    os_data         = "os_data"
+    graylog_data    = "graylog_data"
+    graylog_journal = "graylog_journal"
+    grafana_data    = "grafana_data"
+    prometheus_data = "prometheus_data"
+  }
+  
 }

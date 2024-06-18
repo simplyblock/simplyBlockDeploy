@@ -103,6 +103,14 @@ resource "aws_security_group" "mgmt_node_sg" {
   vpc_id = module.vpc.vpc_id
 
   ingress {
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    self        = true
+    description = "EFS from mgmt nodes"
+  }
+
+  ingress {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
@@ -468,6 +476,29 @@ resource "aws_iam_policy" "codeartifact_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeMountTargets",
+          "elasticfilesystem:DescribeMountTargetSecurityGroups",
+          "elasticfilesystem:CreateAccessPoint",
+          "elasticfilesystem:DeleteAccessPoint",
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:ListTagsForResource",
+          "elasticfilesystem:TagResource",
+          "elasticfilesystem:UntagResource",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeInstances",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeTags"
+        ],
+        "Resource": "*"
+      },
       {
         "Effect" : "Allow",
         "Action" : "sts:GetServiceBearerToken",
