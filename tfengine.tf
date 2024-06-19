@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   account_id = data.aws_caller_identity.current.account_id
 }
@@ -200,7 +202,7 @@ resource "aws_iam_role_policy_attachment" "AmazonSSMManagedInstanceCore" {
 
 # NOTE: Terraform uses the same role that we use to deploy the cluster to the customer's account
 resource "aws_iam_role_policy_attachment" "sbdeployPolicy" {
-  policy_arn = "arn:aws:iam::${locals.account_id}:policy/sbdeployPolicy"
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/sbdeployPolicy"
   role       = aws_iam_role.tfengine.name
 }
 
