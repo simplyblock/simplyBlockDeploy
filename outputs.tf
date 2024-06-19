@@ -56,3 +56,11 @@ output "bastion_public_ip" {
 output "api_invoke_url" {
   value = try(module.apigatewayendpoint[0].api_invoke_url, "")
 }
+
+output "grafana_invoke_url" {
+  value = "${try(module.apigatewayendpoint[0].api_invoke_url, "")}grafana"
+}
+
+output "graylog_invoke_url" {
+  value = "${try(module.apigatewayendpoint[0].api_invoke_url, "")}graylog"
+}
