@@ -1,3 +1,6 @@
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+}
 
 data "aws_ami" "this" {
   most_recent = true
@@ -55,7 +58,7 @@ dnf install -y amazon-ecr-credential-helper
 mkdir -p ~/.docker
 echo '{"credsStore": "ecr-login"}' > ~/.docker/config.json
 EOF
-)
+  )
 
   tag_specifications {
     resource_type = "instance"
@@ -126,7 +129,7 @@ resource "aws_iam_policy" "tfengine_logs_policy" {
             ],
             "Resource": [
                 "${aws_s3_bucket.tfengine_logs.arn}/*",
-                "arn:aws:s3:::simplyblock-terraform-state-bucket/*"
+                "arn:aws:s3:::${var.tf_state_bucket_name}/*"
             ]
         },
         {
@@ -135,7 +138,7 @@ resource "aws_iam_policy" "tfengine_logs_policy" {
                 "s3:ListBucket"
             ],
             "Resource": [
-                "arn:aws:s3:::simplyblock-terraform-state-bucket"
+                "arn:aws:s3:::${var.tf_state_bucket_name}"
             ]
         }
     ]
@@ -195,8 +198,9 @@ resource "aws_iam_role_policy_attachment" "AmazonSSMManagedInstanceCore" {
   role       = aws_iam_role.tfengine.name
 }
 
+# NOTE: Terraform uses the same role that we use to deploy the cluster to the customer's account
 resource "aws_iam_role_policy_attachment" "sbdeployPolicy" {
-  policy_arn = "arn:aws:iam::565979732541:policy/sbdeployPolicy"
+  policy_arn = "arn:aws:iam::${locals.account_id}:policy/sbdeployPolicy"
   role       = aws_iam_role.tfengine.name
 }
 
@@ -214,4 +218,8 @@ resource "aws_iam_role_policy_attachment" "ecrpolicy" {
 resource "aws_iam_role_policy_attachment" "tfengine_dynamodb_policy" {
   policy_arn = aws_iam_policy.tfengine_dynamodb_policy.arn
   role       = aws_iam_role.tfengine.name
+}
+
+output "tfengine_logs" {
+  value = try(aws_s3_bucket.tfengine_logs.bucket, "")
 }
