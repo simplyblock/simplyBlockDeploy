@@ -246,7 +246,7 @@ echo ""
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
+${SBCLI_CMD} pool add testing1
 "
 
 API_INVOKE_URL=$(terraform output -raw api_invoke_url)
