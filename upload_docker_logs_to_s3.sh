@@ -104,7 +104,7 @@ mkdir -p "\$LOCAL_LOGS_DIR"
 # Look for core dump files and upload to S3
 for DUMP_FILE in /etc/simplyblock/*; do
     if [ -f "\$DUMP_FILE" ]; then
-        aws s3 cp "\$DUMP_FILE" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/\$(basename \$DUMP_FILE)" --storage-class STANDARD --only-show-errors
+        aws s3 cp \"$DUMP_FILE\" \"s3://$S3_BUCKET/$LOCAL_LOGS_DIR/storage/${node}/$(basename \"$DUMP_FILE\")\" --storage-class STANDARD --only-show-errors
     fi
 done
 
