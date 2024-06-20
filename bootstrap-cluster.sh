@@ -15,6 +15,7 @@ print_help() {
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-img <value>                   Set spdk image (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
+    echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -29,6 +30,8 @@ METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
 CONTACT_POINT=""
+SPDK_DEBUG="false"
+
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -72,6 +75,9 @@ while [[ $# -gt 0 ]]; do
     --contact-point)
         CONTACT_POINT="$2"
         shift
+        ;;
+    --spdk-debug)
+        SPDK_DEBUG="true"
         ;;
     --help)
         print_help
@@ -208,6 +214,10 @@ fi
 if [[ -n "$SPDK_IMAGE" ]]; then
     command+=" --spdk-image $SPDK_IMAGE"
 fi
+if [ "$SPDK_DEBUG" == "true" ]; then
+    command+=" --spdk-debug"
+fi
+
 
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
