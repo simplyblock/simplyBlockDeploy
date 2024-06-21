@@ -6,7 +6,6 @@ print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  --memory <value>                     Set SPDK huge memory allocation (optional)"
-    echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
     echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
@@ -19,7 +18,6 @@ print_help() {
 }
 
 MEMORY=""
-CPU_MASK=""
 NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
@@ -33,10 +31,6 @@ while [[ $# -gt 0 ]]; do
     case $arg in
     --memory)
         MEMORY="$2"
-        shift
-        ;;
-    --cpu-mask)
-        CPU_MASK="$2"
         shift
         ;;
     --partitions)
@@ -180,9 +174,6 @@ command="${SBCLI_CMD} -d storage-node add-node"
 
 if [[ -n "$MEMORY" ]]; then
     command+=" --memory $MEMORY"
-fi
-if [[ -n "$CPU_MASK" ]]; then
-    command+=" --cpu-mask $CPU_MASK"
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
