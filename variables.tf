@@ -1,5 +1,5 @@
 variable "region" {
-  default     = "us-east-2"
+  default     = "eu-west-1"
   description = "region to provision"
   type        = string
   validation {
