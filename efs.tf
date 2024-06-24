@@ -16,4 +16,9 @@ resource "aws_efs_mount_target" "efs_mt" {
   subnet_id       = module.vpc.private_subnets[local.az_index]
   security_groups = [aws_security_group.mgmt_node_sg.id]
 
+  lifecycle {
+    ignore_changes = [
+      subnet_id,
+    ]
+  }
 }

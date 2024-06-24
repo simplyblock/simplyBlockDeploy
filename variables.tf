@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "sbcli_cmd" {
-  default     = "sbcli-dev"
+  default     = "sbcli-mig"
   description = "sbcli command to be used"
   type        = string
   validation {
@@ -66,7 +66,7 @@ variable "extra_nodes" {
 }
 
 variable "mgmt_nodes_instance_type" {
-  default = "m5.large"
+  default = "m4.large"
   type    = string
 }
 

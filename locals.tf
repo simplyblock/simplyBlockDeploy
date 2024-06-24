@@ -1,5 +1,5 @@
 locals {
-  volume_device_names = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn"]
+  volume_device_names = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn", "/dev/sdo"]
 
   snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
 
@@ -41,6 +41,7 @@ locals {
     os_data         = "os_data"
     graylog_data    = "graylog_data"
     graylog_journal = "graylog_journal"
+    graylog_config  = "graylog_config"
     grafana_data    = "grafana_data"
     prometheus_data = "prometheus_data"
   }
