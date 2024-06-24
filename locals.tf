@@ -41,6 +41,7 @@ locals {
     os_data         = "os_data"
     graylog_data    = "graylog_data"
     graylog_journal = "graylog_journal"
+    graylog_config  = "graylog_config"
     grafana_data    = "grafana_data"
     prometheus_data = "prometheus_data"
   }
