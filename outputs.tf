@@ -53,14 +53,14 @@ output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
 }
 
+output "api_invoke_url" {
+  value = try(module.apigatewayendpoint[0].api_invoke_url, "")
+}
+
 output "grafana_invoke_url" {
-  value = try(module.apigatewayendpoint[0].grafana_invoke_url, "")
+  value = "${try(module.apigatewayendpoint[0].api_invoke_url, "")}grafana"
 }
 
 output "graylog_invoke_url" {
-  value = try(module.apigatewayendpoint[0].graylog_invoke_url, "")
-}
-
-output "api_invoke_url" {
-  value = try(module.apigatewayendpoint[0].api_invoke_url, "")
+  value = "${try(module.apigatewayendpoint[0].api_invoke_url, "")}graylog"
 }
