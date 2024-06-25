@@ -5,9 +5,9 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-lvol  <value>                  Set Maximum lvol (optional)"
-    echo "  --max-snap  <value>                  Set Maximum snapshot (optional)"
-    echo "  --max-prov  <value>                  Set Maximum prov (optional)"
+    echo "  --max-lvol  <value>                  Set Maximum lvols (optional)"
+    echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
+    echo "  --max-prov  <value>                  Set Maximum cluster size (optional)"
     echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
@@ -22,7 +22,7 @@ print_help() {
 
 MAX_LVOL=""
 MAX_SNAPSHOT=""
-MAX_PROV=""
+MAX_PROVISION=""
 NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     --max-prov)
-        MAX_PROV="$2"
+        MAX_PROVISION="$2"
         shift
         ;;
     --partitions)
@@ -202,8 +202,8 @@ fi
 if [[ -n "$MAX_SNAP" ]]; then
     command+=" --max-snap $MAX_SNAP"
 fi
-if [[ -n "$MAX_PROV" ]]; then
-    command+=" --max-prov $MAX_PROV"
+if [[ -n "$MAX_PROVISION" ]]; then
+    command+=" --max-prov $MAX_PROVISION"
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
