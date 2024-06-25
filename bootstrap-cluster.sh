@@ -5,7 +5,9 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --memory <value>                     Set SPDK huge memory allocation (optional)"
+    echo "  --max-lvol  <value>                  Set Maximum lvol (optional)"
+    echo "  --max-snap  <value>                  Set Maximum snapshot (optional)"
+    echo "  --max-prov  <value>                  Set Maximum prov (optional)"
     echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
@@ -18,7 +20,9 @@ print_help() {
     exit 0
 }
 
-MEMORY=""
+MAX_LVOL=""
+MAX_SNAPSHOT=""
+MAX_PROV=""
 NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
@@ -31,8 +35,16 @@ CONTACT_POINT=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-    --memory)
-        MEMORY="$2"
+    --max-lvol)
+        MAX_LVOL="$2"
+        shift
+        ;;
+    --max-snap)
+        MAX_SNAPSHOT="$2"
+        shift
+        ;;
+    --max-prov)
+        MAX_PROV="$2"
         shift
         ;;
     --partitions)
@@ -184,8 +196,14 @@ echo ""
 # node 1
 command="${SBCLI_CMD} -d storage-node add-node"
 
-if [[ -n "$MEMORY" ]]; then
-    command+=" --memory $MEMORY"
+if [[ -n "$MAX_LVOL" ]]; then
+    command+=" --max-lvol $MAX_LVOL"
+fi
+if [[ -n "$MAX_SNAP" ]]; then
+    command+=" --max-snap $MAX_SNAP"
+fi
+if [[ -n "$MAX_PROV" ]]; then
+    command+=" --max-prov $MAX_PROV"
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
