@@ -180,6 +180,7 @@ if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
 fi
 if [[ -n "$NUM_PARTITIONS" ]]; then
     command+=" --partitions $NUM_PARTITIONS"
+    command+=" --jm-percent 3"
 fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
