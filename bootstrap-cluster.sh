@@ -157,9 +157,10 @@ fi
 if [[ -n "$CONTACT_POINT" ]]; then
     command+=" --contact-point $CONTACT_POINT"
 fi
-# if [[ -n "$GRAFANA_ENDPOINT" ]]; then
-#     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
-# fi
+
+if [[ -n "$GRAFANA_ENDPOINT" ]]; then
+    command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+fi
 
 # node 1
 
@@ -210,6 +211,7 @@ if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
 fi
 if [[ -n "$NUM_PARTITIONS" ]]; then
     command+=" --partitions $NUM_PARTITIONS"
+    command+=" --jm-percent 3"
 fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
