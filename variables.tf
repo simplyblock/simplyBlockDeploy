@@ -109,3 +109,8 @@ variable "enable_apigateway" {
   default = 1
   type    = number
 }
+
+variable "tf_state_bucket_name" {
+  default = "simplyblock-terraform-state-bucket"
+  type    = string
+}
