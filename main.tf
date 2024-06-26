@@ -103,6 +103,14 @@ resource "aws_security_group" "mgmt_node_sg" {
   vpc_id = module.vpc.vpc_id
 
   ingress {
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    self        = true
+    description = "EFS from mgmt nodes"
+  }
+
+  ingress {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
@@ -461,13 +469,29 @@ data "aws_iam_policy_document" "assume_role_policy" {
 }
 
 # create a policy
-resource "aws_iam_policy" "codeartifact_policy" {
-  name        = "${terraform.workspace}-codeartifact_policy_policy"
-  description = "Policy for allowing EC2 to get objects from codeartifact"
+resource "aws_iam_policy" "mgmt_policy" {
+  name        = "${terraform.workspace}-mgmt_node_policy"
+  description = "Policy for allowing EC2 to communicate with other resources"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeMountTargets",
+          "elasticfilesystem:DescribeMountTargetSecurityGroups",
+          "elasticfilesystem:ListTagsForResource",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeInstances",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeTags"
+        ],
+        "Resource": "*"
+      },
       {
         "Effect" : "Allow",
         "Action" : "sts:GetServiceBearerToken",
@@ -498,7 +522,7 @@ resource "aws_iam_role" "role" {
 # attach policy to the role
 resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
   role       = aws_iam_role.role.name
-  policy_arn = aws_iam_policy.codeartifact_policy.arn
+  policy_arn = aws_iam_policy.mgmt_policy.arn
 }
 
 # create instance profile
