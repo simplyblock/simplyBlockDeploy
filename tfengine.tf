@@ -12,6 +12,11 @@ data "aws_ami" "this" {
     name   = "name"
     values = ["al2023-ami-2023*"]
   }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
 }
 
 resource "aws_autoscaling_group" "tfengine_asg" {
@@ -36,7 +41,7 @@ resource "aws_autoscaling_group" "tfengine_asg" {
 resource "aws_launch_template" "tfengine_lc" {
   name_prefix   = "tfengine"
   image_id      = data.aws_ami.this.id
-  instance_type = "t2.micro"
+  instance_type = "t3.medium"
 
   lifecycle {
     create_before_destroy = true
