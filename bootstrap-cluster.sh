@@ -23,6 +23,7 @@ print_help() {
 MAX_LVOL=""
 MAX_SNAPSHOT=""
 MAX_PROVISION=""
+NO_DEVICE=""
 NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
@@ -45,6 +46,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --max-prov)
         MAX_PROVISION="$2"
+        shift
+        ;;
+    --number-of-devices)
+        NO_DEVICE="$2"
         shift
         ;;
     --partitions)
@@ -200,11 +205,14 @@ command="${SBCLI_CMD} -d storage-node add-node"
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
 fi
-if [[ -n "$MAX_SNAP" ]]; then
-    command+=" --max-snap $MAX_SNAP"
+if [[ -n "$MAX_SNAPSHOT" ]]; then
+    command+=" --max-snap $MAX_SNAPSHOT"
 fi
 if [[ -n "$MAX_PROVISION" ]]; then
     command+=" --max-prov $MAX_PROVISION"
+fi
+if [[ -n "$NO_DEVICE" ]]; then
+    command+=" --number-of-devices $NO_DEVICE"
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
