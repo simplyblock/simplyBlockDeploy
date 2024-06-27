@@ -1,7 +1,6 @@
 resource "aws_efs_file_system" "efs" {
   for_each = local.efs_file_systems
 
-  creation_token   = "/monitoring_${each.value}"
   performance_mode = "generalPurpose"
 
   tags = {
