@@ -122,7 +122,7 @@ resource "aws_s3_bucket" "tfengine_logs" {
 
 # A policy to allow the instance to put logs in the bucket
 resource "aws_iam_policy" "tfengine_logs_policy" {
-  name        = "tfengine_logs_policy"
+  name        = "${terraform.workspace}-tfengine_logs_policy"
   description = "S3 policy for tfengine logs"
   policy      = <<EOF
 {
@@ -154,7 +154,7 @@ EOF
 }
 
 resource "aws_iam_policy" "tfengine_ecr_policy" {
-  name        = "tfengine_ecr_policy"
+  name        = "${terraform.workspace}-tfengine_ecr_policy"
   description = "S3 policy for tfengine ecr"
   policy      = <<EOF
 {
