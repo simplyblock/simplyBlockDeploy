@@ -23,10 +23,6 @@ variable "sbcli_cmd" {
   default     = "sbcli-dev"
   description = "sbcli command to be used"
   type        = string
-  validation {
-    condition     = can(regex("^sbcli-dev$|^sbcli-release$|^sbcli-mig$|^sbcli-mc$|^sbcli-pre$", var.sbcli_cmd))
-    error_message = "Invalid sbcli command. Please choose one of: sbcli-dev, sbcli-release, sbcli-mig, sbcli-mc, sbcli-pre."
-  }
 }
 
 variable "sbcli_pkg_version" {

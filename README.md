@@ -138,11 +138,11 @@ chmod +x ./bootstrap-cluster.sh
 
 ### Specifying Cluster Arguments
 
-```bash
-./bootstrap-cluster.sh --memory 8g --cpu-mask 0x3 --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
-```
+# specifying cluster argument to use
+./bootstrap-cluster.sh --memory 8g --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
 
 ### Specifying Log Deletion Interval and Metrics Retention Period
+
 
 ```bash
 ./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h

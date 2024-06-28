@@ -5,8 +5,9 @@ KEY="$HOME/.ssh/simplyblock-ohio.pem"
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --memory <value>                     Set SPDK huge memory allocation (optional)"
-    echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
+    echo "  --max-lvol  <value>                  Set Maximum lvols (optional)"
+    echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
+    echo "  --max-prov  <value>                  Set Maximum cluster size (optional)"
     echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
@@ -20,8 +21,10 @@ print_help() {
     exit 0
 }
 
-MEMORY=""
-CPU_MASK=""
+MAX_LVOL=""
+MAX_SNAPSHOT=""
+MAX_PROVISION=""
+NO_DEVICE=""
 NUM_PARTITIONS=""
 IOBUF_SMALL_POOL_COUNT=""
 IOBUF_LARGE_POOL_COUNT=""
@@ -36,12 +39,20 @@ SPDK_DEBUG="false"
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-    --memory)
-        MEMORY="$2"
+    --max-lvol)
+        MAX_LVOL="$2"
         shift
         ;;
-    --cpu-mask)
-        CPU_MASK="$2"
+    --max-snap)
+        MAX_SNAPSHOT="$2"
+        shift
+        ;;
+    --max-prov)
+        MAX_PROVISION="$2"
+        shift
+        ;;
+    --number-of-devices)
+        NO_DEVICE="$2"
         shift
         ;;
     --partitions)
@@ -157,9 +168,9 @@ fi
 if [[ -n "$CONTACT_POINT" ]]; then
     command+=" --contact-point $CONTACT_POINT"
 fi
-# if [[ -n "$GRAFANA_ENDPOINT" ]]; then
-#     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
-# fi
+if [[ -n "$GRAFANA_ENDPOINT" ]]; then
+    command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+fi
 
 # node 1
 
@@ -196,17 +207,24 @@ echo ""
 # node 1
 command="${SBCLI_CMD} -d storage-node add-node"
 
-if [[ -n "$MEMORY" ]]; then
-    command+=" --memory $MEMORY"
+if [[ -n "$MAX_LVOL" ]]; then
+    command+=" --max-lvol $MAX_LVOL"
 fi
-if [[ -n "$CPU_MASK" ]]; then
-    command+=" --cpu-mask $CPU_MASK"
+if [[ -n "$MAX_SNAPSHOT" ]]; then
+    command+=" --max-snap $MAX_SNAPSHOT"
+fi
+if [[ -n "$MAX_PROVISION" ]]; then
+    command+=" --max-prov $MAX_PROVISION"
+fi
+if [[ -n "$NO_DEVICE" ]]; then
+    command+=" --number-of-devices $NO_DEVICE"
 fi
 if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
 fi
 if [[ -n "$NUM_PARTITIONS" ]]; then
     command+=" --partitions $NUM_PARTITIONS"
+    command+=" --jm-percent 3"
 fi
 if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
@@ -268,7 +286,7 @@ echo ""
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-${SBCLI_CMD} pool add testing1
+${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
 "
 
 API_INVOKE_URL=$(terraform output -raw api_invoke_url)
