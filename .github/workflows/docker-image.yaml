@@ -1,0 +1,28 @@
+name: Docker Image Build
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Tag docker image
+      run: |
+        docker build -t simplyblockdeploy .
+        docker tag simplyblockdeploy:latest 565979732541.dkr.ecr.us-east-1.amazonaws.com/simplyblockdeploy:latest
+
+    - name: Push the docker image
+      run: |
+        docker push 565979732541.dkr.ecr.us-east-1.amazonaws.com/simplyblockdeploy:latest
