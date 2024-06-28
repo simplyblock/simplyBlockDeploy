@@ -178,7 +178,7 @@ EOF
 }
 
 resource "aws_iam_policy" "tfengine_dynamodb_policy" {
-  name        = "tfengine_dynamodb_policy"
+  name        = "${terraform.workspace}-tfengine_dynamodb_policy"
   description = "S3 policy for tfengine dynamodb"
   policy      = <<EOF
 {
