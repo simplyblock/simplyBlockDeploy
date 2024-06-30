@@ -4,7 +4,7 @@ resource "aws_efs_file_system" "efs" {
   performance_mode = "generalPurpose"
 
   tags = {
-    Name = "/monitoring_${each.value}"
+    Name = "${aws_instance.mgmt_nodes[0].id}/monitoring_${each.value}"
   }
 }
 
