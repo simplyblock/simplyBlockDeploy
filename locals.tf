@@ -19,7 +19,7 @@ locals {
 
   region_ami_map = {
     "us-east-1"  = "ami-023c11a32b0207432"
-    "us-east-2"  = "ami-039b2bba00f7d3853"
+    "us-east-2"  = "ami-08f1e153372c3e518"
     "eu-north-1" = "ami-01d565a5f2da42e6f"
     "eu-west-1"  = "ami-049b0abf844cab8d7"
   }
