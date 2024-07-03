@@ -124,7 +124,8 @@ jobs:
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1 \
-             --set image.simplyblock.tag=main-arm64
+             --set image.simplyblock.tag=main-arm64 \
+             --set image.spdkcsi.tag=master-arm64
 
       - name: Run tests
         run: |
