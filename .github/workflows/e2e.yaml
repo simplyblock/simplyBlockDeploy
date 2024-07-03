@@ -78,7 +78,7 @@ jobs:
         run: |
           terraform plan \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
-            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6gd.xlarge" -var "arch=amd" \
+            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6gd.xlarge" -var "arch=arm" \
             -var "region=us-east-2" -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" -out=tfplan
 
       - name: Apply Terraform Changes
