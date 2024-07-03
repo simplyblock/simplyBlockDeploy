@@ -31,6 +31,11 @@ locals {
     "eu-west-1"  = "ami-02b8573b23fde21aa"
   }
 
+  ami_map = {
+    "amd64" = local.region_ami_map
+    "arm64" = local.region_ami_map_arm
+  }
+
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
 
   az_suffix_to_number = {

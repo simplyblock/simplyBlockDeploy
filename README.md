@@ -83,7 +83,7 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var az=us-east-2b --auto
 ### Specifying the Arch type to Deploy
 
 ```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var arch=arm \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes_arch=arm64 \
                 -var extra_nodes_instance_type="m6gd.xlarge" --auto-approve
 ```
 
