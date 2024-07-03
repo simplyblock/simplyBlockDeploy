@@ -80,6 +80,13 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var az=us-east-2b --auto-approve
 ```
 
+### Specifying the Arch type to Deploy
+
+```bash
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var arch=arm \
+                -var extra_nodes_instance_type="m6gd.xlarge" --auto-approve
+```
+
 ### Specifying Instance Types
 
 ```bash

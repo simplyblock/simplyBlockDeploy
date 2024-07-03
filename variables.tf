@@ -110,3 +110,8 @@ variable "tf_state_bucket_name" {
   default = "simplyblock-terraform-state-bucket"
   type    = string
 }
+
+variable "arch" {
+  default = "amd"
+  type    = string
+}
