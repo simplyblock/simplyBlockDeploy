@@ -63,11 +63,11 @@ resource "aws_security_group" "loadbalancer_sg" {
   vpc_id = module.vpc.vpc_id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
     security_groups = [aws_security_group.api_gateway_sg.id]
-    description = "HTTP from API gateway"
+    description     = "HTTP from API gateway"
   }
 
   ingress {
@@ -477,8 +477,8 @@ resource "aws_iam_policy" "mgmt_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        "Effect": "Allow",
-        "Action": [
+        "Effect" : "Allow",
+        "Action" : [
           "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeMountTargets",
           "elasticfilesystem:DescribeMountTargetSecurityGroups",
@@ -490,7 +490,7 @@ resource "aws_iam_policy" "mgmt_policy" {
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeTags"
         ],
-        "Resource": "*"
+        "Resource" : "*"
       },
       {
         "Effect" : "Allow",
@@ -509,6 +509,45 @@ resource "aws_iam_policy" "mgmt_policy" {
           "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
         ]
       },
+      {
+        Action = [
+          "ssm:SendCommand",
+        ],
+        Effect = "Allow",
+        Resource = [
+          "arn:aws:ec2:${var.region}:${local.account_id}:instance/*",
+          "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
+          "arn:aws:ssm:${var.region}:${local.account_id}:*"
+        ]
+      },
+      {
+        Action = [
+          "ssm:GetCommandInvocation"
+        ],
+        Effect = "Allow",
+        Resource = [
+          "arn:aws:ssm:${var.region}:${local.account_id}:*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:GetObject"
+        ],
+        "Resource" : [
+          "${aws_s3_bucket.tfengine_logs.arn}/*",
+          "arn:aws:s3:::${var.tf_state_bucket_name}/*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:ListBucket"
+        ],
+        "Resource" : [
+          "arn:aws:s3:::${var.tf_state_bucket_name}"
+        ]
+      }
     ]
   })
 }
@@ -566,7 +605,7 @@ resource "aws_instance" "mgmt_nodes" {
       subnet_id,
     ]
   }
-  
+
   user_data = <<EOF
 #!/bin/bash
 echo "installing sbcli.."
@@ -623,7 +662,7 @@ resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size1
- 
+
   lifecycle {
     ignore_changes = [
       availability_zone,

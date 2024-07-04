@@ -48,10 +48,10 @@ resource "aws_lb_target_group" "root_target" {
 }
 
 resource "aws_lb_target_group_attachment" "root_target_attachment" {
-  count              = length(var.mgmt_node_instance_ids)
-  target_group_arn   = aws_lb_target_group.root_target.arn
-  target_id          = var.mgmt_node_instance_ids[count.index]
-  port               = 80
+  count            = length(var.mgmt_node_instance_ids)
+  target_group_arn = aws_lb_target_group.root_target.arn
+  target_id        = var.mgmt_node_instance_ids[count.index]
+  port             = 80
 }
 
 # Create Listener

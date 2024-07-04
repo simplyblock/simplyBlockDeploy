@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   volume_device_names = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn", "/dev/sdo"]
 
@@ -45,5 +47,6 @@ locals {
     grafana_data    = "grafana_data"
     prometheus_data = "prometheus_data"
   }
-  
+
+  account_id = data.aws_caller_identity.current.account_id
 }
