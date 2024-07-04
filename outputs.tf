@@ -37,9 +37,9 @@ output "mgmt_node_details" {
 output "storage_node_details" {
   value = { for i, instance in aws_instance.storage_nodes :
     instance.tags["Name"] => {
-      type       = instance.instance_type
-      public_ip  = instance.public_ip
-      private_ip = instance.private_ip
+      type              = instance.instance_type
+      public_ip         = instance.public_ip
+      private_ip        = instance.private_ip
       availability_zone = instance.availability_zone
     }
   }
