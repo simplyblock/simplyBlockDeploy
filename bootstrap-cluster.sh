@@ -201,7 +201,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
 done
 
 echo ""
-sleep 60
+sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
