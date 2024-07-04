@@ -110,3 +110,13 @@ variable "tf_state_bucket_name" {
   default = "simplyblock-terraform-state-bucket"
   type    = string
 }
+
+variable "extra_nodes_arch" {
+  type        = string
+  default     = "amd64"
+
+  validation {
+    condition     = contains(["arm64", "amd64"], var.extra_nodes_arch)
+    error_message = "The architecture type must be either 'arm64' or 'amd64'."
+  }
+}
