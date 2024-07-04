@@ -19,6 +19,12 @@ locals {
 
   selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
 
+# Images are generated from this image builder:
+# https://us-east-2.console.aws.amazon.com/imagebuilder/home?region=us-east-2#/pipelines/arn:aws:imagebuilder:us-east-2:565979732541:image-pipeline/tst
+#
+# it is basically rhel9 + the following lines:
+#  $sudo yum update -y
+#  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
   region_ami_map = {
     "us-east-1"  = "ami-0d647905a963bb139"
     "us-east-2"  = "ami-00ff94d69b3ced2aa"
