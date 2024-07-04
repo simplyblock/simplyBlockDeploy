@@ -157,14 +157,6 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-# Get Instance ID
-INSTANCE_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
-INSTANCE_ID=\$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-echo \${INSTANCE_ID}
-")
-
 command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
 echo $command
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
@@ -186,7 +178,6 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-export INSTANCE_ID=$INSTANCE_ID
 $command
 "
 
@@ -202,7 +193,6 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[${i}]} "
-    export INSTANCE_ID=$INSTANCE_ID
     MANGEMENT_NODE_IP=${mnodes[0]}
     CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
     echo \"Cluster ID is: \${CLUSTER_ID}\"
