@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   volume_device_names = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn", "/dev/sdo"]
 
@@ -24,6 +26,18 @@ locals {
     "eu-west-1"  = "ami-049b0abf844cab8d7"
   }
 
+  region_ami_map_arm = {
+    "us-east-1"  = "ami-07472131ec292b5da"
+    "us-east-2"  = "ami-08f9f3bb075432791"
+    "eu-north-1" = "ami-096f8d910bbf871bc"
+    "eu-west-1"  = "ami-02b8573b23fde21aa"
+  }
+
+  ami_map = {
+    "amd64" = local.region_ami_map
+    "arm64" = local.region_ami_map_arm
+  }
+
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
 
   az_suffix_to_number = {
@@ -45,5 +59,6 @@ locals {
     grafana_data    = "grafana_data"
     prometheus_data = "prometheus_data"
   }
-  
+
+  account_id = data.aws_caller_identity.current.account_id
 }
