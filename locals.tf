@@ -18,10 +18,10 @@ locals {
   selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
 
   region_ami_map = {
-    "us-east-1"  = "ami-023c11a32b0207432"
-    "us-east-2"  = "ami-08f1e153372c3e518"
-    "eu-north-1" = "ami-01d565a5f2da42e6f"
-    "eu-west-1"  = "ami-049b0abf844cab8d7"
+    "us-east-1"  = "ami-0d647905a963bb139"
+    "us-east-2"  = "ami-00ff94d69b3ced2aa"
+    "eu-north-1" = "ami-0f8c92340db698d74"
+    "eu-west-1"  = "ami-02a1fc058c85a41dd"
   }
 
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
