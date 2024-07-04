@@ -78,7 +78,7 @@ jobs:
         run: |
           terraform plan \
             -var "mgmt_nodes=1" -var "storage_nodes=3" \
-            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6id.large" \
+            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6gd.xlarge" -var "extra_nodes_arch=arm64" \
             -var "region=us-east-2" -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" -out=tfplan
 
       - name: Apply Terraform Changes
@@ -124,7 +124,8 @@ jobs:
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1 \
-             --set image.simplyblock.tag=dev
+             --set image.simplyblock.tag=main \
+             --set image.spdkcsi.tag=master-arm64
 
       - name: Run tests
         run: |

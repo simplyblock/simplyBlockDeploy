@@ -701,7 +701,7 @@ resource "aws_volume_attachment" "attach_sn" {
 # can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.ami_map[var.extra_nodes_arch][var.region] # RHEL 9
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.extra_nodes_sg.id]
