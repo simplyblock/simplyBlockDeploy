@@ -14,7 +14,7 @@ print_help() {
     echo "  --log-del-interval <value>           Set log deletion interval (optional)"
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
-    echo "  --spdk-img <value>                   Set spdk image (optional)"
+    echo "  --spdk-image <value>                 Set spdk image (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --help                               Print this help message"
