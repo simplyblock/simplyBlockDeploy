@@ -67,7 +67,7 @@ EOF
     resource_type = "instance"
 
     tags = {
-      Name = "tfengine"
+      Name = "${terraform.workspace}-tfengine"
     }
   }
 }
