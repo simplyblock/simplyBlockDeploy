@@ -22,7 +22,7 @@ resource "aws_autoscaling_group" "tfengine_asg" {
   vpc_zone_identifier = [module.vpc.private_subnets[0]]
   tag {
     key                 = "Name"
-    value               = "tfengine"
+    value               = "${terraform.workspace}-tfengine"
     propagate_at_launch = true
   }
   lifecycle {
@@ -120,7 +120,7 @@ resource "aws_s3_bucket" "tfengine_logs" {
 # A policy to allow the instance to put logs in the bucket
 resource "aws_iam_policy" "tfengine_logs_policy" {
   name        = "${terraform.workspace}-tfengine_logs_policy"
-  description = "S3 policy for tfengine logs"
+  description = "S3 policy for tfengine ${terraform.workspace} logs"
   policy      = <<EOF
 {
     "Version": "2012-10-17",
