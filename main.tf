@@ -578,7 +578,7 @@ resource "aws_instance" "bastion" {
   subnet_id              = module.vpc.public_subnets[0]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
-    volume_size = 25
+    volume_size = 45
   }
   tags = {
     Name = "${terraform.workspace}-bastion"
@@ -632,7 +632,7 @@ resource "aws_instance" "storage_nodes" {
   subnet_id              = module.vpc.private_subnets[local.az_index]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
-    volume_size = 25
+    volume_size = 45
   }
   tags = {
     Name = "${terraform.workspace}-storage-${each.value + 1}"
@@ -708,7 +708,7 @@ resource "aws_instance" "extra_nodes" {
   subnet_id              = module.vpc.public_subnets[1]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
-    volume_size = 25
+    volume_size = 45
   }
   tags = {
     Name = "${terraform.workspace}-k8scluster-${count.index + 1}"

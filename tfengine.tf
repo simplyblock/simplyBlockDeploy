@@ -67,7 +67,7 @@ EOF
     resource_type = "instance"
 
     tags = {
-      Name = "tfengine"
+      Name = "${terraform.workspace}-tfengine"
     }
   }
 }
@@ -113,7 +113,8 @@ resource "random_id" "id" {
 
 # A bucket for store terraform execution output logs
 resource "aws_s3_bucket" "tfengine_logs" {
-  bucket = "simplyblock-tfengine-logs-${random_id.id.hex}"
+  bucket        = "simplyblock-tfengine-logs-${random_id.id.hex}"
+  force_destroy = true
 }
 
 # A policy to allow the instance to put logs in the bucket
