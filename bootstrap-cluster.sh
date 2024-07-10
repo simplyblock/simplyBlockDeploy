@@ -158,7 +158,6 @@ echo "Deploying management node..."
 echo ""
 
 command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
-echo $command
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -171,6 +170,7 @@ fi
 if [[ -n "$GRAFANA_ENDPOINT" ]]; then
     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
 fi
+echo $command
 
 # node 1
 

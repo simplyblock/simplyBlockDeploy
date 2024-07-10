@@ -44,7 +44,7 @@ resource "aws_launch_template" "tfengine_lc" {
   }
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.tfengine_sg.id]
   }
 
