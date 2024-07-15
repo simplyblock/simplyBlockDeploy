@@ -25,6 +25,11 @@ resource "aws_autoscaling_group" "tfengine_asg" {
     value               = "${terraform.workspace}-tfengine"
     propagate_at_launch = true
   }
+  tag {
+    key                 = "long-term-test"
+    value               = "true"
+    propagate_at_launch = true
+  }
   lifecycle {
     create_before_destroy = true
   }
