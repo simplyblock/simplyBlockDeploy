@@ -93,10 +93,10 @@ module "eks" {
   eks_managed_node_group_defaults = {
     disk_size                  = 30
     iam_role_attach_cni_policy = true
-    remote_access = {
-      ec2_ssh_key               = local.selected_key_name
-      source_security_group_ids = [aws_security_group.eks_nodes_sg[0].id]
-    }
+    # remote_access = {
+    #   ec2_ssh_key               = local.selected_key_name
+    #   source_security_group_ids = [aws_security_group.eks_nodes_sg[0].id]
+    # }
   }
 
   eks_managed_node_groups = {
