@@ -479,10 +479,6 @@ resource "aws_iam_policy" "mgmt_policy" {
       {
         "Effect" : "Allow",
         "Action" : [
-          "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets",
-          "elasticfilesystem:DescribeMountTargetSecurityGroups",
-          "elasticfilesystem:ListTagsForResource",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces",
