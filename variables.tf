@@ -1,5 +1,5 @@
 variable "region" {
-  default     = "us-east-2"
+  default     = "eu-central-1"
   description = "region to provision"
   type        = string
   validation {
@@ -11,11 +11,11 @@ variable "region" {
 variable "az" {
   description = "availability zone to provision"
   type        = string
-  default     = "us-east-2b"
+  default     = "eu-central-1a"
 }
 
 variable "env" {
-  default = "dev"
+  default = "staging"
   type    = string
 }
 

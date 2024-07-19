@@ -1,30 +1,30 @@
 #!/bin/bash
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+# KEY="$HOME/.ssh/simplyblock-ohio.pem"
 
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
+# SECRET_VALUE=$(terraform output -raw secret_value)
+KEY="~/.ssh/simplyblock-qdrant.pem"
 
-ssh_dir="$HOME/.ssh"
+# ssh_dir="$HOME/.ssh"
 
-if [ ! -d "$ssh_dir" ]; then
-    mkdir -p "$ssh_dir"
-    echo "Directory $ssh_dir created."
-else
-    echo "Directory $ssh_dir already exists."
-fi
+# if [ ! -d "$ssh_dir" ]; then
+#     mkdir -p "$ssh_dir"
+#     echo "Directory $ssh_dir created."
+# else
+#     echo "Directory $ssh_dir already exists."
+# fi
 
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
+# if [[ -n "$SECRET_VALUE" ]]; then
+#     KEY="$HOME/.ssh/$KEY_NAME"
+#     if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+#         echo "the ssh key: ${KEY} already exits on local"
+#     else
+#         echo "$SECRET_VALUE" >"$KEY"
+#         chmod 400 "$KEY"
+#     fi
+# else
+#     echo "Failed to retrieve secret value. Falling back to default key."
+# fi
 
 mnodes=($(terraform output -raw extra_nodes_public_ips))
 

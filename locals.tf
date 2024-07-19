@@ -11,32 +11,35 @@ locals {
   } }
 
   key_name = {
-    "us-east-1"  = "simplyblock-us-east-1.pem"
-    "us-east-2"  = "simplyblock-us-east-2.pem"
-    "eu-north-1" = "simplyblock-eu-north-1.pem"
-    "eu-west-1"  = "simplyblock-eu-west-1.pem"
+    "us-east-1"    = "simplyblock-us-east-1.pem"
+    "us-east-2"    = "simplyblock-us-east-2.pem"
+    "eu-north-1"   = "simplyblock-eu-north-1.pem"
+    "eu-west-1"    = "simplyblock-eu-west-1.pem"
+    "eu-central-1" = "simplyblock-qdrant"
   }
 
   selected_key_name = try(local.key_name[var.region], "simplyblock-us-east-2.pem")
 
-# Images are generated from this image builder:
-# https://us-east-2.console.aws.amazon.com/imagebuilder/home?region=us-east-2#/pipelines/arn:aws:imagebuilder:us-east-2:565979732541:image-pipeline/tst
-#
-# it is basically rhel9 + the following lines:
-#  $sudo yum update -y
-#  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
+  # Images are generated from this image builder:
+  # https://us-east-2.console.aws.amazon.com/imagebuilder/home?region=us-east-2#/pipelines/arn:aws:imagebuilder:us-east-2:565979732541:image-pipeline/tst
+  #
+  # it is basically rhel9 + the following lines:
+  #  $sudo yum update -y
+  #  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
   region_ami_map = {
-    "us-east-1"  = "ami-0d647905a963bb139"
-    "us-east-2"  = "ami-00ff94d69b3ced2aa"
-    "eu-north-1" = "ami-0f8c92340db698d74"
-    "eu-west-1"  = "ami-02a1fc058c85a41dd"
+    "us-east-1"    = "ami-0d647905a963bb139"
+    "us-east-2"    = "ami-00ff94d69b3ced2aa"
+    "eu-north-1"   = "ami-0f8c92340db698d74"
+    "eu-west-1"    = "ami-02a1fc058c85a41dd"
+    "eu-central-1" = "ami-0134dde2b68fe1b07"
   }
 
   region_ami_map_arm = {
-    "us-east-1"  = "ami-07472131ec292b5da"
-    "us-east-2"  = "ami-08f9f3bb075432791"
-    "eu-north-1" = "ami-096f8d910bbf871bc"
-    "eu-west-1"  = "ami-02b8573b23fde21aa"
+    "us-east-1"    = "ami-07472131ec292b5da"
+    "us-east-2"    = "ami-08f9f3bb075432791"
+    "eu-north-1"   = "ami-096f8d910bbf871bc"
+    "eu-west-1"    = "ami-02b8573b23fde21aa"
+    "eu-central-1" = "ami-02212921a6e889ed6"
   }
 
   ami_map = {
