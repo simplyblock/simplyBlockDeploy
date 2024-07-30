@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-ohio.pem"
 
