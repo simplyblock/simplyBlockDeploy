@@ -111,7 +111,7 @@ jobs:
           nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 
           for node in $nodes; do
-              kubectl label nodes $node type=cache
+              kubectl label nodes $node type=simplyblock-cache
           done
 
           kubectl get nodes --show-labels
