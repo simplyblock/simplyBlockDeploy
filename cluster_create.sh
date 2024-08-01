@@ -5,7 +5,17 @@ spdk_image="simplyblock/spdk:faster-bdev-startup-latest"
 #terraform destroy --auto-approve
 
 # review the resources
-terraform init
+
+
+export TFSTATE_BUCKET=qdrant-simplyblock-staging-infra
+export TFSTATE_KEY=staging/controlplane
+export TFSTATE_REGION=eu-central-1
+
+terraform init -reconfigure \
+    -backend-config="bucket=${TFSTATE_BUCKET}" \
+    -backend-config="key=${TFSTATE_KEY}" \
+    -backend-config="region=${TFSTATE_REGION}" \
+    -backend-config="encrypt=true"
 
 ### switch to workspace
 terraform workspace select -or-create "$namespace"
@@ -22,7 +32,7 @@ terraform apply -var mgmt_nodes=0 -var storage_nodes=0 -var extra_nodes=0 \
 # Specifying the instance types to use
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=0 \
                  -var mgmt_nodes_instance_type="m6i.xlarge" -var storage_nodes_instance_type="i3en.6xlarge" \
-                 -var sbcli_cmd="sbcli-pre" -var extra_nodes_instance_type=m6gd.xlarge \
+                 -var sbcli_cmd="sbcli-pre" -var extra_nodes_instance_type=c6gd.8xlarge \
                  -var volumes_per_storage_nodes=0 -var region=eu-central-1 -var extra_nodes_arch=arm64
 
 # Save terraform output to a file
