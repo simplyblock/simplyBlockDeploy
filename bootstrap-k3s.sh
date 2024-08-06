@@ -34,6 +34,8 @@ echo "::set-output name=extra_node_ip::${mnodes[0]}"
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
+sudo modprobe nbd
+sudo sysctl -w vm.nr_hugepages=4096
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
