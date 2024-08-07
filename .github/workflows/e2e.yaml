@@ -126,7 +126,7 @@ jobs:
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=main \
              --set image.spdkcsi.tag=master-arm64 \
-             --set cachingnode.spdkMem=8g
+             --set cachingnode.spdkMem=4g
 
       - name: Run tests
         run: |
