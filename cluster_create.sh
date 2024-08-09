@@ -30,7 +30,7 @@ terraform apply -var mgmt_nodes=0 -var storage_nodes=0 -var extra_nodes=0 \
 
 
 # Specifying the instance types to use
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=0 \
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 \
                  -var mgmt_nodes_instance_type="m6i.xlarge" -var storage_nodes_instance_type="i3en.6xlarge" \
                  -var sbcli_cmd="sbcli-pre" -var extra_nodes_instance_type=c6gd.8xlarge \
                  -var volumes_per_storage_nodes=0 -var region=eu-central-1 -var extra_nodes_arch=arm64

@@ -36,8 +36,8 @@ sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
+# sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=3.122.252.182' bash
 sudo /usr/local/bin/k3s kubectl get node
 sudo yum install -y pciutils
 lspci
