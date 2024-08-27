@@ -279,7 +279,6 @@ fi
 if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
 fi
-
 if [[ -n "$NUMBER_DISTRIB" ]]; then
     command+=" --number-of-distribs $NUMBER_DISTRIB"
 fi
