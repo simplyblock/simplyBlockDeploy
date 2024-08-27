@@ -31,10 +31,8 @@ mnodes=($(terraform output -raw extra_nodes_public_ips))
 echo "::set-output name=KEY::$KEY"
 echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
-master_ip=${mnodes[0]}
 
-
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$master_ip "
+ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
@@ -42,7 +40,7 @@ sudo sysctl -w vm.nr_hugepages=4096
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=$master_ip' bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
 sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
 sudo /usr/local/bin/k3s kubectl get node
 sudo yum install -y pciutils
@@ -55,7 +53,7 @@ sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl start docker
 "
 
-TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@$master_ip "sudo cat /var/lib/rancher/k3s/server/node-token")
+TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
 
 for ((i=1; i<${#mnodes[@]}; i++)); do
     ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
@@ -66,7 +64,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-    curl -sfL https://get.k3s.io | K3S_URL=https://$master_ip:6443 K3S_TOKEN=$TOKEN bash
+    curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
     sudo /usr/local/bin/k3s kubectl get node
     sudo yum install -y pciutils
     lspci
