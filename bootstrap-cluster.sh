@@ -88,6 +88,26 @@ while [[ $# -gt 0 ]]; do
         CONTACT_POINT="$2"
         shift
         ;;
+    --distr-ndcs)
+        NDCS="$2"
+        shift
+        ;;
+    --distr-npcs)
+        NPCS="$2"
+        shift
+        ;;
+    --distr-bs)
+        BS="$2"
+        shift
+        ;;
+    --distr-chunk-bs)
+        CHUNK_BS="$2"
+        shift
+        ;;
+    --number-of-distribs)
+        NUMBER_DISTRIB="$2"
+        shift
+        ;;
     --spdk-debug)
         SPDK_DEBUG="true"
         ;;
@@ -158,7 +178,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create --distr-ndcs ${NDCS} --distr-npcs ${NPCS} --distr-bs ${BS} --distr-chunk-bs ${CHUNK_BS}"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -237,6 +257,10 @@ if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
 fi
 
+if [[ -n "$NUMBER_DISTRIB" ]]; then
+    command+=" --number-of-distribs $NUMBER_DISTRIB"
+fi
+
 
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
@@ -254,6 +278,15 @@ for node in ${storage_private_ips}; do
     \$add_node_command
     sleep 3
 done
+"
+
+ssh -i "$KEY" -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
+MANGEMENT_NODE_IP=${mnodes[0]}
+CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+echo \"Cluster ID is: \${CLUSTER_ID}\"
+${SBCLI_CMD} cluster activate \${CLUSTER_ID}
 "
 
 echo ""
