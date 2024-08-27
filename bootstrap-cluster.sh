@@ -316,7 +316,7 @@ if [ "$SBCLI_CMD" = "sbcli-lvol-raid" ]; then
     echo \"Cluster ID is: \${CLUSTER_ID}\"
     ${SBCLI_CMD} cluster activate \${CLUSTER_ID}
     "
-fi``
+fi
 
 echo ""
 echo "getting cluster id"
