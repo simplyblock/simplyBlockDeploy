@@ -284,24 +284,40 @@ if [[ -n "$NUMBER_DISTRIB" ]]; then
     command+=" --number-of-distribs $NUMBER_DISTRIB"
 fi
 
+if [ "$SBCLI_CMD" = "sbcli-lvol-raid" ]; then
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "
+    MANGEMENT_NODE_IP=${mnodes[0]}
+    CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+    echo \"Cluster ID is: \${CLUSTER_ID}\"
 
-ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-echo \"Cluster ID is: \${CLUSTER_ID}\"
-${SBCLI_CMD} cluster unsuspend \${CLUSTER_ID}
+    for node in ${storage_private_ips}; do
+        echo ""
+        echo "joining node \${node}"
+        add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
+        echo "add node command: \${add_node_command}"
+        \$add_node_command
+        sleep 3
+    done"
+else
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "
+    MANGEMENT_NODE_IP=${mnodes[0]}
+    CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+    echo \"Cluster ID is: \${CLUSTER_ID}\"
+    ${SBCLI_CMD} cluster unsuspend \${CLUSTER_ID}
 
-for node in ${storage_private_ips}; do
-    echo ""
-    echo "joining node \${node}"
-    add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
-    echo "add node command: \${add_node_command}"
-    \$add_node_command
-    sleep 3
-done
-"
+    for node in ${storage_private_ips}; do
+        echo ""
+        echo "joining node \${node}"
+        add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
+        echo "add node command: \${add_node_command}"
+        \$add_node_command
+        sleep 3
+    done"
+fi
 
 if [ "$SBCLI_CMD" = "sbcli-lvol-raid" ]; then
     echo ""
