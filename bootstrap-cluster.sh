@@ -9,14 +9,20 @@ print_help() {
     echo "  --max-lvol  <value>                  Set Maximum lvols (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
     echo "  --max-prov  <value>                  Set Maximum cluster size (optional)"
+    echo "  --number-of-devices <value>          Set number of devices (optional)"
     echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
     echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
     echo "  --log-del-interval <value>           Set log deletion interval (optional)"
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
-    echo "  --spdk-image <value>                 Set spdk image (optional)"
+    echo "  --spdk-image <value>                 Set SPDK image (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
+    echo "  --distr-ndcs <value>                 Set distributed NDCs (optional)"
+    echo "  --distr-npcs <value>                 Set distributed NPCs (optional)"
+    echo "  --distr-bs <value>                   Set distribution block size (optional)"
+    echo "  --distr-chunk-bs <value>             Set distributed chunk block size (optional)"
+    echo "  --number-of-distribs <value>         Set number of distributions (optional)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --help                               Print this help message"
     exit 0
@@ -35,6 +41,11 @@ SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
 CONTACT_POINT=""
 SPDK_DEBUG="false"
+NDCS=""
+NPCS=""
+BS=""
+CHUNK_BS=""
+NUMBER_DISTRIB=""
 
 
 while [[ $# -gt 0 ]]; do
@@ -86,6 +97,26 @@ while [[ $# -gt 0 ]]; do
         ;;
     --contact-point)
         CONTACT_POINT="$2"
+        shift
+        ;;
+    --distr-ndcs)
+        NDCS="$2"
+        shift
+        ;;
+    --distr-npcs)
+        NPCS="$2"
+        shift
+        ;;
+    --distr-bs)
+        BS="$2"
+        shift
+        ;;
+    --distr-chunk-bs)
+        CHUNK_BS="$2"
+        shift
+        ;;
+    --number-of-distribs)
+        NUMBER_DISTRIB="$2"
         shift
         ;;
     --spdk-debug)
@@ -171,6 +202,18 @@ fi
 if [[ -n "$GRAFANA_ENDPOINT" ]]; then
     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
 fi
+if [[ -n "$NDCS" ]]; then
+    command+=" --distr-ndcs $NDCS"
+fi
+if [[ -n "$NPCS" ]]; then
+    command+=" --distr-npcs $NPCS"
+fi
+if [[ -n "$BS" ]]; then
+    command+=" --distr-bs $BS"
+fi
+if [[ -n "$CHUNK_BS" ]]; then
+    command+=" --distr-chunk-bs $CHUNK_BS"
+fi
 echo $command
 
 # node 1
@@ -237,6 +280,10 @@ if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
 fi
 
+if [[ -n "$NUMBER_DISTRIB" ]]; then
+    command+=" --number-of-distribs $NUMBER_DISTRIB"
+fi
+
 
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
@@ -255,6 +302,21 @@ for node in ${storage_private_ips}; do
     sleep 3
 done
 "
+
+if [ "$SBCLI_CMD" = "sbcli-lvol-raid" ]; then
+    echo ""
+    echo "Running Cluster Activate"
+    echo ""
+
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "
+    MANGEMENT_NODE_IP=${mnodes[0]}
+    CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
+    echo \"Cluster ID is: \${CLUSTER_ID}\"
+    ${SBCLI_CMD} cluster activate \${CLUSTER_ID}
+    "
+fi
 
 echo ""
 echo "getting cluster id"
