@@ -178,7 +178,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create --distr-ndcs ${NDCS} --distr-npcs ${NPCS} --distr-bs ${BS} --distr-chunk-bs ${CHUNK_BS}"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -190,6 +190,18 @@ if [[ -n "$CONTACT_POINT" ]]; then
 fi
 if [[ -n "$GRAFANA_ENDPOINT" ]]; then
     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+fi
+if [[ -n "$NDCS" ]]; then
+    command+=" --distr-ndcs $NDCS"
+fi
+if [[ -n "$NPCS" ]]; then
+    command+=" --distr-npcs $NPCS"
+fi
+if [[ -n "$BS" ]]; then
+    command+=" --distr-bs $BS"
+fi
+if [[ -n "$CHUNK_BS" ]]; then
+    command+=" --distr-chunk-bs $CHUNK_BS"
 fi
 echo $command
 
