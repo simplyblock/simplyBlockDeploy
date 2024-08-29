@@ -625,7 +625,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   for_each = local.snodes
 
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
