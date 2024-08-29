@@ -77,11 +77,17 @@ jobs:
       - name: Plan Terraform Changes
         run: |
           terraform plan \
-            -var "mgmt_nodes=1" -var "storage_nodes=3" \ 
-            -var "storage_nodes_arch=arm64" -var "storage_nodes_instance_type=m6g.xlarge" \
-            -var "extra_nodes=1" -var "extra_nodes_instance_type=m6gd.xlarge" -var "extra_nodes_arch=arm64" \
-            -var "region=us-east-2" -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" -out=tfplan
-
+            -var "mgmt_nodes=1" \
+            -var "storage_nodes=3" \
+            -var "storage_nodes_arch=arm64" \
+            -var "storage_nodes_instance_type=m6g.xlarge" \
+            -var "extra_nodes=1" \
+            -var "extra_nodes_instance_type=m6gd.xlarge" \
+            -var "extra_nodes_arch=arm64" \
+            -var "region=us-east-2" \
+            -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" \
+            -out=tfplan
+            
       - name: Apply Terraform Changes
         run: terraform apply tfplan
 
