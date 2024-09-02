@@ -113,16 +113,6 @@ jobs:
       - name: Clone spdk-csi repo
         run: git clone -b ${{ github.event.inputs.spdki_csi_branch || 'master'}} https://github.com/simplyblock-io/spdk-csi.git
 
-      - name: Label Node type=cache
-        run: |
-          nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
-
-          for node in $nodes; do
-              kubectl label nodes $node type=simplyblock-cache
-          done
-
-          kubectl get nodes --show-labels
-
       - name: Install SPDK-CSI using Helm
         run: |
           cd spdk-csi/charts/latest/spdk-csi

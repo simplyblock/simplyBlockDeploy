@@ -23,6 +23,7 @@ print_help() {
     echo "  --distr-bs <value>                   Set distribution block size (optional)"
     echo "  --distr-chunk-bs <value>             Set distributed chunk block size (optional)"
     echo "  --number-of-distribs <value>         Set number of distributions (optional)"
+    echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --help                               Print this help message"
     exit 0
@@ -46,6 +47,7 @@ NPCS=""
 BS=""
 CHUNK_BS=""
 NUMBER_DISTRIB=""
+K8S_SNODE="false"
 
 
 while [[ $# -gt 0 ]]; do
@@ -118,6 +120,9 @@ while [[ $# -gt 0 ]]; do
     --number-of-distribs)
         NUMBER_DISTRIB="$2"
         shift
+        ;;
+    --k8s-snode)
+        K8S_SNODE="true"
         ;;
     --spdk-debug)
         SPDK_DEBUG="true"
@@ -299,6 +304,10 @@ if [ "$SBCLI_CMD" = "sbcli-lvol-raid" ]; then
         \$add_node_command
         sleep 3
     done"
+
+elif [ "$K8S_SNODE" == "true" ]; then
+    :  # Do nothing
+
 else
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
