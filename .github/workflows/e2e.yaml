@@ -127,6 +127,7 @@ jobs:
 
       - name: Run tests
         run: |
+          sleep 30
           cd spdk-csi
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
           export CSI_NAMESPACE=spdk-csi
