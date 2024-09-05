@@ -360,6 +360,38 @@ resource "aws_security_group" "storage_nodes_sg" {
     description = "Graylog GELF Communication TCP"
   }
 
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "k3s cluster"
+  }
+
+  ingress {
+    from_port   = 10250
+    to_port     = 10255
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "k8s node communication"
+  }
+
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow DNS resolution from worker nodes"
+  }
+
+  ingress {
+    from_port   = 1025
+    to_port     = 65535
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow UDP traffic on ephemeral ports"
+  }
+
   # end
 
   egress {
@@ -423,6 +455,30 @@ resource "aws_security_group" "extra_nodes_sg" {
     protocol    = "tcp"
     cidr_blocks = var.whitelist_ips
     description = ""
+  }
+
+  ingress {
+    from_port   = 10250
+    to_port     = 10255
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "k8s node communication"
+  }
+
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow DNS resolution from worker nodes"
+  }
+
+  ingress {
+    from_port   = 1025
+    to_port     = 65535
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow UDP traffic on ephemeral ports"
   }
 
   egress {
@@ -650,7 +706,9 @@ pip install ${local.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-${var.sbcli_cmd} storage-node deploy
+if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node deploy
+fi
 EOF
 }
 

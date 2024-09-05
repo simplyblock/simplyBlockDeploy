@@ -81,6 +81,7 @@ jobs:
             -var "storage_nodes=3" \
             -var "storage_nodes_arch=arm64" \
             -var "storage_nodes_instance_type=m6g.xlarge" \
+            -var "snode_deploy_on_k8s=true" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6gd.xlarge" \
             -var "extra_nodes_arch=arm64" \
@@ -92,13 +93,13 @@ jobs:
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
-        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g --number-of-devices 1
+        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g --number-of-devices 1 --k8s-snode
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
 
       - name: Bootstrap K3s
-        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh
+        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh --k8s-snode
         id: bootstrap_k3s
 
       - name: copying  Kubeconfig file
@@ -113,16 +114,6 @@ jobs:
       - name: Clone spdk-csi repo
         run: git clone -b ${{ github.event.inputs.spdki_csi_branch || 'master'}} https://github.com/simplyblock-io/spdk-csi.git
 
-      - name: Label Node type=cache
-        run: |
-          nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
-
-          for node in $nodes; do
-              kubectl label nodes $node type=simplyblock-cache
-          done
-
-          kubectl get nodes --show-labels
-
       - name: Install SPDK-CSI using Helm
         run: |
           cd spdk-csi/charts/latest/spdk-csi
@@ -134,6 +125,9 @@ jobs:
              --set image.simplyblock.tag=main \
              --set image.spdkcsi.tag=master-arm64
 
+      - name: Sleep after Helm Installation
+        run: sleep 60
+        
       - name: Run tests
         run: |
           cd spdk-csi
