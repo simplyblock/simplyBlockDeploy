@@ -126,7 +126,7 @@ jobs:
              --set image.spdkcsi.tag=master-arm64
 
       - name: Sleep after Helm Installation
-        run: sleep 180
+        run: sleep 300
         
       - name: Run tests
         run: |
