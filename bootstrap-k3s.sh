@@ -57,6 +57,7 @@ BASTION_IP=$(terraform output -raw bastion_public_ip)
 mnodes=($(terraform output -raw extra_nodes_public_ips))
 
 mnodes_private_ips=$(terraform output -raw extra_nodes_private_ips)
+IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
 
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
