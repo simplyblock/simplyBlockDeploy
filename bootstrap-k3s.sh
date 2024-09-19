@@ -133,4 +133,15 @@ if [ "$K8S_SNODE" == "true" ]; then
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
         ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
     done
+
+    STORAGE_NODES=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes --selector='type=simplyblock-storage-plane' -o name")
+
+    STORAGE_NODE_COUNT=$(echo "$STORAGE_NODES" | wc -l)
+
+    if [ "$STORAGE_NODE_COUNT" -gt 3 ]; then
+        LAST_NODE=$(echo "$STORAGE_NODES" | tail -n 1)
+
+        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label $LAST_NODE type-"
+        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label $LAST_NODE type=simplyblock-storage-plane-reserve --overwrite"
+    fi
 fi
