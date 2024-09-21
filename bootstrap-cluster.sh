@@ -221,7 +221,9 @@ if [[ -n "$CHUNK_BS" ]]; then
 fi
 echo $command
 
-# node 1
+echo ""
+echo "Creating new cluster"
+echo ""
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
@@ -229,6 +231,30 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     ec2-user@${mnodes[0]} "
 $command
 "
+
+echo ""
+echo "getting cluster id"
+echo ""
+
+CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
+MANGEMENT_NODE_IP=${mnodes[0]}
+${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'
+")
+
+
+echo ""
+echo "getting cluster secret"
+echo ""
+
+CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+    ec2-user@${mnodes[0]} "
+MANGEMENT_NODE_IP=${mnodes[0]}
+${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}
+")
+
 
 echo ""
 echo "Adding other management nodes if they exist.."
@@ -243,9 +269,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-    echo \"Cluster ID is: \${CLUSTER_ID}\"
-    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} \${CLUSTER_ID} eth0
+    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} eth0
     "
 done
 
@@ -297,13 +321,10 @@ else
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-    echo \"Cluster ID is: \${CLUSTER_ID}\"
-
     for node in ${storage_private_ips}; do
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} \${CLUSTER_ID} \${node}:5000 eth0\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -318,35 +339,8 @@ ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
-CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-echo \"Cluster ID is: \${CLUSTER_ID}\"
-${SBCLI_CMD} cluster activate \${CLUSTER_ID}
+${SBCLI_CMD} cluster activate ${CLUSTER_ID}
 "
-
-
-echo ""
-echo "getting cluster id"
-echo ""
-
-CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-echo \${CLUSTER_ID}
-")
-
-echo ""
-echo "getting cluster secret"
-echo ""
-
-CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-CLUSTER_ID=\$(curl -X GET http://\${MANGEMENT_NODE_IP}/cluster/ | jq -r '.results[].uuid')
-${SBCLI_CMD} cluster get-secret \${CLUSTER_ID}
-")
 
 echo ""
 echo "adding pool testing1"
