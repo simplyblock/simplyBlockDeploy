@@ -1,7 +1,7 @@
 name: E2E Tests 2+1 Cluster
 
 on:
-  push:
+  # push:
   #   branches:
   #     - main
   # schedule:
@@ -80,7 +80,7 @@ jobs:
             -var "mgmt_nodes=1" \
             -var "storage_nodes=5" \
             -var "storage_nodes_arch=arm64" \
-            -var "storage_nodes_instance_type=m7gd.8xlarge" \
+            -var "storage_nodes_instance_type=m6g.xlarge" \
             -var "snode_deploy_on_k8s=true" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6gd.xlarge" \
