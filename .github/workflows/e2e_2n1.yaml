@@ -1,7 +1,7 @@
 name: E2E Tests 2+1 Cluster
 
 on:
-  # push:
+  push:
   #   branches:
   #     - main
   # schedule:
