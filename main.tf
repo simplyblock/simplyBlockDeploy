@@ -265,6 +265,14 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.extra_nodes_sg.id]
+    description     = "access SNodeAPI from k3s nodes"
+  }
+
+  ingress {
     from_port       = 8080
     to_port         = 8080
     protocol        = "tcp"
