@@ -69,7 +69,7 @@ jobs:
             -backend-config="encrypt=true"
 
       - name: select or create workspace
-        run: terraform workspace select -or-create githubactions_2n1
+        run: terraform workspace select -or-create githubactions2n1
 
       - name: Validate Terraform Configuration
         run: terraform validate
