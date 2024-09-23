@@ -260,16 +260,16 @@ resource "aws_security_group" "storage_nodes_sg" {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
-    security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "access SNodeAPI from mgmt nodes"
+    security_groups = [aws_security_group.mgmt_node_sg.id, aws_security_group.extra_nodes_sg.id]
+    description     = "access SNodeAPI from mgmt and k3s nodes"
   }
 
   ingress {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
-    security_groups = [aws_security_group.extra_nodes_sg.id]
-    description     = "access SNodeAPI from k3s nodes"
+    self            = true
+    description     = "access SNodeAPI from snode node workers"
   }
 
   ingress {
