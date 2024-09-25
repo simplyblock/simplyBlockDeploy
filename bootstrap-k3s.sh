@@ -80,6 +80,10 @@ sudo yum install -y pciutils
 lspci
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
+echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+sudo sysctl --system
 "
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
@@ -101,6 +105,10 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y pciutils
     lspci
     sudo yum install -y make golang
+    echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+    echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+    echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+    sudo sysctl --system
     "
 
     NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[${i}]} | awk '{print \$1}'")
@@ -128,6 +136,10 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y pciutils
             lspci
             sudo yum install -y make golang
+            echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+            echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+            echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+            sudo sysctl --system
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
