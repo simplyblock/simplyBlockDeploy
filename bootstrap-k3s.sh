@@ -64,7 +64,6 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 echo "::set-output name=KEY::$KEY"
 echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
-# Common function to persist kernel modules and sysctl settings
 persist_settings() {
     ssh -i "$KEY" -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" ec2-user@$1 "
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
@@ -91,7 +90,6 @@ sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 "
 
-# Persist settings on the master node
 persist_settings ${mnodes_private_ips[0]}
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
@@ -143,8 +141,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             lspci
             sudo yum install -y make golang
         "
-
-        # Persist settings on each storage node
+        
         persist_settings ${node}
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
