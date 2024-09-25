@@ -64,14 +64,6 @@ storage_private_ips=$(terraform output -raw storage_private_ips)
 echo "::set-output name=KEY::$KEY"
 echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
-persist_settings() {
-    ssh -i "$KEY" -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" ec2-user@$1 "
-    echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
-    echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-    echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
-    sudo sysctl --system
-    "
-}
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
@@ -88,9 +80,11 @@ sudo yum install -y pciutils
 lspci
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
+echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+sudo sysctl --system
 "
-
-persist_settings ${mnodes_private_ips[0]}
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
@@ -111,9 +105,11 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y pciutils
     lspci
     sudo yum install -y make golang
+    echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+    echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+    echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+    sudo sysctl --system
     "
-
-    persist_settings ${mnodes_private_ips[${i}]}
 
     NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[${i}]} | awk '{print \$1}'")
     ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
@@ -140,9 +136,11 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y pciutils
             lspci
             sudo yum install -y make golang
+            echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+            echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+            echo 'vm.nr_hugepages=4096' | sudo tee /etc/sysctl.d/hugepages.conf
+            sudo sysctl --system
         "
-        
-        persist_settings ${node}
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
         ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
