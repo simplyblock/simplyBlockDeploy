@@ -329,18 +329,18 @@ else
         \$add_node_command
         sleep 3
     done"
+
+    echo ""
+    echo "Running Cluster Activate"
+    echo ""
+    
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "
+    MANGEMENT_NODE_IP=${mnodes[0]}
+    ${SBCLI_CMD} cluster activate ${CLUSTER_ID}
+    "
 fi
-
-echo ""
-echo "Running Cluster Activate"
-echo ""
-
-ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-${SBCLI_CMD} cluster activate ${CLUSTER_ID}
-"
 
 echo ""
 echo "adding pool testing1"
