@@ -17,6 +17,7 @@ print_help() {
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-image <value>                 Set SPDK image (optional)"
+    echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
     echo "  --distr-ndcs <value>                 Set distributed NDCs (optional)"
     echo "  --distr-npcs <value>                 Set distributed NPCs (optional)"
@@ -44,6 +45,7 @@ LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
+CPU_MASK=""
 CONTACT_POINT=""
 SPDK_DEBUG="false"
 NDCS=""
@@ -103,6 +105,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --spdk-image)
         SPDK_IMAGE="$2"
+        shift
+        ;;
+    --cpu-mask)
+        CPU_MASK="$2"
         shift
         ;;
     --contact-point)
@@ -340,6 +346,9 @@ if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
 fi
 if [[ -n "$SPDK_IMAGE" ]]; then
     command+=" --spdk-image $SPDK_IMAGE"
+fi
+if [[ -n "$CPU_MASK" ]]; then
+    command+=" --cpu-mask $CPU_MASK"
 fi
 if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
