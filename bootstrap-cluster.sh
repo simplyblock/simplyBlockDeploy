@@ -17,12 +17,17 @@ print_help() {
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-image <value>                 Set SPDK image (optional)"
+    echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
     echo "  --distr-ndcs <value>                 Set distributed NDCs (optional)"
     echo "  --distr-npcs <value>                 Set distributed NPCs (optional)"
     echo "  --distr-bs <value>                   Set distribution block size (optional)"
     echo "  --distr-chunk-bs <value>             Set distributed chunk block size (optional)"
     echo "  --number-of-distribs <value>         Set number of distributions (optional)"
+    echo "  --cap-warn <value>                   Set Capacity warning level (optional)"
+    echo "  --cap-crit <value>                   Set Capacity critical level (optional)"
+    echo "  --prov-cap-warn <value>              Set Provision Capacity warning level (optional)"
+    echo "  --prov-cap-crit <value>              Set Provision Capacity critical level (optional)"
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --help                               Print this help message"
@@ -40,6 +45,7 @@ LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
+CPU_MASK=""
 CONTACT_POINT=""
 SPDK_DEBUG="false"
 NDCS=""
@@ -47,6 +53,10 @@ NPCS=""
 BS=""
 CHUNK_BS=""
 NUMBER_DISTRIB=""
+CAP_WARN=""
+CAP_CRIT=""
+PROV_CAP_WARN=""
+PROV_CAP_CRIT=""
 K8S_SNODE="false"
 
 
@@ -97,6 +107,10 @@ while [[ $# -gt 0 ]]; do
         SPDK_IMAGE="$2"
         shift
         ;;
+    --cpu-mask)
+        CPU_MASK="$2"
+        shift
+        ;;
     --contact-point)
         CONTACT_POINT="$2"
         shift
@@ -119,6 +133,22 @@ while [[ $# -gt 0 ]]; do
         ;;
     --number-of-distribs)
         NUMBER_DISTRIB="$2"
+        shift
+        ;;
+    --cap-warn)
+        CAP_WARN="$2"
+        shift
+        ;;
+    --cap-crit)
+        CAP_CRIT="$2"
+        shift
+        ;;
+    --prov-cap-warn)
+        PROV_CAP_WARN="$2"
+        shift
+        ;;
+    --prov-cap-crit)
+        PROV_CAP_CRIT="$2"
         shift
         ;;
     --k8s-snode)
@@ -219,6 +249,18 @@ fi
 if [[ -n "$CHUNK_BS" ]]; then
     command+=" --distr-chunk-bs $CHUNK_BS"
 fi
+if [[ -n "$CAP_WARN" ]]; then
+    command+=" --cap-warn $CAP_WARN"
+fi
+if [[ -n "$CAP_CRIT" ]]; then
+    command+=" --cap-crit $CAP_CRIT"
+fi
+if [[ -n "$PROV_CAP_WARN" ]]; then
+    command+=" --prov-cap-warn $PROV_CAP_WARN"
+fi
+if [[ -n "$PROV_CAP_CRIT" ]]; then
+    command+=" --prov-cap-crit $PROV_CAP_CRIT"
+fi
 echo $command
 
 echo ""
@@ -304,6 +346,9 @@ if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
 fi
 if [[ -n "$SPDK_IMAGE" ]]; then
     command+=" --spdk-image $SPDK_IMAGE"
+fi
+if [[ -n "$CPU_MASK" ]]; then
+    command+=" --cpu-mask $CPU_MASK"
 fi
 if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
