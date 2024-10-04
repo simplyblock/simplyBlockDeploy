@@ -30,7 +30,7 @@ print_help() {
     echo "  --prov-cap-crit <value>              Set Provision Capacity critical level (optional)"
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
-    echo "  --enable-ha-jm                       Enable HA JM for ditrib creation"
+    echo "  --disable-ha-jm                      Disable HA JM for distrib creation"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -58,7 +58,7 @@ CAP_WARN=""
 CAP_CRIT=""
 PROV_CAP_WARN=""
 PROV_CAP_CRIT=""
-ENABLE_HA_JM=""
+DISABLE_HA_JM="false"
 K8S_SNODE="false"
 
 
@@ -159,8 +159,8 @@ while [[ $# -gt 0 ]]; do
     --spdk-debug)
         SPDK_DEBUG="true"
         ;;
-    --enable-ha-jm)
-        ENABLE_HA_JM="true"
+    --disable-ha-jm)
+        DISABLE_HA_JM="true"
         ;;
     --help)
         print_help
@@ -354,6 +354,9 @@ if [[ -n "$SPDK_IMAGE" ]]; then
 fi
 if [[ -n "$CPU_MASK" ]]; then
     command+=" --cpu-mask $CPU_MASK"
+fi
+if [ "$DISABLE_HA_JM" == "true" ]; then
+    command+=" --disable-ha-jm"
 fi
 if [ "$SPDK_DEBUG" == "true" ]; then
     command+=" --spdk-debug"
