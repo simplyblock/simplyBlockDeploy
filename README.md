@@ -146,13 +146,34 @@ chmod +x ./bootstrap-cluster.sh
 ### Specifying Cluster Arguments
 
 # specifying cluster argument to use
-./bootstrap-cluster.sh --memory 8g --iobuf_small_pool_count 10000 --iobuf_large_pool_count 25000
+./bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g
 
-### Specifying Log Deletion Interval and Metrics Retention Period
+### Specifying Log Deletion Interval, Metrics Retention Period and Contact Point
 
 
 ```bash
-./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h
+./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h --contact-point <slack webhook>
+```
+
+### Deploy Storage-node to K8s
+
+#### Set Terraform variable snode_deploy_on_k8s to true
+
+```bash
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var snode_deploy_on_k8s="true" --auto-approve
+```
+
+#### Set cluster argument --k8s-snode
+
+```bash
+./bootstrap-cluster.sh --k8s-snode
+```
+
+
+#### Set k3s argument --k8s-snode
+
+```bash
+./bootstrap-k3s.sh --k8s-snode
 ```
 
 # Shutting Down and Restarting Cluster

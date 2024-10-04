@@ -288,8 +288,16 @@ resource "aws_security_group" "storage_nodes_sg" {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
-    security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "access SNodeAPI from mgmt nodes"
+    security_groups = [aws_security_group.mgmt_node_sg.id, aws_security_group.extra_nodes_sg.id]
+    description     = "access SNodeAPI from mgmt and k3s nodes"
+  }
+
+  ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    self            = true
+    description     = "access SNodeAPI from snode node workers"
   }
 
   ingress {
@@ -397,6 +405,38 @@ resource "aws_security_group" "storage_nodes_sg" {
     description = "Graylog GELF Communication TCP"
   }
 
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = var.whitelist_ips
+    description = "k3s cluster"
+  }
+
+  ingress {
+    from_port   = 10250
+    to_port     = 10255
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "k8s node communication"
+  }
+
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow DNS resolution from worker nodes"
+  }
+
+  ingress {
+    from_port   = 1025
+    to_port     = 65535
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow UDP traffic on ephemeral ports"
+  }
+
   # end
 
   egress {
@@ -462,6 +502,30 @@ resource "aws_security_group" "extra_nodes_sg" {
     description = ""
   }
 
+  ingress {
+    from_port   = 10250
+    to_port     = 10255
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "k8s node communication"
+  }
+
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow DNS resolution from worker nodes"
+  }
+
+  ingress {
+    from_port   = 1025
+    to_port     = 65535
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow UDP traffic on ephemeral ports"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -516,10 +580,6 @@ resource "aws_iam_policy" "mgmt_policy" {
       {
         "Effect" : "Allow",
         "Action" : [
-          "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets",
-          "elasticfilesystem:DescribeMountTargetSecurityGroups",
-          "elasticfilesystem:ListTagsForResource",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces",
@@ -662,7 +722,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   for_each = local.snodes
 
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
@@ -692,7 +752,9 @@ pip install ${local.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-${var.sbcli_cmd} storage-node deploy
+if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node deploy
+fi
 EOF
 }
 

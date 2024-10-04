@@ -120,3 +120,23 @@ variable "extra_nodes_arch" {
     error_message = "The architecture type must be either 'arm64' or 'amd64'."
   }
 }
+
+variable "storage_nodes_arch" {
+  type        = string
+  default     = "amd64"
+
+  validation {
+    condition     = contains(["arm64", "amd64"], var.storage_nodes_arch)
+    error_message = "The architecture type must be either 'arm64' or 'amd64'."
+  }
+}
+
+variable "snode_deploy_on_k8s" {
+  type        = string
+  default     = "false"
+
+  validation {
+    condition     = contains(["false", "true"], var.snode_deploy_on_k8s)
+    error_message = "The value must be either 'true' or 'false'."
+  }
+}

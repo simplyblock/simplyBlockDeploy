@@ -44,7 +44,7 @@ resource "aws_launch_template" "tfengine_lc" {
   }
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.tfengine_sg.id]
   }
 
@@ -120,7 +120,7 @@ resource "aws_s3_bucket" "tfengine_logs" {
 # A policy to allow the instance to put logs in the bucket
 resource "aws_iam_policy" "tfengine_logs_policy" {
   name        = "${terraform.workspace}-tfengine_logs_policy"
-  description = "S3 policy for tfengine logs"
+  description = "S3 policy for tfengine ${terraform.workspace} logs"
   policy      = <<EOF
 {
     "Version": "2012-10-17",

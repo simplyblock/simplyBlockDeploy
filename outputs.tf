@@ -14,6 +14,10 @@ output "extra_nodes_public_ips" {
   value = join(" ", aws_instance.extra_nodes[*].public_ip)
 }
 
+output "extra_nodes_private_ips" {
+  value = join(" ", aws_instance.extra_nodes[*].private_ip)
+}
+
 output "key_name" {
   value = local.selected_key_name
 }
