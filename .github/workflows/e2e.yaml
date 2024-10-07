@@ -124,7 +124,7 @@ jobs:
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=main \
              --set image.spdkcsi.tag=master-arm64 \
-             --set storagenode.spdkImage=simplyblock/spdk:main-latest
+             --set storagenode.spdkImage=simplyblock/spdk:feature-journal-ha-latest
 
       - name: Sleep after Helm Installation
         run: sleep 300
