@@ -72,7 +72,6 @@ sudo modprobe nbd
 total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 total_memory_mb=$((total_memory_kb / 1024))
 hugepages=$((total_memory_mb / 4 / 2))
-echo "Allocating $hugepages HugePages"
 sudo sysctl -w vm.nr_hugepages=$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -86,7 +85,7 @@ sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-echo 'vm.nr_hugepages=$hugepages' | sudo tee /etc/sysctl.d/hugepages.conf
+echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
 "
 
@@ -103,7 +102,6 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     total_memory_mb=$((total_memory_kb / 1024))
     hugepages=$((total_memory_mb / 4 / 2))
-    echo "Allocating $hugepages HugePages"
     sudo sysctl -w vm.nr_hugepages=$hugepages
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -115,7 +113,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y make golang
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-    echo 'vm.nr_hugepages=$hugepages' | sudo tee /etc/sysctl.d/hugepages.conf
+    echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
     sudo sysctl --system
     "
 
@@ -138,7 +136,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
             total_memory_mb=$((total_memory_kb / 1024))
             hugepages=$((total_memory_mb / 4 / 2))
-            echo "Allocating $hugepages HugePages"
+    
             sudo sysctl -w vm.nr_hugepages=$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -150,7 +148,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y make golang
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-            echo 'vm.nr_hugepages=$hugepages' | sudo tee /etc/sysctl.d/hugepages.conf
+            echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
             sudo sysctl --system
         "
 
