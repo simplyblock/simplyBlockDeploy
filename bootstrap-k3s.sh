@@ -85,7 +85,7 @@ sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
+echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
 "
 
@@ -113,7 +113,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y make golang
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-    echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
+    echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
     sudo sysctl --system
     "
 
@@ -148,7 +148,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y make golang
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-            echo "vm.nr_hugepages=$hugepages" | sudo tee /etc/sysctl.d/hugepages.conf
+            echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
             sudo sysctl --system
         "
 
