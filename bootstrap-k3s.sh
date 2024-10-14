@@ -69,10 +69,10 @@ ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
-total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-total_memory_mb=$((total_memory_kb / 1024))
-hugepages=$((total_memory_mb / 4 / 2))
-sudo sysctl -w vm.nr_hugepages=$hugepages
+total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+total_memory_mb=\$((total_memory_kb / 1024))
+hugepages=\$((total_memory_mb / 4 / 2)))
+sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
@@ -85,7 +85,7 @@ sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
+echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
 "
 
@@ -99,10 +99,10 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y fio nvme-cli;
     sudo modprobe nvme-tcp
     sudo modprobe nbd
-    total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    total_memory_mb=$((total_memory_kb / 1024))
-    hugepages=$((total_memory_mb / 4 / 2))
-    sudo sysctl -w vm.nr_hugepages=$hugepages
+    total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+    total_memory_mb=\$((total_memory_kb / 1024))
+    hugepages=\$((total_memory_mb / 4 / 2)))
+    sudo sysctl -w vm.nr_hugepages=\$hugepages
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
@@ -113,7 +113,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y make golang
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-    echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
+    echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
     sudo sysctl --system
     "
 
@@ -133,11 +133,11 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y fio nvme-cli;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
-            total_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-            total_memory_mb=$((total_memory_kb / 1024))
-            hugepages=$((total_memory_mb / 4 / 2))
+            total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+            total_memory_mb=\$((total_memory_kb / 1024))
+            hugepages=\$((total_memory_mb / 4 / 2))
     
-            sudo sysctl -w vm.nr_hugepages=$hugepages
+            sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
@@ -148,7 +148,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo yum install -y make golang
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-            echo \"vm.nr_hugepages=$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
+            echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
             sudo sysctl --system
         "
 
