@@ -71,6 +71,13 @@ for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
 
     aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/\$CONTAINER_NAME.txt"
 done
+
+CL_ID=\$(sbcli-dev cluster list | tail -n -3 | awk '{print \$2}')
+$SBCLI_CMD cluster get-logs \$CL_ID &> \$LOCAL_LOGS_DIR/cluster-logs.txt
+$SBCLI_CMD cluster list-tasks \$CL_ID &> \$LOCAL_LOGS_DIR/cluster-tasks.txt
+aws s3 cp "\$LOCAL_LOGS_DIR/cluster-logs.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/cluster-logs.txt"
+aws s3 cp "\$LOCAL_LOGS_DIR/cluster-tasks.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/cluster-tasks.txt"
+
 rm -rf "\$LOCAL_LOGS_DIR"
 "
 
@@ -109,6 +116,7 @@ for DUMP_FILE in /etc/simplyblock/*; do
 done
 
 DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
+PODS=\$(kubectl get pods -A | grep snode-spdk-deployment | awk '{print \$2}')
 
 echo "\$DOCKER_CONTAINER_IDS"
 for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
