@@ -8,7 +8,7 @@ on:
     - cron: '0 5 * * *'  # Runs every day at 5 AM UTC
   workflow_dispatch:
     inputs:
-      spdki_csi_branch:
+      simplyblock_csi_branch:
         description: ''
         required: true
         default: 'master'
@@ -111,12 +111,12 @@ jobs:
         run: |
           sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
-      - name: Clone spdk-csi repo
-        run: git clone -b ${{ github.event.inputs.spdki_csi_branch || 'master'}} https://github.com/simplyblock-io/spdk-csi.git
+      - name: Clone simplyblock-csi repo
+        run: git clone -b ${{ github.event.inputs.simplyblock_csi_branch || 'master'}} https://github.com/simplyblock-io/simplyblock-csi.git
 
       - name: Install SPDK-CSI using Helm
         run: |
-          cd spdk-csi/charts/latest/spdk-csi
+          cd simplyblock-csi/charts/latest/spdk-csi
           helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
@@ -131,7 +131,7 @@ jobs:
         
       - name: Run tests
         run: |
-          cd spdk-csi
+          cd simplyblock-csi
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
           export CSI_NAMESPACE=spdk-csi
           export CGO_ENABLED=1
