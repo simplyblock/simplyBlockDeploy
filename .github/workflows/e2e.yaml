@@ -139,7 +139,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: $CLUSTER_UUID $CLUSTER_SECRET")
      
-          status=$(echo $response | jq -r '.results.status')
+          status=$(echo $response | jq -r '.results[0].status')
        
           if [ "$status" != "active" ]; then
               echo "Cluster status is not active, current status: $status"
