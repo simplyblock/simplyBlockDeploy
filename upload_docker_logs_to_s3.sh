@@ -81,7 +81,7 @@ for CONTAINER_ID in $DOCKER_CONTAINER_IDS; do
 done
 
 rm -rf "$LOCAL_LOGS_DIR"
-
+"
 
 # For storage nodes, different behavior for K8s and Docker Swarm
 if [ "$K8S" = true ]; then
@@ -162,6 +162,7 @@ else
         done
 
         rm -rf "$LOCAL_LOGS_DIR"
+        "
         echo "Done getting logs from node: ${node}"
     done
 fi
