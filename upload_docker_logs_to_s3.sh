@@ -53,7 +53,6 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-
 sudo yum install -y unzip
 if [ ! -f "awscliv2.zip" ]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -69,54 +68,51 @@ aws configure set default.region $AWS_DEFAULT_REGION
 aws configure set default.output json
 
 LOCAL_LOGS_DIR="$RUN_ID"
-mkdir -p "$LOCAL_LOGS_DIR"
 
-DOCKER_CONTAINER_IDS=$(sudo docker ps -aq)
-echo "$DOCKER_CONTAINER_IDS"
+mkdir -p "\$LOCAL_LOGS_DIR"
 
-for CONTAINER_ID in $DOCKER_CONTAINER_IDS; do
-    CONTAINER_NAME=$(sudo docker inspect --format="{{.Name}}" "$CONTAINER_ID" | sed 's/\///')
-    sudo docker logs "$CONTAINER_ID" &> "$LOCAL_LOGS_DIR/$CONTAINER_NAME.txt"
-    aws s3 cp "$LOCAL_LOGS_DIR/$CONTAINER_NAME.txt" "s3://$S3_BUCKET/$LOCAL_LOGS_DIR/mgmt/$CONTAINER_NAME.txt"
+DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
+
+echo "\$DOCKER_CONTAINER_IDS"
+for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
+    CONTAINER_NAME=\$(sudo docker inspect --format="{{.Name}}" "\$CONTAINER_ID" | sed 's/\///')
+
+    sudo docker logs "\$CONTAINER_ID" &> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
+
+    aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/\$CONTAINER_NAME.txt"
 done
-
-rm -rf "$LOCAL_LOGS_DIR"
+rm -rf "\$LOCAL_LOGS_DIR"
 "
 
 # For storage nodes, different behavior for K8s and Docker Swarm
 if [ "$K8S" = true ]; then
-    echo "Using Kubernetes to collect logs from storage nodes in namespace: $NAMESPACE"
+    echo "Using Kubernetes to collect logs from pods in namespace: $NAMESPACE"
 
-    storage_nodes=$(terraform output -raw storage_private_ips)
-    IFS=' ' read -ra storage_nodes <<<"$storage_nodes"
-
-    for node in "${storage_nodes[@]}"; do
-        echo "Getting logs from storage node: $node"
-
-        # Get all pods in the specified namespace
-        PODS=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
+    # Get all pods in the specified namespace
+    PODS=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
+    
+    for POD in $PODS; do
+        echo "Getting logs from pod: $POD in namespace: $NAMESPACE"
         
-        for POD in $PODS; do
-            echo "Getting logs from pod: $POD in namespace: $NAMESPACE"
+        # Get containers in the pod
+        CONTAINERS=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath='{.spec.containers[*].name}')
+        
+        for CONTAINER in $CONTAINERS; do
+            LOG_FILE="${POD}_${CONTAINER}.log"
+            echo "Collecting logs for container: $CONTAINER in pod: $POD"
             
-            # Get containers in the pod
-            CONTAINERS=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath='{.spec.containers[*].name}')
+            # Get container logs and save to local
+            kubectl logs "$POD" -n "$NAMESPACE" -c "$CONTAINER" > "$LOG_FILE"
             
-            for CONTAINER in $CONTAINERS; do
-                LOG_FILE="${POD}_${CONTAINER}.log"
-                echo "Collecting logs for container: $CONTAINER in pod: $POD"
-                
-                # Get container logs and save to local
-                kubectl logs "$POD" -n "$NAMESPACE" -c "$CONTAINER" > "$LOG_FILE"
-                
-                # Upload logs to S3 under storage/node_ip folder
-                aws s3 cp "$LOG_FILE" "s3://$S3_BUCKET/storage/$node/$CONTAINER.log"
-                
-                # Clean up local logs
-                rm -f "$LOG_FILE"
-            done
+            # Upload logs to S3 under github_run_id/pod_name folder
+            aws s3 cp "$LOG_FILE" "s3://$S3_BUCKET/$RUN_ID/$POD/$CONTAINER.log"
+            
+            # Clean up local logs
+            rm -f "$LOG_FILE"
         done
     done
+
+    echo "Kubernetes logs collected and uploaded to S3 under the GitHub run ID folder $RUN_ID."
 
 else
     # Docker Swarm setup for storage nodes (existing behavior)
