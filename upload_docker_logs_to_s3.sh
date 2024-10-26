@@ -140,39 +140,44 @@ else
             -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
             ec2-user@${node} "
 
-        sudo yum install -y unzip
-        if [ ! -f "awscliv2.zip" ]; then
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-        else
-            echo "awscli already exists."
-        fi
-
-        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-        aws configure set default.region $AWS_DEFAULT_REGION
-        aws configure set default.output json
-
-        LOCAL_LOGS_DIR="$RUN_ID"
-        mkdir -p "$LOCAL_LOGS_DIR"
-
-        for DUMP_FILE in /etc/simplyblock/*; do
-            if [ -f "$DUMP_FILE" ]; then
-                aws s3 cp "$DUMP_FILE" "s3://$S3_BUCKET/$LOCAL_LOGS_DIR/storage/${node}/$(basename "$DUMP_FILE")" --storage-class STANDARD --only-show-errors
+            sudo yum install -y unzip
+            if [ ! -f "awscliv2.zip" ]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip awscliv2.zip
+                sudo ./aws/install
+            else
+                echo "awscli already exists."
             fi
-        done
 
-        DOCKER_CONTAINER_IDS=$(sudo docker ps -aq)
-        echo "$DOCKER_CONTAINER_IDS"
-        for CONTAINER_ID in $DOCKER_CONTAINER_IDS; do
-            CONTAINER_NAME=$(sudo docker inspect --format="{{.Name}}" "$CONTAINER_ID" | sed 's/\///')
-            sudo docker logs "$CONTAINER_ID" &> "$LOCAL_LOGS_DIR/$CONTAINER_NAME.txt"
-            aws s3 cp "$LOCAL_LOGS_DIR/$CONTAINER_NAME.txt" "s3://$S3_BUCKET/$LOCAL_LOGS_DIR/storage/${node}/$CONTAINER_NAME.txt"
-        done
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region $AWS_DEFAULT_REGION
+            aws configure set default.output json
 
-        rm -rf "$LOCAL_LOGS_DIR"
-        "
-        echo "Done getting logs from node: ${node}"
+
+            LOCAL_LOGS_DIR="$RUN_ID"
+
+            mkdir -p "\$LOCAL_LOGS_DIR"
+
+            # Look for core dump files and upload to S3
+            for DUMP_FILE in /etc/simplyblock/*; do
+                if [ -f "\$DUMP_FILE" ]; then
+                    aws s3 cp \"$DUMP_FILE\" \"s3://$S3_BUCKET/$LOCAL_LOGS_DIR/storage/${node}/$(basename \"$DUMP_FILE\")\" --storage-class STANDARD --only-show-errors
+                fi
+            done
+
+            DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
+
+            echo "\$DOCKER_CONTAINER_IDS"
+            for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
+                CONTAINER_NAME=\$(sudo docker inspect --format="{{.Name}}" "\$CONTAINER_ID" | sed 's/\///')
+
+                sudo docker logs "\$CONTAINER_ID" &> "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt"
+
+                aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/\$CONTAINER_NAME.txt"
+            done
+            rm -rf "\$LOCAL_LOGS_DIR"
+            "
+        echo "done getting logs from node: ${node}"
     done
 fi
