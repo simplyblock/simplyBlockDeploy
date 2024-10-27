@@ -127,7 +127,7 @@ jobs:
              --set storagenode.spdkImage=simplyblock/spdk:main-latest
 
       - name: Sleep after Helm Installation
-        run: sleep 300
+        run: sleep 400
 
       - name: Check Cluster Status
         run: |
