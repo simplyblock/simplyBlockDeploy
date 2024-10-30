@@ -28,7 +28,7 @@ module "vpc" {
     # long-term-test = "true"
   }
 }
-
+/*
 resource "aws_route" "route_account_a_to_b0" {
   destination_cidr_block    = "10.0.0.0/16"
   vpc_peering_connection_id = "pcx-016667cb611b23b1f"
@@ -56,6 +56,22 @@ resource "aws_route" "route_account_a_to_b3" {
   for_each                  = toset(module.vpc.private_route_table_ids)
   route_table_id            = each.key
 }
+*/
+
+resource "aws_route" "route_account_a_to_c0" {
+  destination_cidr_block    = "10.20.0.0/16"
+  vpc_peering_connection_id = "pcx-0b0620dd3f80a3654"
+  for_each                  = toset(module.vpc.private_route_table_ids)
+  route_table_id            = each.key
+}
+
+resource "aws_route" "route_account_a_to_c1" {
+  destination_cidr_block    = "10.21.0.0/16"
+  vpc_peering_connection_id = "pcx-0b0620dd3f80a3654"
+  for_each                  = toset(module.vpc.private_route_table_ids)
+  route_table_id            = each.key
+}
+
 
 module "apigatewayendpoint" {
   count                  = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
