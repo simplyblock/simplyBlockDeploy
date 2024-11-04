@@ -2,7 +2,7 @@
 namespace="simplyblock"
 sbcli_cmd="sbcli-dev"
 
-export TFSTATE_BUCKET=qdrant-simplyblock-staging-infra
+export TFSTATE_BUCKET=xata-simplyblock-staging-infra
 export TFSTATE_KEY=staging/controlplane
 export TFSTATE_REGION=us-east-2
 
