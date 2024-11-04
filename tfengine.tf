@@ -15,29 +15,29 @@ data "aws_ami" "this" {
   }
 }
 
-resource "aws_autoscaling_group" "tfengine_asg" {
-  min_size            = 1
-  max_size            = 1
-  desired_capacity    = 1
-  vpc_zone_identifier = [module.vpc.private_subnets[0]]
-  tag {
-    key                 = "Name"
-    value               = "${terraform.workspace}-tfengine"
-    propagate_at_launch = true
-  }
-  tag {
-    key                 = "long-term-test"
-    value               = "true"
-    propagate_at_launch = true
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-  launch_template {
-    id      = aws_launch_template.tfengine_lc.id
-    version = "$Latest"
-  }
-}
+# resource "aws_autoscaling_group" "tfengine_asg" {
+#   min_size            = 1
+#   max_size            = 1
+#   desired_capacity    = 1
+#   vpc_zone_identifier = [module.vpc.private_subnets[0]]
+#   tag {
+#     key                 = "Name"
+#     value               = "${terraform.workspace}-tfengine"
+#     propagate_at_launch = true
+#   }
+#   tag {
+#     key                 = "long-term-test"
+#     value               = "true"
+#     propagate_at_launch = true
+#   }
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+#   launch_template {
+#     id      = aws_launch_template.tfengine_lc.id
+#     version = "$Latest"
+#   }
+# }
 
 resource "aws_launch_template" "tfengine_lc" {
   name_prefix   = "tfengine"
@@ -208,10 +208,10 @@ resource "aws_iam_role_policy_attachment" "AmazonSSMManagedInstanceCore" {
 }
 
 # NOTE: Terraform uses the same role that we use to deploy the cluster to the customer's account
-resource "aws_iam_role_policy_attachment" "sbdeployPolicy" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/sbdeployPolicy"
-  role       = aws_iam_role.tfengine.name
-}
+# resource "aws_iam_role_policy_attachment" "sbdeployPolicy" {
+#   policy_arn = "arn:aws:iam::${local.account_id}:policy/sbdeployPolicy"
+#   role       = aws_iam_role.tfengine.name
+# }
 
 # attach policy
 resource "aws_iam_role_policy_attachment" "s3policy" {

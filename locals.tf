@@ -12,7 +12,7 @@ locals {
 
   key_name = {
     "us-east-1"  = "simplyblock-us-east-1.pem"
-    "us-east-2"  = "simplyblock-us-east-2.pem"
+    "us-east-2"  = "simplyblock-xata"
     "eu-north-1" = "simplyblock-eu-north-1.pem"
     "eu-west-1"  = "simplyblock-eu-west-1.pem"
   }
