@@ -1,6 +1,8 @@
 #!/bin/bash
 namespace="simplyblock"
 sbcli_cmd="sbcli-dev"
+CONTACT_POINT="https://hooks.slack.com/services/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"
+
 
 export TFSTATE_BUCKET=xata-simplyblock-staging-infra
 export TFSTATE_KEY=staging/controlplane
@@ -33,4 +35,5 @@ chmod +x ./bootstrap-cluster.sh
                        --prov-cap-warn 200 --distr-bs 4096 --distr-chunk-bs 4096 \
                        --spdk-debug --max-lvol 200 --max-snap 200 --max-prov 30T --number-of-devices 1 \
                        --partitions 1 --log-del-interval 300m --metrics-retention-period 2h \
-                       --number-of-distribs 5
+                       --number-of-distribs 5 \
+                       --contact-point $CONTACT_POINT

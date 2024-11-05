@@ -391,7 +391,7 @@ else
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} cluster activate ${CLUSTER_ID}
+    ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
     "
 fi
 
