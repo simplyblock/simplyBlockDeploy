@@ -16,6 +16,11 @@ on:
         description: ''
         required: true
         default: 'sbcli-dev'
+      upload_logs:
+        description: 'Upload logs to AWS'
+        required: false
+        default: false
+        type: boolean
 jobs:
   e2e:
     runs-on: self-hosted
@@ -25,6 +30,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Set upload_logs for scheduled and push events
+        if: github.event_name == 'schedule' || github.event_name == 'push'
+        run: echo "upload_logs=true" >> $GITHUB_ENV
+
+      - name: Set upload_logs for manual workflow_dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "upload_logs=${{ github.event.inputs.upload_logs }}" >> $GITHUB_ENV
 
       - uses: actions/setup-go@v5
         with:
@@ -158,7 +171,12 @@ jobs:
           make e2e-test
 
       - name: Upload docker logs to s3
-        run: $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
+        run: |
+          if [[ "${{ github.event_name }}" == 'schedule' || "${{ env.upload_logs }}" == 'true' ]]; then
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
+          else
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
+          fi
         if: always()
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
