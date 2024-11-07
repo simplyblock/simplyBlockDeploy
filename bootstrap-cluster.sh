@@ -397,11 +397,12 @@ if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
+    first_three_ips=$(echo "$storage_private_ips" | awk '{print $1, $2, $3}')
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    for node in ${storage_private_ips}; do
+    for node in ${first_three_ips}; do
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
@@ -409,6 +410,19 @@ else
         \$add_node_command
         sleep 3
     done"
+
+    node=$(echo "$storage_private_ips" | awk '{print $4}')
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${mnodes[0]} "
+    MANGEMENT_NODE_IP=${mnodes[0]}
+
+    echo ""
+    echo "joining secondary node \${node}"
+    add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
+    echo "add node command: \${add_node_command}"
+    \$add_node_command
+    sleep 3"
 
     echo ""
     echo "Running Cluster Activate"
@@ -418,7 +432,7 @@ else
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} cluster activate ${CLUSTER_ID}
+    ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
     "
 fi
 
