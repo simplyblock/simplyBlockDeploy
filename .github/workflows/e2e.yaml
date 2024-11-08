@@ -93,7 +93,7 @@ jobs:
             -var "mgmt_nodes=1" \
             -var "storage_nodes=3" \
             -var "storage_nodes_arch=arm64" \
-            -var "storage_nodes_instance_type=m6g.xlarge" \
+            -var "storage_nodes_instance_type=m6g.2xlarge" \
             -var "snode_deploy_on_k8s=true" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6gd.xlarge" \
