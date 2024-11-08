@@ -100,6 +100,18 @@ rm -rf "\$LOCAL_LOGS_DIR"
 
 # For storage nodes, different behavior for K8s and Docker Swarm
 if [ "$K8S" = true ]; then
+
+    node_private_ips=$(kubectl get nodes -o=jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
+    for node in $node_private_ips; do
+    echo "Restarting k3s worker nodes: ${node}"
+    ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+        -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+        ec2-user@${node} "
+
+        sudo systemctl restart k3s-agent
+        "
+
     echo "Using Kubernetes to collect logs from pods in namespace: $NAMESPACE"
 
     # Get all pods in the specified namespace
