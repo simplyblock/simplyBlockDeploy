@@ -111,7 +111,7 @@ if [ "$K8S" = true ]; then
 
         sudo systemctl restart k3s-agent
         "
-
+    done
     echo "Using Kubernetes to collect logs from pods in namespace: $NAMESPACE"
 
     # Get all pods in the specified namespace
