@@ -418,8 +418,8 @@ else
     MANGEMENT_NODE_IP=${mnodes[0]}
 
     echo ""
-    echo "joining secondary node \${node}"
-    add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
+    echo "joining secondary node ${node}"
+    add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} ${node}:5000 eth0\"
     echo "add node command: \${add_node_command}"
     \$add_node_command
     sleep 3"
