@@ -26,17 +26,17 @@ locals {
 #  $sudo yum update -y
 #  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
   region_ami_map = {
-    "us-east-1"  = "ami-0ff9547ee3e11637a"
-    "us-east-2"  = "ami-00b0bb86a4287f38f"
-    "eu-north-1" = "ami-01997ffb7707167a4"
-    "eu-west-1"  = "ami-0a3bac9371ffc12f8"
+    "us-east-1"  = "ami-062fb6a424a0323ac"
+    "us-east-2"  = "ami-0349b8a1a54b89145"
+    "eu-north-1" = "ami-0202da5cbb95fd7e3"
+    "eu-west-1"  = "ami-003bcc46394b3cdea"
   }
 
   region_ami_map_arm = {
-    "us-east-1"  = "ami-0990e7074b32986af"
-    "us-east-2"  = "ami-0e71db082192a9cf7"
-    "eu-north-1" = "ami-006af066a79f5190f"
-    "eu-west-1"  = "ami-06028a225ee106d6f"
+    "us-east-1"  = "ami-0ab6f82a83cf0fde3"
+    "us-east-2"  = "ami-09faa8a576731b311"
+    "eu-north-1" = "ami-00cf96c22c7c09feb"
+    "eu-west-1"  = "ami-004ede8c0a3e748f2"
   }
 
   ami_map = {
