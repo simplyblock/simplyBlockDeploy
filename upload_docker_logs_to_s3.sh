@@ -50,7 +50,7 @@ BASTION_IP=$(terraform output -raw bastion_public_ip)
 
 sudo yum install -y unzip
 
-ARCH=\$(uname -m)
+ARCH=$(uname -m)
 
 if [ ! -f "/usr/local/bin/aws" ]; then
     if [[ $ARCH == "x86_64" ]]; then
