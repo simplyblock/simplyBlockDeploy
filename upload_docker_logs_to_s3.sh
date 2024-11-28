@@ -61,8 +61,8 @@ else
     exit 1
 fi
 unzip awscliv2.zip
-sudo ./aws/install
-sudo rm -rf awscliv2.zip aws
+sudo ./aws/install --update
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -78,7 +78,7 @@ sudo yum install -y unzip
 ARCH=\$(uname -m)
 
 sudo rm -rf /usr/local/bin/aws
-sudo rm -rf awscliv2.zip aws
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
 if [[ \$ARCH == "x86_64" ]]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -89,8 +89,8 @@ else
     exit 1
 fi
 unzip awscliv2.zip
-sudo ./aws/install
-sudo rm -rf awscliv2.zip aws
+sudo ./aws/install --update
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -130,7 +130,7 @@ if [ "$K8S" = true ]; then
             sudo yum install -y unzip
             ARCH=\$(uname -m)
             sudo rm -rf /usr/local/bin/aws
-            sudo rm -rf awscliv2.zip aws
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             if [[ \$ARCH == "x86_64" ]]; then
                 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -141,8 +141,8 @@ if [ "$K8S" = true ]; then
                 exit 1
             fi
             unzip awscliv2.zip
-            sudo ./aws/install
-            sudo rm -rf awscliv2.zip aws
+            sudo ./aws/install --update
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -208,7 +208,7 @@ else
             ARCH=\$(uname -m)
 
             sudo rm -rf /usr/local/bin/aws
-            sudo rm -rf awscliv2.zip aws
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
             
             if [[ \$ARCH == "x86_64" ]]; then
                 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -220,8 +220,8 @@ else
             fi
 
             unzip awscliv2.zip
-            sudo ./aws/install
-            sudo rm -rf awscliv2.zip aws
+            sudo ./aws/install --update
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
