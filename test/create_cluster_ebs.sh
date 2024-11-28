@@ -15,8 +15,10 @@ terraform init -reconfigure \
     -backend-config="region=${TFSTATE_REGION}" \
     -backend-config="encrypt=true"
 
+# uncomment if you need to destroy existing cluster with the same name
+# terraform destroy --auto-approve
+
 ### switch to workspace
-terraform destroy --auto-approve
 terraform workspace select -or-create "$namespace"
 
 # terraform apply -var mgmt_nodes=1 -var storage_nodes=0 -var extra_nodes=0 --auto-approve
