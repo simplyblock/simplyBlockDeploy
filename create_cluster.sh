@@ -1,5 +1,7 @@
 #!/bin/bash
-namespace="simplyblock"
+
+# CHANGE THE NAMESPACE NAME!
+namespace="change_me"
 sbcli_cmd="sbcli-dev"
 CONTACT_POINT="https://hooks.slack.com/services/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"
 
@@ -37,5 +39,5 @@ chmod +x ./bootstrap-cluster.sh
                        --prov-cap-warn 200 --distr-bs 4096 --distr-chunk-bs 4096 \
                        --spdk-debug --max-lvol 200 --max-snap 200 --max-prov 10T --number-of-devices 1 \
                        --partitions 1 --log-del-interval 300m --metrics-retention-period 2h \
-                       --number-of-distribs 5 \
+                       --number-of-distribs 2 \
                        --contact-point $CONTACT_POINT
