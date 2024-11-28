@@ -52,22 +52,17 @@ sudo yum install -y unzip
 
 ARCH=$(uname -m)
 
-if [ ! -f "/usr/local/bin/aws" ]; then
-    if [[ $ARCH == "x86_64" ]]; then
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    elif [[ $ARCH == "aarch64" ]]; then
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-    else
-        echo "Unsupported architecture: \$ARCH"
-        exit 1
-    fi
-    unzip awscliv2.zip
-    sudo ./aws/install
-    rm -rf awscliv2.zip aws
+if [[ $ARCH == "x86_64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+elif [[ $ARCH == "aarch64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
 else
-    echo "AWS CLI is already installed."
-
+    echo "Unsupported architecture: \$ARCH"
+    exit 1
 fi
+unzip awscliv2.zip
+sudo ./aws/install
+sudo rm -rf awscliv2.zip aws
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -82,22 +77,20 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
 sudo yum install -y unzip
 ARCH=\$(uname -m)
 
-if [ ! -f "/usr/local/bin/aws" ]; then
-    if [[ \$ARCH == "x86_64" ]]; then
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    elif [[ \$ARCH == "aarch64" ]]; then
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-    else
-        echo "Unsupported architecture: \$ARCH"
-        exit 1
-    fi
-    unzip awscliv2.zip
-    sudo ./aws/install
-    rm -rf awscliv2.zip aws
-else
-    echo "AWS CLI is already installed."
+sudo rm -rf /usr/local/bin/aws
+sudo rm -rf awscliv2.zip aws
 
+if [[ \$ARCH == "x86_64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+elif [[ \$ARCH == "aarch64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+else
+    echo "Unsupported architecture: \$ARCH"
+    exit 1
 fi
+unzip awscliv2.zip
+sudo ./aws/install
+sudo rm -rf awscliv2.zip aws
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -136,23 +129,20 @@ if [ "$K8S" = true ]; then
 
             sudo yum install -y unzip
             ARCH=\$(uname -m)
+            sudo rm -rf /usr/local/bin/aws
+            sudo rm -rf awscliv2.zip aws
 
-            if [ ! -f "/usr/local/bin/aws" ]; then
-                if [[ \$ARCH == "x86_64" ]]; then
-                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                elif [[ \$ARCH == "aarch64" ]]; then
-                    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-                else
-                    echo "Unsupported architecture: \$ARCH"
-                    exit 1
-                fi
-                unzip awscliv2.zip
-                sudo ./aws/install
-                rm -rf awscliv2.zip aws
+            if [[ \$ARCH == "x86_64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            elif [[ \$ARCH == "aarch64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
             else
-                echo "AWS CLI is already installed."
-
+                echo "Unsupported architecture: \$ARCH"
+                exit 1
             fi
+            unzip awscliv2.zip
+            sudo ./aws/install
+            sudo rm -rf awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -217,22 +207,21 @@ else
             sudo yum install -y unzip
             ARCH=\$(uname -m)
 
-            if [ ! -f "/usr/local/bin/aws" ]; then
-                if [[ \$ARCH == "x86_64" ]]; then
-                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                elif [[ \$ARCH == "aarch64" ]]; then
-                    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-                else
-                    echo "Unsupported architecture: \$ARCH"
-                    exit 1
-                fi
-                unzip awscliv2.zip
-                sudo ./aws/install
-                rm -rf awscliv2.zip aws
+            sudo rm -rf /usr/local/bin/aws
+            sudo rm -rf awscliv2.zip aws
+            
+            if [[ \$ARCH == "x86_64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            elif [[ \$ARCH == "aarch64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
             else
-                echo "AWS CLI is already installed."
-
+                echo "Unsupported architecture: \$ARCH"
+                exit 1
             fi
+
+            unzip awscliv2.zip
+            sudo ./aws/install
+            sudo rm -rf awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
