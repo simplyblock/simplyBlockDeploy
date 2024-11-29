@@ -77,7 +77,6 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
 sudo yum install -y unzip
 ARCH=\$(uname -m)
 
-sudo rm -rf /usr/local/bin/aws
 sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
 if [[ \$ARCH == "x86_64" ]]; then
@@ -90,7 +89,6 @@ else
 fi
 unzip awscliv2.zip
 sudo ./aws/install --update
-sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -112,6 +110,7 @@ for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
     aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/\$CONTAINER_NAME.txt"
 done
 rm -rf "\$LOCAL_LOGS_DIR"
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 "
 
 # For storage nodes, different behavior for K8s and Docker Swarm
@@ -129,7 +128,7 @@ if [ "$K8S" = true ]; then
 
             sudo yum install -y unzip
             ARCH=\$(uname -m)
-            sudo rm -rf /usr/local/bin/aws
+
             sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             if [[ \$ARCH == "x86_64" ]]; then
@@ -142,7 +141,6 @@ if [ "$K8S" = true ]; then
             fi
             unzip awscliv2.zip
             sudo ./aws/install --update
-            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -162,6 +160,7 @@ if [ "$K8S" = true ]; then
             done
 
             rm -rf "\$LOCAL_LOGS_DIR"
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
             "
     done
     echo "Using Kubernetes to collect logs from pods in namespace: $NAMESPACE"
@@ -207,7 +206,6 @@ else
             sudo yum install -y unzip
             ARCH=\$(uname -m)
 
-            sudo rm -rf /usr/local/bin/aws
             sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
             
             if [[ \$ARCH == "x86_64" ]]; then
@@ -221,7 +219,6 @@ else
 
             unzip awscliv2.zip
             sudo ./aws/install --update
-            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -252,6 +249,7 @@ else
                 aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/\$CONTAINER_NAME.txt"
             done
             rm -rf "\$LOCAL_LOGS_DIR"
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
             "
         echo "done getting logs from node: ${node}"
     done
