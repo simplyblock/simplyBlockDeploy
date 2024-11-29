@@ -3,7 +3,7 @@
 # CHANGE THE NAMESPACE NAME!
 namespace="change_me"
 sbcli_cmd="sbcli-dev"
-CONTACT_POINT="https://hooks.slack.com/services/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"
+CONTACT_POINT=<add_slack_webhook>
 
 
 export TFSTATE_BUCKET=xata-simplyblock-staging-infra

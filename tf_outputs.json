@@ -1,0 +1,160 @@
+{
+  "api_invoke_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://w98m1cxy4a.execute-api.us-east-2.amazonaws.com/"
+  },
+  "bastion_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "18.219.59.202"
+  },
+  "extra_nodes_private_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.4.183"
+  },
+  "extra_nodes_public_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": "18.116.64.159"
+  },
+  "grafana_invoke_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://w98m1cxy4a.execute-api.us-east-2.amazonaws.com/grafana"
+  },
+  "graylog_invoke_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://w98m1cxy4a.execute-api.us-east-2.amazonaws.com/graylog"
+  },
+  "key_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "simplyblock-us-east-2.pem"
+  },
+  "mgmt_node_details": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "demo-k8s-mgmt-1": [
+          "object",
+          {
+            "private_ip": "string",
+            "public_ip": "string",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "value": {
+      "demo-k8s-mgmt-1": {
+        "private_ip": "10.0.3.132",
+        "public_ip": "",
+        "type": "m6i.xlarge"
+      }
+    }
+  },
+  "mgmt_private_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.3.132"
+  },
+  "mgmt_public_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": ""
+  },
+  "secret_value": {
+    "sensitive": true,
+    "type": "string",
+    "value": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTqMIZxvlbTJusvgjLMowAA\nAIjs64g17OuINQAAAAtzc2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTq\nMIZxvlbTJusvgjLMowAAAEAwUQIBATAFBgMrZXAEIgQgy3b2RGthAnDiTucFNF4s\npzdWf8CrmZmI/2CxYchE7PhJ9OowhnG+VtMm6y+CMsyjAAAAAAECAwQF\n-----END OPENSSH PRIVATE KEY-----"
+  },
+  "storage_node_details": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "demo-k8s-storage-1": [
+          "object",
+          {
+            "availability_zone": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "type": "string"
+          }
+        ],
+        "demo-k8s-storage-2": [
+          "object",
+          {
+            "availability_zone": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "type": "string"
+          }
+        ],
+        "demo-k8s-storage-3": [
+          "object",
+          {
+            "availability_zone": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "type": "string"
+          }
+        ],
+        "demo-k8s-storage-4": [
+          "object",
+          {
+            "availability_zone": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "value": {
+      "demo-k8s-storage-1": {
+        "availability_zone": "us-east-2b",
+        "private_ip": "10.0.3.239",
+        "public_ip": "",
+        "type": "m6gd.2xlarge"
+      },
+      "demo-k8s-storage-2": {
+        "availability_zone": "us-east-2b",
+        "private_ip": "10.0.3.206",
+        "public_ip": "",
+        "type": "m6gd.2xlarge"
+      },
+      "demo-k8s-storage-3": {
+        "availability_zone": "us-east-2b",
+        "private_ip": "10.0.3.80",
+        "public_ip": "",
+        "type": "m6gd.2xlarge"
+      },
+      "demo-k8s-storage-4": {
+        "availability_zone": "us-east-2b",
+        "private_ip": "10.0.3.219",
+        "public_ip": "",
+        "type": "m6gd.2xlarge"
+      }
+    }
+  },
+  "storage_private_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.3.239 10.0.3.206 10.0.3.80 10.0.3.219"
+  },
+  "storage_public_ips": {
+    "sensitive": false,
+    "type": "string",
+    "value": "   "
+  },
+  "tfengine_logs": {
+    "sensitive": false,
+    "type": "string",
+    "value": "simplyblock-tfengine-logs-f27c05713a"
+  }
+}
