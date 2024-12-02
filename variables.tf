@@ -56,6 +56,11 @@ variable "storage_nodes" {
   type    = number
 }
 
+variable "sec_storage_nodes" {
+  default = 0
+  type    = number
+}
+
 variable "extra_nodes" {
   default = 0
   type    = number

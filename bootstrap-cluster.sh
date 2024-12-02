@@ -221,6 +221,7 @@ mnodes=$(terraform output -raw mgmt_private_ips)
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$(terraform output -raw storage_private_ips)
+sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
 echo "bootstrapping cluster..."
 
@@ -405,6 +406,15 @@ else
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
+        echo "add node command: \${add_node_command}"
+        \$add_node_command
+        sleep 3
+    done
+
+    for node in ${sec_storage_private_ips}; do
+        echo ""
+        echo "joining secondary node \${node}"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3

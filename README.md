@@ -121,6 +121,12 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --
 terraform apply -var-file="dev.tfvars" --auto-approve
 ```
 
+### Specifying the Number of Secondary Storage node
+
+```bash
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var sec_storage_nodes=1 --auto-approve
+```
+
 ### Save Terraform Output to a File
 
 ```bash

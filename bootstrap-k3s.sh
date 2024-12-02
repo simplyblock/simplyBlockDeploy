@@ -60,6 +60,7 @@ mnodes_private_ips=$(terraform output -raw extra_nodes_private_ips)
 IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
 
 storage_private_ips=$(terraform output -raw storage_private_ips)
+sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
 echo "::set-output name=KEY::$KEY"
 echo "::set-output name=extra_node_ip::${mnodes[0]}"

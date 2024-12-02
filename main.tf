@@ -710,6 +710,43 @@ fi
 EOF
 }
 
+resource "aws_instance" "sec_storage_nodes" {
+  for_each = local.sec_snodes
+  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
+  instance_type          = var.storage_nodes_instance_type
+  key_name               = local.selected_key_name
+  vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
+  subnet_id              = module.vpc.private_subnets[local.az_index]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
+  root_block_device {
+    volume_size = 45
+  }
+  tags = {
+    Name = "${terraform.workspace}-sec-storage-${each.value + 1}"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      subnet_id,
+    ]
+  }
+
+  user_data = <<EOF
+#!/bin/bash
+sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
+cat /proc/meminfo | grep -i hug
+echo "installing sbcli.."
+sudo yum install -y pip unzip
+pip install ${local.sbcli_pkg}
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node deploy
+fi
+EOF
+}
+ 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
