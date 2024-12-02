@@ -28,9 +28,12 @@ print_help() {
     echo "  --cap-crit <value>                   Set Capacity critical level (optional)"
     echo "  --prov-cap-warn <value>              Set Provision Capacity warning level (optional)"
     echo "  --prov-cap-crit <value>              Set Provision Capacity critical level (optional)"
+    echo "  --ha-type <value>                    Set LVol HA type (optional)"
+    echo "  --enable-node-affinity               Enable node affinity for storage nodes (optional)"
+    echo "  --qpair-count <value>                Set TCP Transport qpair count (optional)"
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
-    echo "  --disable-ha-jm                      Disable HA JM for distrib creation"
+    echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -58,6 +61,9 @@ CAP_WARN=""
 CAP_CRIT=""
 PROV_CAP_WARN=""
 PROV_CAP_CRIT=""
+HA_TYPE=""
+ENABLE_NODE_AFFINITY=""
+QPAIR_COUNT=""
 DISABLE_HA_JM="false"
 K8S_SNODE="false"
 
@@ -151,6 +157,18 @@ while [[ $# -gt 0 ]]; do
         ;;
     --prov-cap-crit)
         PROV_CAP_CRIT="$2"
+        shift
+        ;;
+    --ha-type)
+        HA_TYPE="$2"
+        shift
+        ;;
+    --enable-node-affinity)
+        ENABLE_NODE_AFFINITY="true"
+        shift
+        ;;
+    --qpair-count)
+        QPAIR_COUNT="$2"
         shift
         ;;
     --k8s-snode)
@@ -265,6 +283,15 @@ if [[ -n "$PROV_CAP_WARN" ]]; then
 fi
 if [[ -n "$PROV_CAP_CRIT" ]]; then
     command+=" --prov-cap-crit $PROV_CAP_CRIT"
+fi
+if [[ -n "$HA_TYPE" ]]; then
+    command+=" --ha-type $HA_TYPE"
+fi
+if [[ -n "$ENABLE_NODE_AFFINITY" ]]; then
+    command+=" --enable-node-affinity $ENABLE_NODE_AFFINITY"
+fi
+if [[ -n "$QPAIR_COUNT" ]]; then
+    command+=" --qpair-count $QPAIR_COUNT"
 fi
 echo $command
 
