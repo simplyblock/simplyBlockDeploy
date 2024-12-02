@@ -139,7 +139,8 @@ jobs:
              --set image.spdkcsi.tag=master-arm64 \
              --set storagenode.spdkImage=simplyblock/spdk:main-latest \
              --set storagenode.create=true \
-             --set cachingnode.create=true
+             --set cachingnode.create=true \
+             --set logicalVolume.encryption=true
 
       - name: Sleep after Helm Installation
         run: sleep 400
