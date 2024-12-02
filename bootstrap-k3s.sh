@@ -125,7 +125,7 @@ done
 if [ "$K8S_SNODE" == "true" ]; then
     for node in ${storage_private_ips[@]}; do
         echo ""
-        echo "Adding storage node ${node}.."
+        echo "Adding primary storage node ${node}.."
         echo ""
 
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
@@ -157,14 +157,37 @@ if [ "$K8S_SNODE" == "true" ]; then
         ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
     done
 
-    STORAGE_NODES=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes --selector='type=simplyblock-storage-plane' -o name")
+    for node in ${sec_storage_private_ips[@]}; do
+        echo ""
+        echo "Adding secondary storage node ${node}.."
+        echo ""
 
-    STORAGE_NODE_COUNT=$(echo "$STORAGE_NODES" | wc -l)
+        ssh -i "$KEY" -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+            ec2-user@${node} "
+            sudo yum install -y fio nvme-cli;
+            sudo modprobe nvme-tcp
+            sudo modprobe nbd
+            total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+            total_memory_mb=\$((total_memory_kb / 1024))
+            hugepages=\$((total_memory_mb / 4 / 2))
 
-    if [ "$STORAGE_NODE_COUNT" -gt 3 ]; then
-        LAST_NODE=$(echo "$STORAGE_NODES" | tail -n 1)
+            sudo sysctl -w vm.nr_hugepages=\$hugepages
+            sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+            sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+            sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+            curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
+            sudo /usr/local/bin/k3s kubectl get node
+            sudo yum install -y pciutils
+            lspci
+            sudo yum install -y make golang
+            echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+            echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+            echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
+            sudo sysctl --system
+        "
 
-        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label $LAST_NODE type-"
-        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label $LAST_NODE type=simplyblock-storage-plane-reserve --overwrite"
-    fi
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
+    done
 fi
