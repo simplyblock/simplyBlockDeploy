@@ -57,7 +57,7 @@ variable "storage_nodes" {
 }
 
 variable "sec_storage_nodes" {
-  default = 0
+  default = 1
   type    = number
 }
 
@@ -72,6 +72,11 @@ variable "mgmt_nodes_instance_type" {
 }
 
 variable "storage_nodes_instance_type" {
+  default = "m5.large"
+  type    = string
+}
+
+variable "sec_storage_nodes_instance_type" {
   default = "m5.large"
   type    = string
 }

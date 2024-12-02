@@ -713,7 +713,7 @@ EOF
 resource "aws_instance" "sec_storage_nodes" {
   for_each = local.sec_snodes
   ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
-  instance_type          = var.storage_nodes_instance_type
+  instance_type          = var.sec_storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
   subnet_id              = module.vpc.private_subnets[local.az_index]
