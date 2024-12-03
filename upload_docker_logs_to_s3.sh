@@ -60,7 +60,7 @@ else
     echo "Unsupported architecture: \$ARCH"
     exit 1
 fi
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
