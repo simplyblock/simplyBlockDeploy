@@ -73,7 +73,7 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-sudo yum install -y unzip
+sudo yum install -y unzip zip
 ARCH=\$(uname -m)
 
 sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
@@ -98,8 +98,12 @@ LOCAL_LOGS_DIR="$RUN_ID"
 
 mkdir -p "\$LOCAL_LOGS_DIR"
 
-DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
+if [ -d /etc/foundationdb/ ]; then
+  sudo zip -r $LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
+  aws s3 cp $LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/$LOCAL_LOGS_DIR/mgmt/fdb.zip
+fi
 
+DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
 echo "\$DOCKER_CONTAINER_IDS"
 for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
     CONTAINER_NAME=\$(sudo docker inspect --format="{{.Name}}" "\$CONTAINER_ID" | sed 's/\///')
