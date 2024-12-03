@@ -86,7 +86,7 @@ else
     echo "Unsupported architecture: \$ARCH"
     exit 1
 fi
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -99,7 +99,7 @@ LOCAL_LOGS_DIR="$RUN_ID"
 mkdir -p "\$LOCAL_LOGS_DIR"
 
 if [ -d /etc/foundationdb/ ]; then
-  sudo zip -r $LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
+  sudo zip -q -r $LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
   aws s3 cp $LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/$LOCAL_LOGS_DIR/mgmt/fdb.zip
 fi
 
@@ -142,7 +142,7 @@ if [ "$K8S" = true ]; then
                 echo "Unsupported architecture: \$ARCH"
                 exit 1
             fi
-            unzip awscliv2.zip
+            unzip -q awscliv2.zip
             sudo ./aws/install --update
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -220,7 +220,7 @@ else
                 exit 1
             fi
 
-            unzip awscliv2.zip
+            unzip -q awscliv2.zip
             sudo ./aws/install --update
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
