@@ -99,8 +99,8 @@ LOCAL_LOGS_DIR="$RUN_ID"
 mkdir -p "\$LOCAL_LOGS_DIR"
 
 if [ -d /etc/foundationdb/ ]; then
-  sudo zip -q -r $LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
-  aws s3 cp $LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/$LOCAL_LOGS_DIR/mgmt/fdb.zip
+  sudo zip -q -r \$LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
+  aws s3 cp \$LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/fdb.zip
 fi
 
 DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
