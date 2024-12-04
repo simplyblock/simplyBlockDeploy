@@ -144,7 +144,7 @@ jobs:
              --set logicalVolume.encryption=true
 
       - name: Sleep after Helm Installation
-        run: sleep 400
+        run: sleep 500
 
       - name: Check Cluster Status
         run: |
