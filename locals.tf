@@ -5,6 +5,8 @@ locals {
 
   snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
 
+  sec_snodes = toset([for n in range(var.sec_storage_nodes) : tostring(n)])
+
   node_disks = { for pair in setproduct(local.snodes, slice(local.volume_device_names, 0, var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
     node_name     = pair[0]
     disk_dev_path = pair[1]

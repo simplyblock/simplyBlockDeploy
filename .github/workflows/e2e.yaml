@@ -94,6 +94,7 @@ jobs:
             -var "storage_nodes=3" \
             -var "storage_nodes_arch=arm64" \
             -var "storage_nodes_instance_type=m6g.2xlarge" \
+            -var "sec_storage_nodes_instance_type=m6g.2xlarge" \
             -var "snode_deploy_on_k8s=true" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6gd.xlarge" \
@@ -143,7 +144,7 @@ jobs:
              --set logicalVolume.encryption=true
 
       - name: Sleep after Helm Installation
-        run: sleep 400
+        run: sleep 500
 
       - name: Check Cluster Status
         run: |
