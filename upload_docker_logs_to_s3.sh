@@ -60,7 +60,7 @@ else
     echo "Unsupported architecture: \$ARCH"
     exit 1
 fi
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -73,7 +73,7 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-sudo yum install -y unzip
+sudo yum install -y unzip zip
 ARCH=\$(uname -m)
 
 sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
@@ -86,7 +86,7 @@ else
     echo "Unsupported architecture: \$ARCH"
     exit 1
 fi
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -97,6 +97,11 @@ aws configure set default.output json
 LOCAL_LOGS_DIR="$RUN_ID"
 
 mkdir -p "\$LOCAL_LOGS_DIR"
+
+if [ -d /etc/foundationdb/ ]; then
+  sudo zip -q -r \$LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
+  aws s3 cp \$LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/fdb.zip
+fi
 
 DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
 
@@ -138,7 +143,7 @@ if [ "$K8S" = true ]; then
                 echo "Unsupported architecture: \$ARCH"
                 exit 1
             fi
-            unzip awscliv2.zip
+            unzip -q awscliv2.zip
             sudo ./aws/install --update
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -216,7 +221,7 @@ else
                 exit 1
             fi
 
-            unzip awscliv2.zip
+            unzip -q awscliv2.zip
             sudo ./aws/install --update
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
