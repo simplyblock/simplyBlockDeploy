@@ -248,7 +248,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
