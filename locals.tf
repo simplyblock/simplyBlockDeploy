@@ -35,10 +35,10 @@ locals {
   }
 
   region_ami_map_arm = {
-    "us-east-1"  = "ami-0bf0eb2d5c1885479"
-    "us-east-2"  = "ami-0d7be0b7d44267846"
-    "eu-north-1" = "ami-098ef9087c1410f36"
-    "eu-west-1"  = "ami-0abd8739d88fcbd57"
+    "us-east-1"  = "ami-0990e7074b32986af"
+    "us-east-2"  = "ami-0e71db082192a9cf7"
+    "eu-north-1" = "ami-006af066a79f5190f"
+    "eu-west-1"  = "ami-06028a225ee106d6f"
   }
 
   ami_map = {
