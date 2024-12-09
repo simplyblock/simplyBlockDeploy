@@ -46,6 +46,13 @@ locals {
     "arm64" = local.region_ami_map_arm
   }
 
+  region_ami_map_mgmt_node = {
+    "us-east-1"  = "ami-02782e6aae27bcffe"
+    "us-east-2"  = "ami-0490c959b2337b933"
+    "eu-north-1" = "ami-090ee818fd71f6843"
+    "eu-west-1"  = "ami-05ded493965f319c2"
+  }
+
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
 
   az_suffix_to_number = {

@@ -637,7 +637,7 @@ resource "aws_instance" "bastion" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map_mgmt_node[var.region] # RHEL 9
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
