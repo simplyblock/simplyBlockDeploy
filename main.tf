@@ -40,23 +40,6 @@ module "apigatewayendpoint" {
   vpc_id                 = module.vpc.vpc_id
 }
 
-resource "aws_security_group" "no_inbound_sg" {
-  name        = "${terraform.workspace}-no_inbound_sg"
-  description = "Security group with no inbound rules"
-
-  vpc_id = module.vpc.vpc_id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "NoInboundSecurityGroup"
-  }
-}
-
 resource "aws_security_group" "api_gateway_sg" {
   name        = "${terraform.workspace}-api_gateway_sg"
   description = "API Gateway Security Group"
