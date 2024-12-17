@@ -26,10 +26,10 @@ output "key_name" {
   value = local.selected_key_name
 }
 
-output "secret_value" {
-  sensitive = true
-  value     = data.aws_secretsmanager_secret_version.simply.secret_string
-}
+# output "secret_value" {
+#   sensitive = true
+#   value     = data.aws_secretsmanager_secret_version.simply.secret_string
+# }
 
 output "mgmt_node_details" {
   value = { for i, instance in aws_instance.mgmt_nodes :

@@ -14,7 +14,7 @@ locals {
 
   key_name = {
     "us-east-1"  = "simplyblock-us-east-1.pem"
-    "us-east-2"  = "simplyblock-us-east-2.pem"
+    "us-east-2"  = "simplyblock-xata.pem"
     "eu-north-1" = "simplyblock-eu-north-1.pem"
     "eu-west-1"  = "simplyblock-eu-west-1.pem"
   }
@@ -29,14 +29,14 @@ locals {
 #  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
   region_ami_map = {
     "us-east-1"  = "ami-0ff9547ee3e11637a"
-    "us-east-2"  = "ami-00b0bb86a4287f38f"
+    "us-east-2"  = "ami-0aa8fc2422063977a"
     "eu-north-1" = "ami-01997ffb7707167a4"
     "eu-west-1"  = "ami-0a3bac9371ffc12f8"
   }
 
   region_ami_map_arm = {
     "us-east-1"  = "ami-0990e7074b32986af"
-    "us-east-2"  = "ami-0e71db082192a9cf7"
+    "us-east-2"  = "ami-08f9f3bb075432791"
     "eu-north-1" = "ami-006af066a79f5190f"
     "eu-west-1"  = "ami-06028a225ee106d6f"
   }

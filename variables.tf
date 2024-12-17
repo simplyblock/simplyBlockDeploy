@@ -15,7 +15,7 @@ variable "az" {
 }
 
 variable "env" {
-  default = "dev"
+  default = "staging"
   type    = string
 }
 

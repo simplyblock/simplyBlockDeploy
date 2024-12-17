@@ -3,11 +3,11 @@ module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
   name = "${terraform.workspace}-storage-vpc-sb"
-  cidr = "10.0.0.0/16"
+  cidr = "10.0.8.0/21"
 
   azs                     = [data.aws_availability_zones.available.names[0], data.aws_availability_zones.available.names[1], ]
-  private_subnets         = ["10.0.1.0/24", "10.0.3.0/24"]
-  public_subnets          = ["10.0.2.0/24", "10.0.4.0/24"]
+  private_subnets         = ["10.0.9.0/24", "10.0.11.0/24"]
+  public_subnets          = ["10.0.10.0/24", "10.0.12.0/24"]
   map_public_ip_on_launch = true
 
   enable_nat_gateway = true
@@ -681,7 +681,7 @@ resource "aws_instance" "storage_nodes" {
   subnet_id              = module.vpc.private_subnets[local.az_index]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
   root_block_device {
-    volume_size = 45
+    volume_size = 80
   }
   tags = {
     Name = "${terraform.workspace}-storage-${each.value + 1}"
