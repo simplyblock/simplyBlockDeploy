@@ -344,7 +344,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} eth0
+    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
 done
 
