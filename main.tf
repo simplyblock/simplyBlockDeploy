@@ -40,7 +40,6 @@ module "apigatewayendpoint" {
   vpc_id                 = module.vpc.vpc_id
 }
 
-
 resource "aws_security_group" "api_gateway_sg" {
   name        = "${terraform.workspace}-api_gateway_sg"
   description = "API Gateway Security Group"
@@ -752,6 +751,10 @@ resource "aws_ebs_volume" "storage_nodes_ebs" {
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size1
 
+  tags = {
+    Name = "simplyblock-jm"
+  }
+
   lifecycle {
     ignore_changes = [
       availability_zone,
@@ -764,6 +767,10 @@ resource "aws_ebs_volume" "storage_nodes_ebs2" {
 
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size2
+
+  tags = {
+    Name = "simplyblock-storage"
+  }
 
   lifecycle {
     ignore_changes = [
