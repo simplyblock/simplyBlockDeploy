@@ -537,7 +537,11 @@ resource "aws_iam_policy" "mgmt_policy" {
           "ec2:DescribeNetworkInterfaces",
           "ec2:DescribeInstances",
           "ec2:DescribeSecurityGroups",
-          "ec2:DescribeTags"
+          "ec2:DescribeTags",
+          "ec2:RunInstances",
+          "ec2:CreateVolume",
+          "ec2:AttachVolume",
+          "ec2:CreateTags"
         ],
         "Resource" : "*"
       },
