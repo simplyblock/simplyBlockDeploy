@@ -536,6 +536,7 @@ resource "aws_iam_policy" "mgmt_policy" {
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces",
           "ec2:DescribeInstances",
+          "ec2:DescribeInstanceAttribute",
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeTags",
           "ec2:DescribeVolumes",
