@@ -84,7 +84,6 @@ module "apigatewayendpoint" {
   vpc_id                 = module.vpc.vpc_id
 }
 
-
 resource "aws_security_group" "api_gateway_sg" {
   name        = "${terraform.workspace}-api_gateway_sg"
   description = "API Gateway Security Group"
@@ -237,22 +236,12 @@ resource "aws_security_group" "mgmt_node_sg" {
 
   # Graylog GELF
   ingress {
-    from_port   = 12201
-    to_port     = 12201
+    from_port   = 12202
+    to_port     = 12202
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "Graylog GELF Communication TCP"
   }
-
-  ingress {
-    from_port   = 12201
-    to_port     = 12201
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Graylog GELF Communication TCP"
-  }
-
-  # end
 
   # fdb
   ingress {
@@ -600,14 +589,25 @@ resource "aws_iam_policy" "mgmt_policy" {
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces",
           "ec2:DescribeInstances",
+          "ec2:DescribeInstanceAttribute",
           "ec2:DescribeSecurityGroups",
-          "ec2:DescribeTags"
+          "ec2:DescribeTags",
+          "ec2:DescribeVolumes",
+          "ec2:RunInstances",
+          "ec2:CreateVolume",
+          "ec2:AttachVolume",
+          "ec2:CreateTags"
         ],
         "Resource" : "*"
       },
       {
         "Effect" : "Allow",
         "Action" : "sts:GetServiceBearerToken",
+        "Resource" : "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : "iam:PassRole",
         "Resource" : "*"
       },
       {
@@ -774,10 +774,51 @@ fi
 EOF
 }
 
+resource "aws_instance" "sec_storage_nodes" {
+  for_each = local.sec_snodes
+  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
+  instance_type          = var.sec_storage_nodes_instance_type
+  key_name               = local.selected_key_name
+  vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
+  subnet_id              = module.vpc.private_subnets[local.az_index]
+  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
+  root_block_device {
+    volume_size = 45
+  }
+  tags = {
+    Name = "${terraform.workspace}-sec-storage-${each.value + 1}"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      subnet_id,
+    ]
+  }
+
+  user_data = <<EOF
+#!/bin/bash
+sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
+cat /proc/meminfo | grep -i hug
+echo "installing sbcli.."
+sudo yum install -y pip unzip
+pip install ${local.sbcli_pkg}
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node deploy
+fi
+EOF
+}
+ 
 resource "aws_ebs_volume" "storage_nodes_ebs" {
   count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size1
+
+  tags = {
+    Name = "simplyblock-jm"
+  }
 
   lifecycle {
     ignore_changes = [
@@ -791,6 +832,10 @@ resource "aws_ebs_volume" "storage_nodes_ebs2" {
 
   availability_zone = data.aws_availability_zones.available.names[local.az_index]
   size              = var.storage_nodes_ebs_size2
+
+  tags = {
+    Name = "simplyblock-storage"
+  }
 
   lifecycle {
     ignore_changes = [

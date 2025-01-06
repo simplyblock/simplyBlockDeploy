@@ -28,9 +28,12 @@ print_help() {
     echo "  --cap-crit <value>                   Set Capacity critical level (optional)"
     echo "  --prov-cap-warn <value>              Set Provision Capacity warning level (optional)"
     echo "  --prov-cap-crit <value>              Set Provision Capacity critical level (optional)"
+    echo "  --ha-type <value>                    Set LVol HA type (optional)"
+    echo "  --enable-node-affinity               Enable node affinity for storage nodes (optional)"
+    echo "  --qpair-count <value>                Set TCP Transport qpair count (optional)"
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
-    echo "  --disable-ha-jm                      Disable HA JM for distrib creation"
+    echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -58,6 +61,9 @@ CAP_WARN=""
 CAP_CRIT=""
 PROV_CAP_WARN=""
 PROV_CAP_CRIT=""
+HA_TYPE=""
+ENABLE_NODE_AFFINITY=""
+QPAIR_COUNT=""
 DISABLE_HA_JM="false"
 K8S_SNODE="false"
 
@@ -152,6 +158,18 @@ while [[ $# -gt 0 ]]; do
         PROV_CAP_CRIT="$2"
         shift
         ;;
+    --ha-type)
+        HA_TYPE="$2"
+        shift
+        ;;
+    --enable-node-affinity)
+        ENABLE_NODE_AFFINITY="true"
+        shift
+        ;;
+    --qpair-count)
+        QPAIR_COUNT="$2"
+        shift
+        ;;
     --k8s-snode)
         K8S_SNODE="true"
         ;;
@@ -202,6 +220,7 @@ mnodes=$(terraform output -raw mgmt_private_ips)
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$(terraform output -raw storage_private_ips)
+sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
 echo "bootstrapping cluster..."
 
@@ -228,7 +247,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -264,6 +283,15 @@ if [[ -n "$PROV_CAP_WARN" ]]; then
 fi
 if [[ -n "$PROV_CAP_CRIT" ]]; then
     command+=" --prov-cap-crit $PROV_CAP_CRIT"
+fi
+if [[ -n "$HA_TYPE" ]]; then
+    command+=" --ha-type $HA_TYPE"
+fi
+if [[ -n "$ENABLE_NODE_AFFINITY" ]]; then
+    command+=" --enable-node-affinity $ENABLE_NODE_AFFINITY"
+fi
+if [[ -n "$QPAIR_COUNT" ]]; then
+    command+=" --qpair-count $QPAIR_COUNT"
 fi
 echo $command
 
@@ -315,7 +343,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} eth0
+    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
 done
 
@@ -369,14 +397,24 @@ if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
+    first_three_ips=$(echo "$storage_private_ips" | awk '{print $1, $2, $3}')
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    for node in ${storage_private_ips}; do
+    for node in ${first_three_ips}; do
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
+        echo "add node command: \${add_node_command}"
+        \$add_node_command
+        sleep 3
+    done
+
+    for node in ${sec_storage_private_ips}; do
+        echo ""
+        echo "joining secondary node \${node}"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -390,7 +428,7 @@ else
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} cluster activate ${CLUSTER_ID}
+    ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
     "
 fi
 

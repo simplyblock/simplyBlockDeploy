@@ -49,13 +49,19 @@ IFS=' ' read -ra mnodes <<<"$mnodes"
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 
 sudo yum install -y unzip
-if [ ! -f "awscliv2.zip" ]; then
+
+ARCH=$(uname -m)
+
+if [[ $ARCH == "x86_64" ]]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    sudo ./aws/install
+elif [[ $ARCH == "aarch64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
 else
-    echo "awscli already exists."
+    echo "Unsupported architecture: \$ARCH"
+    exit 1
 fi
+unzip -q awscliv2.zip
+sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -67,14 +73,21 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
     ec2-user@${mnodes[0]} "
-sudo yum install -y unzip
-if [ ! -f "awscliv2.zip" ]; then
+sudo yum install -y unzip zip
+ARCH=\$(uname -m)
+
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
+
+if [[ \$ARCH == "x86_64" ]]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    sudo ./aws/install
+elif [[ \$ARCH == "aarch64" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
 else
-    echo "awscli already exists."
+    echo "Unsupported architecture: \$ARCH"
+    exit 1
 fi
+unzip -q awscliv2.zip
+sudo ./aws/install --update
 
 aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -84,6 +97,11 @@ aws configure set default.output json
 LOCAL_LOGS_DIR="$RUN_ID"
 
 mkdir -p "\$LOCAL_LOGS_DIR"
+
+if [ -d /etc/foundationdb/ ]; then
+  sudo zip -q -r \$LOCAL_LOGS_DIR/fdb.zip /etc/foundationdb/
+  aws s3 cp \$LOCAL_LOGS_DIR/fdb.zip s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/fdb.zip
+fi
 
 DOCKER_CONTAINER_IDS=\$(sudo docker ps -aq)
 
@@ -96,31 +114,80 @@ for CONTAINER_ID in \$DOCKER_CONTAINER_IDS; do
     aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/mgmt/\$CONTAINER_NAME.txt"
 done
 rm -rf "\$LOCAL_LOGS_DIR"
+sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
 "
 
 # For storage nodes, different behavior for K8s and Docker Swarm
 if [ "$K8S" = true ]; then
+
+    node_private_ips=$(kubectl get nodes -o=jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
+    for node in $node_private_ips; do
+        echo "Restarting k3s worker nodes: ${node}"
+        ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
+            ec2-user@${node} "
+
+            sudo systemctl restart k3s-agent
+
+            sudo yum install -y unzip
+            ARCH=\$(uname -m)
+
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
+
+            if [[ \$ARCH == "x86_64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            elif [[ \$ARCH == "aarch64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+            else
+                echo "Unsupported architecture: \$ARCH"
+                exit 1
+            fi
+            unzip -q awscliv2.zip
+            sudo ./aws/install --update
+
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region $AWS_DEFAULT_REGION
+            aws configure set default.output json
+
+            LOCAL_LOGS_DIR="$RUN_ID"
+
+            mkdir -p "\$LOCAL_LOGS_DIR"
+
+            # Look for core dump files and upload to S3
+            for DUMP_FILE in /etc/simplyblock/*; do
+                if [ -f "\$DUMP_FILE" ]; then
+                    echo "Uploading dump file: \$DUMP_FILE"
+                    aws s3 cp "\$DUMP_FILE" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/$(basename "$DUMP_FILE")" --storage-class STANDARD --only-show-errors
+                fi
+            done
+
+            rm -rf "\$LOCAL_LOGS_DIR"
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
+            "
+    done
     echo "Using Kubernetes to collect logs from pods in namespace: $NAMESPACE"
 
     # Get all pods in the specified namespace
     PODS=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
-    
+
     for POD in $PODS; do
         echo "Getting logs from pod: $POD in namespace: $NAMESPACE"
-        
+
         # Get containers in the pod
         CONTAINERS=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath='{.spec.containers[*].name}')
-        
+
         for CONTAINER in $CONTAINERS; do
             LOG_FILE="${POD}_${CONTAINER}.log"
             echo "Collecting logs for container: $CONTAINER in pod: $POD"
-            
+
             # Get container logs and save to local
             kubectl logs "$POD" -n "$NAMESPACE" -c "$CONTAINER" > "$LOG_FILE"
-            
+
             # Upload logs to S3 under github_run_id/pod_name folder
             aws s3 cp "$LOG_FILE" "s3://$S3_BUCKET/$RUN_ID/$POD/$CONTAINER.log"
-            
+
             # Clean up local logs
             rm -f "$LOG_FILE"
         done
@@ -141,13 +208,21 @@ else
             ec2-user@${node} "
 
             sudo yum install -y unzip
-            if [ ! -f "awscliv2.zip" ]; then
+            ARCH=\$(uname -m)
+
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
+
+            if [[ \$ARCH == "x86_64" ]]; then
                 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                unzip awscliv2.zip
-                sudo ./aws/install
+            elif [[ \$ARCH == "aarch64" ]]; then
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
             else
-                echo "awscli already exists."
+                echo "Unsupported architecture: \$ARCH"
+                exit 1
             fi
+
+            unzip -q awscliv2.zip
+            sudo ./aws/install --update
 
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -162,7 +237,8 @@ else
             # Look for core dump files and upload to S3
             for DUMP_FILE in /etc/simplyblock/*; do
                 if [ -f "\$DUMP_FILE" ]; then
-                    aws s3 cp \"$DUMP_FILE\" \"s3://$S3_BUCKET/$LOCAL_LOGS_DIR/storage/${node}/$(basename \"$DUMP_FILE\")\" --storage-class STANDARD --only-show-errors
+                    echo "Uploading dump file: \$DUMP_FILE"
+                    aws s3 cp "\$DUMP_FILE" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/$(basename "$DUMP_FILE")" --storage-class STANDARD --only-show-errors
                 fi
             done
 
@@ -177,6 +253,7 @@ else
                 aws s3 cp "\$LOCAL_LOGS_DIR/\$CONTAINER_NAME.txt" "s3://$S3_BUCKET/\$LOCAL_LOGS_DIR/storage/${node}/\$CONTAINER_NAME.txt"
             done
             rm -rf "\$LOCAL_LOGS_DIR"
+            sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws awscliv2.zip aws
             "
         echo "done getting logs from node: ${node}"
     done
