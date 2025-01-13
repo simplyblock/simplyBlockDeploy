@@ -16,7 +16,7 @@ data "aws_ami" "this" {
 }
 
 resource "aws_autoscaling_group" "tfengine_asg" {
-  min_size            = 1
+  min_size            = 0
   max_size            = 1
   desired_capacity    = 0
   vpc_zone_identifier = [module.vpc.private_subnets[0]]
