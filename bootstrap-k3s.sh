@@ -72,7 +72,7 @@ sudo modprobe nvme-tcp
 sudo modprobe nbd
 total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
 total_memory_mb=\$((total_memory_kb / 1024))
-hugepages=\$((total_memory_mb / 4 / 2))
+hugepages=\$((total_memory_mb / 4 ))
 sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1

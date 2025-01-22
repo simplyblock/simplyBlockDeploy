@@ -543,6 +543,7 @@ resource "aws_iam_policy" "mgmt_policy" {
           "ec2:RunInstances",
           "ec2:CreateVolume",
           "ec2:AttachVolume",
+          "ec2:DetachVolume",
           "ec2:CreateTags"
         ],
         "Resource" : "*"
