@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+KEY="$HOME/.ssh/super_key.pem.txt"
 
 print_help() {
     echo "Usage: $0 [options]"
