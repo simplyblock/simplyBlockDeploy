@@ -191,58 +191,59 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
-BASTION_IP=$(terraform output -raw bastion_public_ip)
-GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
+#SECRET_VALUE=$(terraform output -raw secret_value)
+#KEY_NAME=$(terraform output -raw key_name)
+BASTION_IP=${BASTION_IP:-}
+GRAFANA_ENDPOINT=${GRAFANA_ENDPOINT:-}
 
-ssh_dir="$HOME/.ssh"
+# ssh_dir="$HOME/.ssh"
 
-if [ ! -d "$ssh_dir" ]; then
-    mkdir -p "$ssh_dir"
-    echo "Directory $ssh_dir created."
-else
-    echo "Directory $ssh_dir already exists."
-fi
+# if [ ! -d "$ssh_dir" ]; then
+#     mkdir -p "$ssh_dir"
+#     echo "Directory $ssh_dir created."
+# else
+#     echo "Directory $ssh_dir already exists."
+# fi
 
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
+# if [[ -n "$SECRET_VALUE" ]]; then
+#     KEY="$HOME/.ssh/$KEY_NAME"
+#     if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+#         echo "the ssh key: ${KEY} already exits on local"
+#     else
+#         echo "$SECRET_VALUE" >"$KEY"
+#         chmod 400 "$KEY"
+#     fi
+# else
+#     echo "Failed to retrieve secret value. Falling back to default key."
+# fi
 
-mnodes=$(terraform output -raw mgmt_private_ips)
+mnodes=${MGMT_IPS:-}
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
-storage_private_ips=$(terraform output -raw storage_private_ips)
-sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
+storage_private_ips=${STORAGE_IPS:-}
+sec_storage_private_ips=${SEC_STORAGE_IPS:-}
+vm_password=${VM_PASSWORD:-}
 
 echo "bootstrapping cluster..."
 
-while true; do
-    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
+# while true; do
+#     dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
+#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+#         root@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
 
-    echo "Current status: $dstatus"
+#     echo "Current status: $dstatus"
 
-    if [[ "$dstatus" == "status: done" ]]; then
-        echo "Cloud-init is done. Exiting loop."
-        break
-    elif [[ "$dstatus" == "status: error" ]]; then
-        echo "Cloud-init has failed"
-        exit 1
-    fi
+#     if [[ "$dstatus" == "status: done" ]]; then
+#         echo "Cloud-init is done. Exiting loop."
+#         break
+#     elif [[ "$dstatus" == "status: error" ]]; then
+#         echo "Cloud-init has failed"
+#         exit 1
+#     fi
 
-    echo "Waiting for cloud-init to finish..."
-    sleep 10
-done
+#     echo "Waiting for cloud-init to finish..."
+#     sleep 10
+# done
 
 echo ""
 echo "Deploying management node..."
@@ -302,8 +303,8 @@ echo ""
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 $command
 "
 
@@ -312,8 +313,8 @@ echo "getting cluster id"
 echo ""
 
 CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'
 ")
@@ -324,8 +325,8 @@ echo "getting cluster secret"
 echo ""
 
 CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}
 ")
@@ -341,8 +342,8 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     echo ""
 
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[${i}]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
@@ -399,8 +400,8 @@ if [ "$K8S_SNODE" == "true" ]; then
 
 else
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     for node in ${storage_private_ips}; do
         echo ""
@@ -425,8 +426,8 @@ else
     echo ""
     
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
     "
@@ -437,8 +438,8 @@ echo "adding pool testing1"
 echo ""
 
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 ${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
 "
 
