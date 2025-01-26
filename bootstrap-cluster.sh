@@ -191,12 +191,15 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
-BASTION_IP=$(terraform output -raw bastion_public_ip)
-GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
 
 ssh_dir="$HOME/.ssh"
+SECRET_VALUE="-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTqMIZxvlbTJusvgjLMowAA
+AIjs64g17OuINQAAAAtzc2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTq
+MIZxvlbTJusvgjLMowAAAEAwUQIBATAFBgMrZXAEIgQgy3b2RGthAnDiTucFNF4s
+pzdWf8CrmZmI/2CxYchE7PhJ9OowhnG+VtMm6y+CMsyjAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----"
 
 if [ ! -d "$ssh_dir" ]; then
     mkdir -p "$ssh_dir"
@@ -217,38 +220,17 @@ else
     echo "Failed to retrieve secret value. Falling back to default key."
 fi
 
-mnodes=$(terraform output -raw mgmt_private_ips)
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
-storage_private_ips=$(terraform output -raw storage_private_ips)
-sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
 echo "bootstrapping cluster..."
 
-while true; do
-    dstatus=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "sudo cloud-init status" 2>/dev/null)
-
-    echo "Current status: $dstatus"
-
-    if [[ "$dstatus" == "status: done" ]]; then
-        echo "Cloud-init is done. Exiting loop."
-        break
-    elif [[ "$dstatus" == "status: error" ]]; then
-        echo "Cloud-init has failed"
-        exit 1
-    fi
-
-    echo "Waiting for cloud-init to finish..."
-    sleep 10
-done
 
 echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create --ifname ens160"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -302,8 +284,8 @@ echo ""
 
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 $command
 "
 
@@ -312,8 +294,8 @@ echo "getting cluster id"
 echo ""
 
 CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'
 ")
@@ -324,8 +306,8 @@ echo "getting cluster secret"
 echo ""
 
 CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}
 ")
@@ -341,8 +323,8 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     echo ""
 
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[${i}]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
@@ -399,13 +381,13 @@ if [ "$K8S_SNODE" == "true" ]; then
 
 else
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     for node in ${storage_private_ips}; do
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens160\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -414,7 +396,7 @@ else
     for node in ${sec_storage_private_ips}; do
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens160\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -425,8 +407,8 @@ else
     echo ""
     
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-        ec2-user@${mnodes[0]} "
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
     "
@@ -437,12 +419,10 @@ echo "adding pool testing1"
 echo ""
 
 ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 ${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
 "
-
-API_INVOKE_URL=$(terraform output -raw api_invoke_url)
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
 echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
