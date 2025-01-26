@@ -278,6 +278,7 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
     root@${mnodes[0]} "
+pip install ${SBCLI_CMD} --upgrade
 $command
 "
 
@@ -317,6 +318,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${mnodes[${i}]} "
+    pip install ${SBCLI_CMD} --upgrade
     MANGEMENT_NODE_IP=${mnodes[0]}
     ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
@@ -377,6 +379,7 @@ else
         root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     for node in ${storage_private_ips}; do
+        pip install ${SBCLI_CMD} --upgrade
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining node \${node}"
@@ -387,6 +390,7 @@ else
     done
 
     for node in ${sec_storage_private_ips}; do
+        pip install ${SBCLI_CMD} --upgrade
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining secondary node \${node}"

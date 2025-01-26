@@ -1,28 +1,28 @@
 #!/bin/bash
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
-ssh_dir="$HOME/.ssh"
+#SECRET_VALUE=$(terraform output -raw secret_value)
+#KEY_NAME=$(terraform output -raw key_name)
+#ssh_dir="$HOME/.ssh"
+KEY="$HOME/.ssh/$KEY_NAME"
 
-if [ ! -d "$ssh_dir" ]; then
-    mkdir -p "$ssh_dir"
-    echo "Directory $ssh_dir created."
-else
-    echo "Directory $ssh_dir already exists."
-fi
-
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "The SSH key: ${KEY} already exists locally"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
+#if [ ! -d "$ssh_dir" ]; then
+#    mkdir -p "$ssh_dir"
+#    echo "Directory $ssh_dir created."
+#else
+#    echo "Directory $ssh_dir already exists."
+#fi
+#
+#if [[ -n "$SECRET_VALUE" ]]; then
+#    KEY="$HOME/.ssh/$KEY_NAME"
+#    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+#        echo "The SSH key: ${KEY} already exists locally"
+#    else
+#        echo "$SECRET_VALUE" >"$KEY"
+#        chmod 400 "$KEY"
+#    fi
+#else
+#    echo "Failed to retrieve secret value. Falling back to default key."
+#fi
 
 # AWS credentials
 AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
@@ -43,10 +43,10 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Management node log collection (common to both setups)
-mnodes=$(terraform output -raw mgmt_private_ips)
+#mnodes=$(terraform output -raw mgmt_private_ips)
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
-BASTION_IP=$(terraform output -raw bastion_public_ip)
+#BASTION_IP=$(terraform output -raw bastion_public_ip)
 
 sudo yum install -y unzip
 
@@ -198,7 +198,7 @@ if [ "$K8S" = true ]; then
 else
     # Docker Swarm setup for storage nodes (existing behavior)
     echo "Using Docker Swarm to collect logs from storage nodes"
-    storage_private_ips=$(terraform output -raw storage_private_ips)
+#    storage_private_ips=$(terraform output -raw storage_private_ips)
 
     for node in $storage_private_ips; do
         echo "Getting logs from storage node: ${node}"
