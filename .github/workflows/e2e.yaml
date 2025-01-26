@@ -51,11 +51,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_wrapper: false
-
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -67,54 +62,32 @@ jobs:
           chmod 700 get_helm.sh
           ./get_helm.sh
 
-      - name: Initialize Terraform
-        run: |
-          export TFSTATE_BUCKET=simplyblock-terraform-state-bucket
-          export TFSTATE_KEY=csi
-          export TFSTATE_REGION=us-east-2
-          export TFSTATE_DYNAMODB_TABLE=terraform-up-and-running-locks
-
-          terraform init -reconfigure \
-            -backend-config="bucket=${TFSTATE_BUCKET}" \
-            -backend-config="key=${TFSTATE_KEY}" \
-            -backend-config="region=${TFSTATE_REGION}" \
-            -backend-config="dynamodb_table=${TFSTATE_DYNAMODB_TABLE}" \
-            -backend-config="encrypt=true"
-
-      - name: select or create workspace
-        run: terraform workspace select -or-create githubactions
-
-      - name: Validate Terraform Configuration
-        run: terraform validate
-
-      - name: Plan Terraform Changes
-        run: |
-          terraform plan \
-            -var "mgmt_nodes=1" \
-            -var "storage_nodes=3" \
-            -var "storage_nodes_arch=arm64" \
-            -var "storage_nodes_instance_type=m6g.2xlarge" \
-            -var "sec_storage_nodes_instance_type=m6g.2xlarge" \
-            -var "snode_deploy_on_k8s=true" \
-            -var "extra_nodes=1" \
-            -var "extra_nodes_instance_type=m6gd.xlarge" \
-            -var "extra_nodes_arch=arm64" \
-            -var "region=us-east-2" \
-            -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" \
-            -out=tfplan
-            
-      - name: Apply Terraform Changes
-        run: terraform apply tfplan
 
       - name: Bootstrap Cluster
         run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g --number-of-devices 1 --k8s-snode
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
+          KEY_NAME: "simplyblock-us-east-2.pem"
+          BASTION_IP: "172.16.127.10"
+          GRAFANA_ENDPOINT: "172.16.127.10/grafana"
+          mnodes: "172.16.127.10"
+          storage_private_ips: "172.16.127.11 172.16.127.12 172.16.127.13"
+          sec_storage_private_ips: "172.16.127.15"
+          API_INVOKE_URL: "http://172.16.127.10/"
 
       - name: Bootstrap K3s
         run: $GITHUB_WORKSPACE/bootstrap-k3s.sh --k8s-snode
         id: bootstrap_k3s
+        env:
+          storage_private_ips: "172.16.127.11 172.16.127.12 172.16.127.13"
+          sec_storage_private_ips: "172.16.127.15"
+          KEY_NAME: "simplyblock-us-east-2.pem"
+          BASTION_IP: "172.16.127.10"
+          mnodes: "172.16.127.10"
+          mnodes_private_ips: "172.16.127.10"
+          K8S_SNODE: "true"
+
 
       - name: copying  Kubeconfig file
         run: |
@@ -202,10 +175,6 @@ jobs:
           else
             curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
           fi
-
-      - name: Destroy Cluster
-        if: always()
-        run: terraform destroy --auto-approve
 
       - name: 'Cleanup build folder'
         run: |

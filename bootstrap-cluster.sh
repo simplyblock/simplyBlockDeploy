@@ -193,13 +193,6 @@ done
 
 
 ssh_dir="$HOME/.ssh"
-SECRET_VALUE="-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
-c2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTqMIZxvlbTJusvgjLMowAA
-AIjs64g17OuINQAAAAtzc2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTq
-MIZxvlbTJusvgjLMowAAAEAwUQIBATAFBgMrZXAEIgQgy3b2RGthAnDiTucFNF4s
-pzdWf8CrmZmI/2CxYchE7PhJ9OowhnG+VtMm6y+CMsyjAAAAAAECAwQF
------END OPENSSH PRIVATE KEY-----"
 
 if [ ! -d "$ssh_dir" ]; then
     mkdir -p "$ssh_dir"
@@ -230,7 +223,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create --ifname ens160"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create --ifname ens160"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -335,7 +328,7 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
