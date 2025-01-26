@@ -29,14 +29,6 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-SECRET_VALUE="-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
-c2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTqMIZxvlbTJusvgjLMowAA
-AIjs64g17OuINQAAAAtzc2gtZWQyNTUxOQAAACA3Vn/Aq5mZiP9gsWHIROz4SfTq
-MIZxvlbTJusvgjLMowAAAEAwUQIBATAFBgMrZXAEIgQgy3b2RGthAnDiTucFNF4s
-pzdWf8CrmZmI/2CxYchE7PhJ9OowhnG+VtMm6y+CMsyjAAAAAAECAwQF
------END OPENSSH PRIVATE KEY-----"
-
 
 ssh_dir="$HOME/.ssh"
 
@@ -47,17 +39,19 @@ else
     echo "Directory $ssh_dir already exists."
 fi
 
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
+KEY="$HOME/.ssh/$KEY_NAME"
+#
+#if [[ -n "$SECRET_VALUE" ]]; then
+#    KEY="$HOME/.ssh/$KEY_NAME"
+#    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+#        echo "the ssh key: ${KEY} already exits on local"
+#    else
+#        echo "$SECRET_VALUE" >"$KEY"
+#        chmod 400 "$KEY"
+#    fi
+#else
+#    echo "Failed to retrieve secret value. Falling back to default key."
+#fi
 
 
 IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"

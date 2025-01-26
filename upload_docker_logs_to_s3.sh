@@ -71,8 +71,8 @@ aws configure set default.output json
 # Fetch logs for management nodes
 ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
-    ec2-user@${mnodes[0]} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 sudo yum install -y unzip zip
 ARCH=\$(uname -m)
 
@@ -125,8 +125,8 @@ if [ "$K8S" = true ]; then
         echo "Restarting k3s worker nodes: ${node}"
         ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
             -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
-            ec2-user@${node} "
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p root@${BASTION_IP}" \
+            root@${node} "
 
             sudo systemctl restart k3s-agent
 
@@ -204,8 +204,8 @@ else
         echo "Getting logs from storage node: ${node}"
         ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
             -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p ec2-user@${BASTION_IP}" \
-            ec2-user@${node} "
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i "$KEY" -W %h:%p root@${BASTION_IP}" \
+            root@${node} "
 
             sudo yum install -y unzip
             ARCH=\$(uname -m)
