@@ -199,7 +199,7 @@ if [ ! -d "$ssh_dir" ]; then
 else
     echo "Directory $ssh_dir already exists."
 fi
-
+KEY="$HOME/.ssh/$KEY_NAME"
 #if [[ -n "$SECRET_VALUE" ]]; then
 #    KEY="$HOME/.ssh/$KEY_NAME"
 #    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
