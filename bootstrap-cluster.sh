@@ -327,7 +327,7 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
@@ -377,6 +377,7 @@ else
         root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
     for node in ${storage_private_ips}; do
+        \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens160\"
@@ -386,6 +387,7 @@ else
     done
 
     for node in ${sec_storage_private_ips}; do
+        \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining secondary node \${node}"
         add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens160\"
