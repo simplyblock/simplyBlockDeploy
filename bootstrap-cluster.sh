@@ -193,7 +193,6 @@ done
 
 
 ssh_dir="$HOME/.ssh"
-
 if [ ! -d "$ssh_dir" ]; then
     mkdir -p "$ssh_dir"
     echo "Directory $ssh_dir created."
@@ -201,17 +200,17 @@ else
     echo "Directory $ssh_dir already exists."
 fi
 
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
+#if [[ -n "$SECRET_VALUE" ]]; then
+#    KEY="$HOME/.ssh/$KEY_NAME"
+#    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+#        echo "the ssh key: ${KEY} already exits on local"
+#    else
+#        echo "$SECRET_VALUE" >"$KEY"
+#        chmod 400 "$KEY"
+#    fi
+#else
+#    echo "Failed to retrieve secret value. Falling back to default key."
+#fi
 
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
