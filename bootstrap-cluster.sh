@@ -66,6 +66,7 @@ ENABLE_NODE_AFFINITY=""
 QPAIR_COUNT=""
 DISABLE_HA_JM="false"
 K8S_SNODE="false"
+HA_JM_COUNT=""
 
 
 while [[ $# -gt 0 ]]; do
@@ -169,6 +170,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --qpair-count)
         QPAIR_COUNT="$2"
+        shift
+        ;;
+    --ha-jm-count)
+        HA_JM_COUNT="$2"
         shift
         ;;
     --k8s-snode)
@@ -392,18 +397,20 @@ fi
 if [[ -n "$NUMBER_DISTRIB" ]]; then
     command+=" --number-of-distribs $NUMBER_DISTRIB"
 fi
+if [[ -n "$HA_JM_COUNT" ]]; then
+    command+=" --ha-jm-count $HA_JM_COUNT"
+fi
 
 
 if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
-    first_three_ips=$(echo "$storage_private_ips" | awk '{print $1, $2, $3}')
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    for node in ${first_three_ips}; do
+    for node in ${storage_private_ips}; do
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
