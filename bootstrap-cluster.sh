@@ -66,6 +66,7 @@ ENABLE_NODE_AFFINITY=""
 QPAIR_COUNT=""
 DISABLE_HA_JM="false"
 K8S_SNODE="false"
+HA_JM_COUNT=""
 
 
 while [[ $# -gt 0 ]]; do
@@ -169,6 +170,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --qpair-count)
         QPAIR_COUNT="$2"
+        shift
+        ;;
+    --ha-jm-count)
+        HA_JM_COUNT="$2"
         shift
         ;;
     --k8s-snode)
@@ -391,6 +396,9 @@ if [ "$SPDK_DEBUG" == "true" ]; then
 fi
 if [[ -n "$NUMBER_DISTRIB" ]]; then
     command+=" --number-of-distribs $NUMBER_DISTRIB"
+fi
+if [[ -n "$HA_JM_COUNT" ]]; then
+    command+=" --ha-jm-count $HA_JM_COUNT"
 fi
 
 
