@@ -445,6 +445,7 @@ ssh -i "$KEY" -o StrictHostKeyChecking=no \
 ${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
 "
 
+
 API_INVOKE_URL=$(terraform output -raw api_invoke_url)
 
 echo "::set-output name=cluster_id::$CLUSTER_ID"
