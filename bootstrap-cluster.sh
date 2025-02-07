@@ -380,7 +380,7 @@ else
     MANGEMENT_NODE_IP=${mnodes[0]}
     for node in ${storage_private_ips}; do
         pip install ${SBCLI_CMD} --upgrade
-        ${SBCLI_CMD} sn deploy-cleaner
+        \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
@@ -391,7 +391,7 @@ else
 
     for node in ${sec_storage_private_ips}; do
         pip install ${SBCLI_CMD} --upgrade
-        ${SBCLI_CMD} sn deploy-cleaner
+        \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining secondary node \${node}"
         add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
