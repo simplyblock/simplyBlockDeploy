@@ -3,7 +3,7 @@
 # to update on dev: sudo ./cluster_update.sh --sbcli-cmd sbcli-dev --image-tag dev
 # to update on prod: sudo ./cluster_update.sh --sbcli-cmd sbcli-release --image-tag release_v1
 
-SBCLI_CMD="sbcli-release"
+SBCLI_CMD="sbcli-dev"
 IMAGE_TAG="release_v1"
 
 while [[ $# -gt 0 ]]; do
