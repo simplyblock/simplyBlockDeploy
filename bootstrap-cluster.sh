@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+SECRET_VALUE=""
 KEY="$HOME/.ssh/simplyblock-ohio.pem"
 NODE_MGMT_IFNAME=ens18
 NODE_USERNAME=root
