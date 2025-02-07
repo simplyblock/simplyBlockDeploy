@@ -455,3 +455,4 @@ echo "::set-output name=cluster_api_gateway_endpoint::$API_INVOKE_URL"
 echo ""
 echo "Successfully deployed the cluster"
 echo ""
+
