@@ -196,7 +196,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-nr_hugepages=NR_HUGEPAGES
+nr_hugepages=$NR_HUGEPAGES
 BASTION_IP=$BASTION_IP
 GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
 mnodes=$MNODES
