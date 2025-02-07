@@ -383,7 +383,7 @@ else
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens18\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -394,7 +394,7 @@ else
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens18\"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
