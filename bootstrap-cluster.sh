@@ -222,7 +222,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create --ifname ens160"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} -d cluster create --ifname ens18"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -383,7 +383,7 @@ else
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens160\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens18\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -394,7 +394,7 @@ else
         \${SBCLI_CMD} sn deploy-cleaner
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens160\"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens18\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
