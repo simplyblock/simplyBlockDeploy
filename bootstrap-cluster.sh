@@ -196,14 +196,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-nr_hugepages=2048
-BASTION_IP="192.168.10.121"
-GRAFANA_ENDPOINT="192.168.10.121/grafana"
-mnodes="10.10.10.121"
+nr_hugepages=NR_HUGEPAGES
+BASTION_IP=$BASTION_IP
+GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
+mnodes=$MNODES
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
-storage_private_ips="10.10.10.122 10.10.10.123 10.10.10.124"
-sec_storage_private_ips="10.10.10.125"
+storage_private_ips=$STORAGE_PRIVATE_IPS
+sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
 
 echo "cleaning up old cluster..."
 
