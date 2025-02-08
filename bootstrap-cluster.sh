@@ -1,8 +1,7 @@
 #!/bin/bash
-set -euo pipefail
+set -x
 
-SECRET_VALUE=""
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+KEY="$HOME/.ssh/$KEY_NAME"
 NODE_MGMT_IFNAME=ens18
 NODE_USERNAME=root
 #API_INVOKE_URL=$(terraform output -raw api_invoke_url)
@@ -223,9 +222,9 @@ if [ ! -d "$ssh_dir" ]; then
 else
     echo "Directory $ssh_dir already exists."
 fi
-KEY="$HOME/.ssh/$KEY_NAME"
+#KEY="$HOME/.ssh/$KEY_NAME"
 if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
+#    KEY="$HOME/.ssh/$KEY_NAME"
     if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
         echo "the ssh key: ${KEY} already exits on local"
     else
@@ -351,7 +350,7 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command=""
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
@@ -410,7 +409,7 @@ else
         pip install ${SBCLI_CMD} --upgrade
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 $NODE_MGMT_IFNAME \"
+        add_node_command=\"${SBCLI_CMD} -d storage-node add-node ${CLUSTER_ID} \${node}:5000 $NODE_MGMT_IFNAME ${command}\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -420,7 +419,7 @@ else
         pip install ${SBCLI_CMD} --upgrade
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 $NODE_MGMT_IFNAME \"
+        add_node_command=\"${SBCLI_CMD} -d storage-node add-node ${CLUSTER_ID} \${node}:5000 $NODE_MGMT_IFNAME --is-secondary-node  ${command}\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
