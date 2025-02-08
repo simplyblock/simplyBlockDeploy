@@ -1,6 +1,16 @@
 #!/bin/bash
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+KEY="$HOME/.ssh/$KEY_NAME"
+NODE_USERNAME=root
+
+#SECRET_VALUE=$(terraform output -raw secret_value)
+#KEY_NAME=$(terraform output -raw key_name)
+#BASTION_IP=$(terraform output -raw bastion_public_ip)
+
+#storage_private_ips=$(terraform output -raw storage_private_ips)
+#sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
+#mnodes=$(terraform output -raw mgmt_private_ips)
+
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -39,19 +49,14 @@ else
     echo "Directory $ssh_dir already exists."
 fi
 
-KEY="$HOME/.ssh/$KEY_NAME"
-#
-#if [[ -n "$SECRET_VALUE" ]]; then
-#    KEY="$HOME/.ssh/$KEY_NAME"
-#    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-#        echo "the ssh key: ${KEY} already exits on local"
-#    else
-#        echo "$SECRET_VALUE" >"$KEY"
-#        chmod 400 "$KEY"
-#    fi
-#else
-#    echo "Failed to retrieve secret value. Falling back to default key."
-#fi
+if [[ -n "$SECRET_VALUE" ]]; then
+    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
+        echo "the ssh key: ${KEY} already exits on local"
+    else
+        echo "$SECRET_VALUE" >"$KEY"
+        chmod 400 "$KEY"
+    fi
+fi
 
 
 IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
@@ -61,7 +66,7 @@ echo "::set-output name=KEY::$KEY"
 echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
 
-ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "
+ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
@@ -77,7 +82,7 @@ sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master
 sudo /usr/local/bin/k3s kubectl get node
 sudo yum install -y pciutils
 lspci
-sudo chown root:root /etc/rancher/k3s/k3s.yaml
+sudo chown $NODE_USERNAME:$NODE_USERNAME /etc/rancher/k3s/k3s.yaml
 sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
@@ -85,13 +90,13 @@ echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
 "
 
-MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
-ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
+MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
+ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
 
-TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
+TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
 
 for ((i=1; i<${#mnodes[@]}; i++)); do
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[${i}]} "
+    ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[${i}]} "
     sudo yum install -y fio nvme-cli;
     sudo modprobe nvme-tcp
     sudo modprobe nbd
@@ -113,8 +118,8 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl --system
     "
 
-    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
+    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[${i}]} | awk '{print \$1}'")
+    ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -124,8 +129,8 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo ""
 
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-            root@${node} "
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p $NODE_USERNAME@${BASTION_IP}" \
+            $NODE_USERNAME@${node} "
             sudo yum install -y fio nvme-cli;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
@@ -148,8 +153,8 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
     done
 
     for node in ${sec_storage_private_ips[@]}; do
@@ -158,8 +163,8 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo ""
 
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-            root@${node} "
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p $NODE_USERNAME@${BASTION_IP}" \
+            $NODE_USERNAME@${node} "
             sudo yum install -y fio nvme-cli;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
@@ -182,7 +187,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no $NODE_USERNAME@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
     done
 fi
