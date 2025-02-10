@@ -101,6 +101,9 @@ for node_ip in ${sec_storage_private_ips}; do
     "
 done
 
+
+echo "bootstrapping k3s cluster..."
+
 ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
