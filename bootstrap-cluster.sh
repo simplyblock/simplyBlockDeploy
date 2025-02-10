@@ -207,16 +207,15 @@ sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
 
 echo "cleaning up old cluster..."
 
-all_storage_ips=("${storage_private_ips[@]}" "${sec_storage_private_ips[@]}")
-for node_ip in "${mnodes[@]}"; do
+for node_ip in ${mnodes[@]}; do
     echo "SSH into $node_ip and executing commands"
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli)
+        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
         if [[ -n \"\${old_pkg}\" ]]; then
-            pip uninstall -y \$old_pkg
             \$old_pkg sn deploy-cleaner
+            pip uninstall -y \$old_pkg
         fi
         pip install ${SBCLI_CMD} --upgrade
 
@@ -224,15 +223,15 @@ for node_ip in "${mnodes[@]}"; do
     "
 done
 
-for node_ip in "${all_storage_ips[@]}"; do
+for node_ip in ${storage_private_ips}; do
     echo "SSH into $node_ip and executing commands"
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli)
+        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
         if [[ -n \"\${old_pkg}\" ]]; then
-            pip uninstall -y \$old_pkg
             \$old_pkg sn deploy-cleaner
+            pip uninstall -y \$old_pkg
         fi
         sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
         pip install ${SBCLI_CMD} --upgrade
@@ -241,6 +240,25 @@ for node_ip in "${all_storage_ips[@]}"; do
         sleep 10 
     "
 done
+
+for node_ip in ${sec_storage_private_ips}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
+        if [[ -n \"\${old_pkg}\" ]]; then
+            \$old_pkg sn deploy-cleaner
+            pip uninstall -y \$old_pkg
+        fi
+        sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
+        pip install ${SBCLI_CMD} --upgrade
+        ${SBCLI_CMD} sn deploy --ifname ens18
+ 
+        sleep 10 
+    "
+done
+
 
 echo "bootstrapping cluster..."
 
@@ -304,7 +322,7 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
     root@${mnodes[0]} "
-$command
+$command --ifname ens18
 "
 
 echo ""
