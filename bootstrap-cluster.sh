@@ -235,8 +235,12 @@ for node_ip in ${storage_private_ips}; do
         fi
         sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
         pip install ${SBCLI_CMD} --upgrade
-        ${SBCLI_CMD} sn deploy --ifname ens18
- 
+        if [ "$K8S_SNODE" == "true" ]; then
+            :  # Do nothing
+        else
+            ${SBCLI_CMD} sn deploy --ifname ens18
+        fi
+        
         sleep 10 
     "
 done
@@ -253,7 +257,11 @@ for node_ip in ${sec_storage_private_ips}; do
         fi
         sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
         pip install ${SBCLI_CMD} --upgrade
-        ${SBCLI_CMD} sn deploy --ifname ens18
+        if [ "$K8S_SNODE" == "true" ]; then
+            :  # Do nothing
+        else
+            ${SBCLI_CMD} sn deploy --ifname ens18
+        fi
  
         sleep 10 
     "
