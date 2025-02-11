@@ -104,7 +104,9 @@ done
 
 echo "bootstrapping k3s cluster..."
 
-ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "
+ssh -i $KEY -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
+    root@${mnodes[0]} "
 sudo yum install -y fio nvme-cli;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
