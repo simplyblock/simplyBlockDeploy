@@ -33,7 +33,7 @@ done
 
 IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
 BASTION_IP=$BASTION_IP
-mnodes=$MNODES
+mnodes=$K3S_MNODES
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$STORAGE_PRIVATE_IPS
