@@ -59,7 +59,7 @@ for node_ip in ${mnodes[@]}; do
 
         # Remove installed packages
         echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli pciutils make golang
+        sudo yum remove -y fio nvme-cli make golang
 
         sleep 10 
     "
@@ -77,7 +77,7 @@ for node_ip in ${storage_private_ips}; do
 
         # Remove installed packages
         echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli pciutils make golang
+        sudo yum remove -y fio nvme-cli make golang
 
         sleep 10 
     "
@@ -95,24 +95,23 @@ for node_ip in ${sec_storage_private_ips}; do
 
         # Remove installed packages
         echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli pciutils make golang
+        sudo yum remove -y fio nvme-cli make golang
 
         sleep 10 
     "
 done
-
 
 echo "bootstrapping k3s cluster..."
 
 ssh -i $KEY -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
     root@${mnodes[0]} "
-sudo yum install -y fio nvme-cli;
+sudo yum install -y fio nvme-cli bc;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
 total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
 total_memory_mb=\$((total_memory_kb / 1024))
-hugepages=\$((total_memory_mb * 0.8))
+hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
 sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -137,12 +136,12 @@ TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "sudo cat /var
 
 for ((i=1; i<${#mnodes[@]}; i++)); do
     ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[${i}]} "
-    sudo yum install -y fio nvme-cli;
+    sudo yum install -y fio nvme-cli bc;
     sudo modprobe nvme-tcp
     sudo modprobe nbd
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
     total_memory_mb=\$((total_memory_kb / 1024))
-    hugepages=\$((total_memory_mb * 0.8))
+    hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
     sudo sysctl -w vm.nr_hugepages=\$hugepages
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -171,13 +170,14 @@ if [ "$K8S_SNODE" == "true" ]; then
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
             -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
             root@${node} "
-            sudo yum install -y fio nvme-cli;
+            sudo yum install -y fio nvme-cli bc;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$((total_memory_mb * 0.8))
-    
+            hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -205,13 +205,13 @@ if [ "$K8S_SNODE" == "true" ]; then
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
             -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
             root@${node} "
-            sudo yum install -y fio nvme-cli;
+            sudo yum install -y fio nvme-cli bc;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$((total_memory_mb * 0.8))
-            
+            hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
