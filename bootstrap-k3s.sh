@@ -111,7 +111,7 @@ sudo modprobe nvme-tcp
 sudo modprobe nbd
 total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
 total_memory_mb=\$((total_memory_kb / 1024))
-hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
 sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -141,7 +141,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo modprobe nbd
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
     total_memory_mb=\$((total_memory_kb / 1024))
-    hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+    hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
     sudo sysctl -w vm.nr_hugepages=\$hugepages
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -176,7 +176,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
 
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+            hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
 
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
@@ -210,7 +210,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$(echo \"\$total_memory_mb * 0.27 / 1\" | bc)
+            hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
 
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
