@@ -246,6 +246,14 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
+    from_port   = 9090
+    to_port     = 9290
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "storage node lvol connect"
+  }
+
+  ingress {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
