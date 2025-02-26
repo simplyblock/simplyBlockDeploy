@@ -242,7 +242,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     to_port     = 4420
     protocol    = "tcp"
     self        = true
-    description = "storage node lvol connect"
+    description = "storage nodes discovery"
   }
 
   ingress {
