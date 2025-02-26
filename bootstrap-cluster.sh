@@ -315,7 +315,7 @@ if [[ -n "$HA_TYPE" ]]; then
     command+=" --ha-type $HA_TYPE"
 fi
 if [[ -n "$ENABLE_NODE_AFFINITY" ]]; then
-    command+=" --enable-node-affinity $ENABLE_NODE_AFFINITY"
+    command+=" --enable-node-affinity"
 fi
 if [[ -n "$QPAIR_COUNT" ]]; then
     command+=" --qpair-count $QPAIR_COUNT"
