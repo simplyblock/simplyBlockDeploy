@@ -241,7 +241,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     from_port   = 4420
     to_port     = 4420
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    self        = true
     description = "storage node lvol connect"
   }
 
