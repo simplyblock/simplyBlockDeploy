@@ -238,37 +238,6 @@ IFS=' ' read -ra mnodes <<<"$mnodes"
 
 echo "bootstrapping cluster..."
 
-for node in ${storage_private_ips[@]}; do
-    echo ""
-    echo "Deploying storage node ${node}.."
-    echo ""
-
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p $NODE_USERNAME@${BASTION_IP}" \
-        $NODE_USERNAME@${node} "
-        sudo yum install -y fio nvme-cli;
-        sudo modprobe nvme-tcp
-        sudo modprobe nbd
-        total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-        total_memory_mb=\$((total_memory_kb / 1024))
-        hugepages=\$((total_memory_mb / 4 / 2))
-
-        sudo sysctl -w vm.nr_hugepages=\$hugepages
-        sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-        sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
-        sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-        curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
-        sudo /usr/local/bin/k3s kubectl get node
-        sudo yum install -y pciutils
-        lspci
-        sudo yum install -y make golang
-        echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
-        echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-        echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
-        sudo sysctl --system
-    "
-
-done
 
 echo ""
 echo "Deploying management node..."
@@ -322,41 +291,17 @@ if [[ -n "$QPAIR_COUNT" ]]; then
 fi
 echo $command
 
+echo ""
+echo "Creating new cluster"
+echo ""
 
-if [[ -n "$CLUSTER_ID" ]]; then
-    command+=" --ha-type $HA_TYPE"
-else
-  ret=$(ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
+ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p $NODE_USERNAME@${BASTION_IP}" \
     $NODE_USERNAME@${mnodes[0]} "
 pip install ${SBCLI_CMD} --upgrade
-
-${SBCLI_CMD} cluster get $CLUSTER_ID
-cl_status=$(${SBCLI_CMD} cluster get $CLUSTER_ID | jq .status)
-if [ $cl_status == 'active' ] then
-  echo 'cluster found and active'
-  return active
-fi
-")
-
-  if [[ $ret != 'active' ]]; then
-
-  echo ""
-  echo "Creating new cluster"
-  echo ""
-
-
-  ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
-      -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-      -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p $NODE_USERNAME@${BASTION_IP}" \
-      $NODE_USERNAME@${mnodes[0]} "
-  pip install ${SBCLI_CMD} --upgrade
-  $command
-  "
-  fi
-
-fi
+$command
+"
 
 echo ""
 echo "getting cluster id"
