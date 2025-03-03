@@ -238,7 +238,7 @@ for node_ip in ${storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname ens18
+            ${SBCLI_CMD} sn deploy --ifname eth0
         fi
 
         sleep 10 
@@ -260,7 +260,7 @@ for node_ip in ${sec_storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname ens18
+            ${SBCLI_CMD} sn deploy --ifname eth0
         fi
  
         sleep 10 
@@ -330,7 +330,7 @@ ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
     -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
     root@${mnodes[0]} "
-$command --ifname ens18
+$command --ifname eth0
 "
 
 echo ""
@@ -370,7 +370,7 @@ for ((i = 1; i < ${#mnodes[@]}; i++)); do
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${mnodes[${i}]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} ens18
+    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
     "
 done
 
@@ -434,7 +434,7 @@ else
     for node in ${storage_private_ips}; do
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
@@ -443,7 +443,7 @@ else
     for node in ${sec_storage_private_ips}; do
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 ens18 --data-nics ens16\"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
