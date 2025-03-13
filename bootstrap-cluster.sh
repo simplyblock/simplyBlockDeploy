@@ -132,6 +132,10 @@ while [[ $# -gt 0 ]]; do
         NPCS="$2"
         shift
         ;;
+    --distr-bs)
+         BS="$2"
+         shift
+         ;;
     --distr-chunk-bs)
         CHUNK_BS="$2"
         shift
