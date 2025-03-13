@@ -293,9 +293,9 @@ fi
 if [[ -n "$NPCS" ]]; then
     command+=" --parity-chunks-per-stripe $NPCS"
 fi
-if [[ -n "$CHUNK_BS" ]]; then
-    command+=" --chunk-size-in-bytes $CHUNK_BS"
-fi
+# if [[ -n "$CHUNK_BS" ]]; then
+#     command+=" --chunk-size-in-bytes $CHUNK_BS"
+# fi
 if [[ -n "$CAP_WARN" ]]; then
     command+=" --cap-warn $CAP_WARN"
 fi
