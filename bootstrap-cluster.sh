@@ -381,7 +381,7 @@ fi
 #     command+=" --max-snap $MAX_SNAPSHOT"
 # fi
 if [[ -n "$MAX_PROVISION" ]]; then
-    command+=" --max-prov $MAX_PROVISION"
+    command+=" --max-size $MAX_PROVISION"
 fi
 if [[ -n "$NO_DEVICE" ]]; then
     command+=" --number-of-devices $NO_DEVICE"
