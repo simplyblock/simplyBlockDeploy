@@ -132,10 +132,6 @@ while [[ $# -gt 0 ]]; do
         NPCS="$2"
         shift
         ;;
-    --distr-bs)
-        BS="$2"
-        shift
-        ;;
     --distr-chunk-bs)
         CHUNK_BS="$2"
         shift
@@ -288,16 +284,13 @@ if [[ -n "$GRAFANA_ENDPOINT" ]]; then
     command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
 fi
 if [[ -n "$NDCS" ]]; then
-    command+=" --distr-ndcs $NDCS"
+    command+=" --data-chunks-per-stripe $NDCS"
 fi
 if [[ -n "$NPCS" ]]; then
-    command+=" --distr-npcs $NPCS"
-fi
-if [[ -n "$BS" ]]; then
-    command+=" --distr-bs $BS"
+    command+=" --parity-chunks-per-stripe $NPCS"
 fi
 if [[ -n "$CHUNK_BS" ]]; then
-    command+=" --distr-chunk-bs $CHUNK_BS"
+    command+=" --chunk-size-in-bytes $CHUNK_BS"
 fi
 if [[ -n "$CAP_WARN" ]]; then
     command+=" --cap-warn $CAP_WARN"
@@ -384,43 +377,43 @@ command="${SBCLI_CMD} -d storage-node add-node"
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
 fi
-if [[ -n "$MAX_SNAPSHOT" ]]; then
-    command+=" --max-snap $MAX_SNAPSHOT"
-fi
+# if [[ -n "$MAX_SNAPSHOT" ]]; then
+#     command+=" --max-snap $MAX_SNAPSHOT"
+# fi
 if [[ -n "$MAX_PROVISION" ]]; then
     command+=" --max-prov $MAX_PROVISION"
 fi
 if [[ -n "$NO_DEVICE" ]]; then
     command+=" --number-of-devices $NO_DEVICE"
 fi
-if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
-    command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
-fi
+# if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
+#     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
+# fi
 if [[ -n "$NUM_PARTITIONS" ]]; then
-    command+=" --partitions $NUM_PARTITIONS"
-    command+=" --jm-percent 3"
+    command+=" --journal-partition $NUM_PARTITIONS"
+    # command+=" --jm-percent 3"
 fi
-if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
-    command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
-fi
-if [[ -n "$SPDK_IMAGE" ]]; then
-    command+=" --spdk-image $SPDK_IMAGE"
-fi
-if [[ -n "$CPU_MASK" ]]; then
-    command+=" --cpu-mask $CPU_MASK"
-fi
-if [ "$DISABLE_HA_JM" == "true" ]; then
-    command+=" --disable-ha-jm"
-fi
-if [ "$SPDK_DEBUG" == "true" ]; then
-    command+=" --spdk-debug"
-fi
-if [[ -n "$NUMBER_DISTRIB" ]]; then
-    command+=" --number-of-distribs $NUMBER_DISTRIB"
-fi
-if [[ -n "$HA_JM_COUNT" ]]; then
-    command+=" --ha-jm-count $HA_JM_COUNT"
-fi
+# if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
+#     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
+# fi
+# if [[ -n "$SPDK_IMAGE" ]]; then
+#     command+=" --spdk-image $SPDK_IMAGE"
+# fi
+# if [[ -n "$CPU_MASK" ]]; then
+#     command+=" --cpu-mask $CPU_MASK"
+# fi
+# if [ "$DISABLE_HA_JM" == "true" ]; then
+#     command+=" --disable-ha-jm"
+# fi
+# if [ "$SPDK_DEBUG" == "true" ]; then
+#     command+=" --spdk-debug"
+# fi
+# if [[ -n "$NUMBER_DISTRIB" ]]; then
+#     command+=" --number-of-distribs $NUMBER_DISTRIB"
+# fi
+# if [[ -n "$HA_JM_COUNT" ]]; then
+#     command+=" --ha-jm-count $HA_JM_COUNT"
+# fi
 
 
 if [ "$K8S_SNODE" == "true" ]; then
