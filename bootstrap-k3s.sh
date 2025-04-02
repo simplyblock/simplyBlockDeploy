@@ -45,6 +45,7 @@ echo "::set-output name=extra_node_ip::${mnodes[0]}"
 
 echo "cleaning up old K8s cluster..."
 
+kubeconfig=/etc/rancher/k3s/k3s.yaml
 
 
 for node_ip in ${mnodes[@]}; do
@@ -157,8 +158,8 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl --system
     "
 
-    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
+    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl get nodes -o wide | grep -w ${mnodes[${i}]} | awk '{print \$1}'")
+    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -193,8 +194,8 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
     done
 
     for node in ${sec_storage_private_ips[@]}; do
@@ -227,7 +228,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "KUBECONFIG=${kubeconfig} kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
     done
 fi
