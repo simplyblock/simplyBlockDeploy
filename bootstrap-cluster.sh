@@ -37,7 +37,6 @@ print_help() {
     echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
     echo "  --vcpu-count                         Set Number of vCPUs used for SPDK. (optional)"
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
-    echo "  --ssd-pcie                           Nvme PCIe address to use for storage device. Can be more than one (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -51,7 +50,7 @@ IOBUF_SMALL_BUFFSIZE=""
 IOBUF_LARGE_BUFFSIZE=""
 LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
-SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
+SBCLI_CMD="${SBCLI_CMD:-sbcli-mig}"
 SPDK_IMAGE=""
 CPU_MASK=""
 CONTACT_POINT=""
@@ -203,10 +202,6 @@ while [[ $# -gt 0 ]]; do
         ;;
     --id-device-by-nqn)
         ID_DEVICE_BY_NQN="$2"
-        shift
-        ;;
-    --ssd-pcie)
-        SSD_PCIE="$2"
         shift
         ;;
     --help)
@@ -434,9 +429,6 @@ fi
 if [[ -n "$ID_DEVICE_BY_NQN" ]]; then
      command+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
 fi
-if [[ -n "$SSD_PCIE" ]]; then
-     command+=" --ssd-pcie $SSD_PCIE"
-fi
 
 # if [[ -n "$SPDK_IMAGE" ]]; then
 #     command+=" --spdk-image $SPDK_IMAGE"
@@ -462,18 +454,33 @@ if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
+    scp -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
+        "$KEY" root@${mnodes[0]}:/tmp/tmpkey.pem
+
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
+    chmod 400 /tmp/tmpkey.pem
     for node in ${storage_private_ips}; do
+        echo \"\"
+        echo \"Getting PCIe address on node \${node} \"
+        echo \"\"
+
+        PCIE=\$(ssh -i /tmp/tmpkey.pem -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+
+        echo \"PCIe: \$PCIE\"
+
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1 --ssd-pcie \$PCIE\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
     done
+
+    rm -f /tmp/tmpkey.pem
 
     for node in ${sec_storage_private_ips}; do
         echo ""
