@@ -73,7 +73,7 @@ VCPU_COUNT=""
 ID_DEVICE_BY_NQN=""
 K8S_SNODE="false"
 HA_JM_COUNT=""
-SSD_PCIE=""
+
 
 
 while [[ $# -gt 0 ]]; do
