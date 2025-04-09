@@ -2,6 +2,7 @@
 set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
+TEMP_KEY="/tmp/tmpkey.pem"
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -39,6 +40,11 @@ print_help() {
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
     echo "  --help                               Print this help message"
     exit 0
+}
+
+cleanup() {
+echo "Cleaning up temp key..."
+rm -f "$TEMP_KEY"
 }
 
 MAX_LVOL=""
@@ -462,13 +468,13 @@ else
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
-    chmod 400 /tmp/tmpkey.pem
+    chmod 400 $TEMP_KEY
     for node in ${storage_private_ips}; do
         echo \"\"
         echo \"Getting PCIe address on node \${node} \"
         echo \"\"
 
-        PCIE=\$(ssh -i /tmp/tmpkey.pem -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
 
         echo \"PCIe: \$PCIE\"
 
@@ -480,7 +486,7 @@ else
         sleep 3
     done
 
-    rm -f /tmp/tmpkey.pem
+    trap cleanup EXIT INT TERM
 
     for node in ${sec_storage_private_ips}; do
         echo ""
