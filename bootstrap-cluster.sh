@@ -2,25 +2,26 @@
 set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
+TEMP_KEY="/tmp/tmpkey.pem"
 
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  --max-lvol  <value>                  Set Maximum lvols (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
-    echo "  --max-prov  <value>                  Set Maximum cluster size (optional)"
+    echo "  --max-size  <value>                  Set Maximum amount of GB to be utilized on storage node (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
-    echo "  --partitions <value>                 Set Number of partitions to create per NVMe device (optional)"
-    echo "  --iobuf_small_pool_count <value>     Set bdev_set_options param (optional)"
-    echo "  --iobuf_large_pool_count <value>     Set bdev_set_options param (optional)"
+    echo "  --journal-partition <value>          Set 1: auto-create small partitions for journal on nvme devices. 0: use a separate (the smallest) nvme device of the node for journal (optional)"
+    echo "  --iobuf_small_bufsize <value>        Set bdev_set_options param (optional)"
+    echo "  --iobuf_large_bufsize <value>        Set bdev_set_options param (optional)"
     echo "  --log-del-interval <value>           Set log deletion interval (optional)"
     echo "  --metrics-retention-period <value>   Set metrics retention interval (optional)"
     echo "  --sbcli-cmd <value>                  Set sbcli command name (optional, default: sbcli-dev)"
     echo "  --spdk-image <value>                 Set SPDK image (optional)"
     echo "  --cpu-mask <value>                   Set SPDK app CPU mask (optional)"
     echo "  --contact-point <value>              Set slack or email contact point for alerting (optional)"
-    echo "  --distr-ndcs <value>                 Set distributed NDCs (optional)"
-    echo "  --distr-npcs <value>                 Set distributed NPCs (optional)"
+    echo "  --data-chunks-per-stripe <value>     Set Erasure coding schema parameter k (distributed raid) (optional)"
+    echo "  --parity-chunks-per-stripe <value>   Set Erasure coding schema parameter n (distributed raid) (optional)"
     echo "  --distr-bs <value>                   Set distribution block size (optional)"
     echo "  --distr-chunk-bs <value>             Set distributed chunk block size (optional)"
     echo "  --number-of-distribs <value>         Set number of distributions (optional)"
@@ -34,20 +35,28 @@ print_help() {
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
+    echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
+    echo "  --vcpu-count                         Set Number of vCPUs used for SPDK. (optional)"
+    echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
 
+cleanup() {
+echo "Cleaning up temp key..."
+rm -f "$TEMP_KEY"
+}
+
 MAX_LVOL=""
 MAX_SNAPSHOT=""
-MAX_PROVISION=""
+MAX_SIZE=""
 NO_DEVICE=""
 NUM_PARTITIONS=""
-IOBUF_SMALL_POOL_COUNT=""
-IOBUF_LARGE_POOL_COUNT=""
+IOBUF_SMALL_BUFFSIZE=""
+IOBUF_LARGE_BUFFSIZE=""
 LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
-SBCLI_CMD="${SBCLI_CMD:-sbcli-hmdi}"
+SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
 SPDK_IMAGE=""
 CPU_MASK=""
 CONTACT_POINT=""
@@ -65,8 +74,12 @@ HA_TYPE=""
 ENABLE_NODE_AFFINITY=""
 QPAIR_COUNT=""
 DISABLE_HA_JM="false"
+DATANICS=""
+VCPU_COUNT=""
+ID_DEVICE_BY_NQN=""
 K8S_SNODE="false"
 HA_JM_COUNT=""
+
 
 
 while [[ $# -gt 0 ]]; do
@@ -80,24 +93,24 @@ while [[ $# -gt 0 ]]; do
         MAX_SNAPSHOT="$2"
         shift
         ;;
-    --max-prov)
-        MAX_PROVISION="$2"
+    --max-size)
+        MAX_SIZE="$2"
         shift
         ;;
     --number-of-devices)
         NO_DEVICE="$2"
         shift
         ;;
-    --partitions)
+    --journal-partition)
         NUM_PARTITIONS="$2"
         shift
         ;;
-    --iobuf_small_pool_count)
-        IOBUF_SMALL_POOL_COUNT="$2"
+    --iobuf_small_bufsize)
+        IOBUF_SMALL_BUFFSIZE="$2"
         shift
         ;;
-    --iobuf_large_pool_count)
-        IOBUF_LARGE_POOL_COUNT="$2"
+     --iobuf_large_bufsize)
+        IOBUF_LARGE_BUFFSIZE="$2"
         shift
         ;;
     --log-del-interval)
@@ -124,11 +137,11 @@ while [[ $# -gt 0 ]]; do
         CONTACT_POINT="$2"
         shift
         ;;
-    --distr-ndcs)
+    --data-chunks-per-stripe)
         NDCS="$2"
         shift
         ;;
-    --distr-npcs)
+    --parity-chunks-per-stripe)
         NPCS="$2"
         shift
         ;;
@@ -184,6 +197,18 @@ while [[ $# -gt 0 ]]; do
         ;;
     --disable-ha-jm)
         DISABLE_HA_JM="true"
+        ;;
+    --data-nics)
+        DATANICS="$2"
+        shift
+        ;;
+    --vcpu-count)
+        VCPU_COUNT="$2"
+        shift
+        ;;
+    --id-device-by-nqn)
+        ID_DEVICE_BY_NQN="$2"
+        shift
         ;;
     --help)
         print_help
@@ -384,22 +409,33 @@ fi
 # if [[ -n "$MAX_SNAPSHOT" ]]; then
 #     command+=" --max-snap $MAX_SNAPSHOT"
 # fi
-if [[ -n "$MAX_PROVISION" ]]; then
-    command+=" --max-size $MAX_PROVISION"
+if [[ -n "$MAX_SIZE" ]]; then
+    command+=" --max-size $MAX_SIZE"
 fi
 if [[ -n "$NO_DEVICE" ]]; then
     command+=" --number-of-devices $NO_DEVICE"
 fi
-# if [[ -n "$IOBUF_SMALL_POOL_COUNT" ]]; then
-#     command+=" --iobuf_small_pool_count $IOBUF_SMALL_POOL_COUNT"
-# fi
+if [[ -n "$IOBUF_SMALL_BUFFSIZE" ]]; then
+     command+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
+fi
 if [[ -n "$NUM_PARTITIONS" ]]; then
     command+=" --journal-partition $NUM_PARTITIONS"
     # command+=" --jm-percent 3"
 fi
-# if [[ -n "$IOBUF_LARGE_POOL_COUNT" ]]; then
-#     command+=" --iobuf_large_pool_count $IOBUF_LARGE_POOL_COUNT"
-# fi
+if [[ -n "$IOBUF_LARGE_BUFFSIZE" ]]; then
+    command+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
+fi
+
+if [[ -n "$DATANICS" ]]; then
+     command+=" --data-nics $DATANICS"
+fi
+if [[ -n "$VCPU_COUNT" ]]; then
+     command+=" --vcpu-count $VCPU_COUNT"
+fi
+if [[ -n "$ID_DEVICE_BY_NQN" ]]; then
+     command+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
+fi
+
 # if [[ -n "$SPDK_IMAGE" ]]; then
 #     command+=" --spdk-image $SPDK_IMAGE"
 # fi
@@ -424,18 +460,33 @@ if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
+    scp -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
+        "$KEY" root@${mnodes[0]}:/tmp/tmpkey.pem
+
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
         root@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
+    chmod 400 $TEMP_KEY
     for node in ${storage_private_ips}; do
+        echo \"\"
+        echo \"Getting PCIe address on node \${node} \"
+        echo \"\"
+
+        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+
+        echo \"PCIe: \$PCIE\"
+
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1 --ssd-pcie \$PCIE\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
     done
+
+    trap cleanup EXIT INT TERM
 
     for node in ${sec_storage_private_ips}; do
         echo ""
