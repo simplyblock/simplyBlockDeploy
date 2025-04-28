@@ -268,7 +268,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -373,7 +373,7 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} --dev -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
