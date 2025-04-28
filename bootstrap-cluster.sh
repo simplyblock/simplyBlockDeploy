@@ -450,8 +450,10 @@ else
         echo \"Getting PCIe address on node \${node} \"
         echo \"\"
 
-        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no ec2-user@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
-
+        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -i $TEMP_KEY -o StrictHostKeyChecking=no -W %h:%p ec2-user@${BASTION_IP}" \
+         ec2-user@\${node} "lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+        
         echo \"PCIe: \$PCIE\"   
         
         echo ""
