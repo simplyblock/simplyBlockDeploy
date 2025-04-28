@@ -247,7 +247,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 9090
-    to_port     = 9290
+    to_port     = 9900
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "storage node lvol connect"
@@ -271,7 +271,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port       = 8080
-    to_port         = 8280
+    to_port         = 8890
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
     description     = "For SPDK Proxy for the storage node from mgmt node"
@@ -279,7 +279,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 8080
-    to_port     = 8280
+    to_port     = 8890
     protocol    = "tcp"
     self        = true
     description = "For SPDK Proxy for the storage node from other storage nodes"
