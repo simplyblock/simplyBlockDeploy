@@ -450,7 +450,7 @@ else
         echo \"Getting PCIe address on node \${node} \"
         echo \"\"
 
-        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no ec2-user@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
 
         echo \"PCIe: \$PCIE\"   
         
