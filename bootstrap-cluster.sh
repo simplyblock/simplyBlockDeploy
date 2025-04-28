@@ -232,22 +232,6 @@ sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
 
 echo "cleaning up old cluster..."
 
-for node_ip in ${mnodes[@]}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
-        if [[ -n \"\${old_pkg}\" ]]; then
-            \$old_pkg sn deploy-cleaner
-            pip uninstall -y \$old_pkg
-        fi
-        pip install ${SBCLI_CMD} --upgrade
-
-        sleep 10 
-    "
-done
-
 for node_ip in ${storage_private_ips}; do
     echo "SSH into $node_ip and executing commands"
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
@@ -265,9 +249,7 @@ for node_ip in ${storage_private_ips}; do
         else
             ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
-
-        sleep 10 
-    "
+    " &
 done
 
 for node_ip in ${sec_storage_private_ips}; do
@@ -287,8 +269,20 @@ for node_ip in ${sec_storage_private_ips}; do
         else
             ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
- 
-        sleep 10 
+    " &
+done
+
+for node_ip in ${mnodes[@]}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
+        if [[ -n \"\${old_pkg}\" ]]; then
+            \$old_pkg sn deploy-cleaner
+            pip uninstall -y \$old_pkg
+        fi
+        pip install ${SBCLI_CMD} --upgrade
     "
 done
 
@@ -299,7 +293,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -319,7 +313,7 @@ if [[ -n "$NPCS" ]]; then
     command+=" --parity-chunks-per-stripe $NPCS"
 fi
 if [[ -n "$CHUNK_BS" ]]; then
-    command+=" --chunk-size-in-bytes $CHUNK_BS"
+    command+=" --distr-chunk-bs $CHUNK_BS"
 fi
 if [[ -n "$CAP_WARN" ]]; then
     command+=" --cap-warn $CAP_WARN"
@@ -526,4 +520,3 @@ echo "::set-output name=cluster_ip::http://${mnodes[0]}"
 echo ""
 echo "Successfully deployed the cluster"
 echo ""
-
