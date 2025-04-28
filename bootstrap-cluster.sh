@@ -263,7 +263,7 @@ for node_ip in ${storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname eth0
+            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
 
         sleep 10 
@@ -285,7 +285,7 @@ for node_ip in ${sec_storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname eth0
+            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
  
         sleep 10 
@@ -299,7 +299,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -318,9 +318,9 @@ fi
 if [[ -n "$NPCS" ]]; then
     command+=" --parity-chunks-per-stripe $NPCS"
 fi
-# if [[ -n "$CHUNK_BS" ]]; then
-#     command+=" --chunk-size-in-bytes $CHUNK_BS"
-# fi
+if [[ -n "$CHUNK_BS" ]]; then
+    command+=" --chunk-size-in-bytes $CHUNK_BS"
+fi
 if [[ -n "$CAP_WARN" ]]; then
     command+=" --cap-warn $CAP_WARN"
 fi
@@ -401,14 +401,14 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} --dev -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
 fi
-# if [[ -n "$MAX_SNAPSHOT" ]]; then
-#     command+=" --max-snap $MAX_SNAPSHOT"
-# fi
+if [[ -n "$MAX_SNAPSHOT" ]]; then
+    command+=" --max-snap $MAX_SNAPSHOT"
+fi
 if [[ -n "$MAX_SIZE" ]]; then
     command+=" --max-size $MAX_SIZE"
 fi
@@ -435,25 +435,24 @@ fi
 if [[ -n "$ID_DEVICE_BY_NQN" ]]; then
      command+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
 fi
-
-# if [[ -n "$SPDK_IMAGE" ]]; then
-#     command+=" --spdk-image $SPDK_IMAGE"
-# fi
-# if [[ -n "$CPU_MASK" ]]; then
-#     command+=" --cpu-mask $CPU_MASK"
-# fi
-# if [ "$DISABLE_HA_JM" == "true" ]; then
-#     command+=" --disable-ha-jm"
-# fi
-# if [ "$SPDK_DEBUG" == "true" ]; then
-#     command+=" --spdk-debug"
-# fi
-# if [[ -n "$NUMBER_DISTRIB" ]]; then
-#     command+=" --number-of-distribs $NUMBER_DISTRIB"
-# fi
-# if [[ -n "$HA_JM_COUNT" ]]; then
-#     command+=" --ha-jm-count $HA_JM_COUNT"
-# fi
+if [[ -n "$SPDK_IMAGE" ]]; then
+    command+=" --spdk-image $SPDK_IMAGE"
+fi
+if [[ -n "$CPU_MASK" ]]; then
+    command+=" --cpu-mask $CPU_MASK"
+fi
+if [ "$DISABLE_HA_JM" == "true" ]; then
+    command+=" --disable-ha-jm"
+fi
+if [ "$SPDK_DEBUG" == "true" ]; then
+    command+=" --spdk-debug"
+fi
+if [[ -n "$NUMBER_DISTRIB" ]]; then
+    command+=" --number-of-distribs $NUMBER_DISTRIB"
+fi
+if [[ -n "$HA_JM_COUNT" ]]; then
+    command+=" --ha-jm-count $HA_JM_COUNT"
+fi
 
 
 if [ "$K8S_SNODE" == "true" ]; then
