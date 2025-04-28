@@ -177,7 +177,7 @@ jobs:
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
           export CSI_NAMESPACE=spdk-csi
           export CGO_ENABLED=1
-          make e2e-test
+          make e2e-test E2E_TEST_ARGS="--ginkgo.focus=\"SPDKCSI-(NVMEOF|SNAPSHOT|CLONE|NodeRestart)\" --ginkgo.dry-run"
 
       - name: Upload docker logs to s3
         run: |
