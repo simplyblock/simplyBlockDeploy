@@ -232,22 +232,6 @@ sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
 
 echo "cleaning up old cluster..."
 
-for node_ip in ${mnodes[@]}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
-        if [[ -n \"\${old_pkg}\" ]]; then
-            \$old_pkg sn deploy-cleaner
-            pip uninstall -y \$old_pkg
-        fi
-        pip install ${SBCLI_CMD} --upgrade
-
-        sleep 10 
-    "
-done
-
 for node_ip in ${storage_private_ips}; do
     echo "SSH into $node_ip and executing commands"
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
@@ -263,11 +247,9 @@ for node_ip in ${storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname eth0
+            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
-
-        sleep 10 
-    "
+    " &
 done
 
 for node_ip in ${sec_storage_private_ips}; do
@@ -285,10 +267,22 @@ for node_ip in ${sec_storage_private_ips}; do
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
-            ${SBCLI_CMD} sn deploy --ifname eth0
+            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
         fi
- 
-        sleep 10 
+    " &
+done
+
+for node_ip in ${mnodes[@]}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
+        if [[ -n \"\${old_pkg}\" ]]; then
+            \$old_pkg sn deploy-cleaner
+            pip uninstall -y \$old_pkg
+        fi
+        pip install ${SBCLI_CMD} --upgrade
     "
 done
 
@@ -299,7 +293,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
+command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -318,9 +312,9 @@ fi
 if [[ -n "$NPCS" ]]; then
     command+=" --parity-chunks-per-stripe $NPCS"
 fi
-# if [[ -n "$CHUNK_BS" ]]; then
-#     command+=" --chunk-size-in-bytes $CHUNK_BS"
-# fi
+if [[ -n "$CHUNK_BS" ]]; then
+    command+=" --distr-chunk-bs $CHUNK_BS"
+fi
 if [[ -n "$CAP_WARN" ]]; then
     command+=" --cap-warn $CAP_WARN"
 fi
@@ -401,14 +395,14 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} --dev -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
 fi
-# if [[ -n "$MAX_SNAPSHOT" ]]; then
-#     command+=" --max-snap $MAX_SNAPSHOT"
-# fi
+if [[ -n "$MAX_SNAPSHOT" ]]; then
+    command+=" --max-snap $MAX_SNAPSHOT"
+fi
 if [[ -n "$MAX_SIZE" ]]; then
     command+=" --max-size $MAX_SIZE"
 fi
@@ -435,25 +429,24 @@ fi
 if [[ -n "$ID_DEVICE_BY_NQN" ]]; then
      command+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
 fi
-
-# if [[ -n "$SPDK_IMAGE" ]]; then
-#     command+=" --spdk-image $SPDK_IMAGE"
-# fi
-# if [[ -n "$CPU_MASK" ]]; then
-#     command+=" --cpu-mask $CPU_MASK"
-# fi
-# if [ "$DISABLE_HA_JM" == "true" ]; then
-#     command+=" --disable-ha-jm"
-# fi
-# if [ "$SPDK_DEBUG" == "true" ]; then
-#     command+=" --spdk-debug"
-# fi
-# if [[ -n "$NUMBER_DISTRIB" ]]; then
-#     command+=" --number-of-distribs $NUMBER_DISTRIB"
-# fi
-# if [[ -n "$HA_JM_COUNT" ]]; then
-#     command+=" --ha-jm-count $HA_JM_COUNT"
-# fi
+if [[ -n "$SPDK_IMAGE" ]]; then
+    command+=" --spdk-image $SPDK_IMAGE"
+fi
+if [[ -n "$CPU_MASK" ]]; then
+    command+=" --cpu-mask $CPU_MASK"
+fi
+if [ "$DISABLE_HA_JM" == "true" ]; then
+    command+=" --disable-ha-jm"
+fi
+if [ "$SPDK_DEBUG" == "true" ]; then
+    command+=" --spdk-debug"
+fi
+if [[ -n "$NUMBER_DISTRIB" ]]; then
+    command+=" --number-of-distribs $NUMBER_DISTRIB"
+fi
+if [[ -n "$HA_JM_COUNT" ]]; then
+    command+=" --ha-jm-count $HA_JM_COUNT"
+fi
 
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -527,4 +520,3 @@ echo "::set-output name=cluster_ip::http://${mnodes[0]}"
 echo ""
 echo "Successfully deployed the cluster"
 echo ""
-
