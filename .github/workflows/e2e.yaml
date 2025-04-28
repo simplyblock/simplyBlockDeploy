@@ -96,7 +96,7 @@ jobs:
             -var "storage_nodes_arch=arm64" \
             -var "storage_nodes_instance_type=m6g.2xlarge" \
             -var "sec_storage_nodes_instance_type=m6g.2xlarge" \
-            -var "sec_storage_nodes=1" \
+            -var "sec_storage_nodes=0" \
             -var "snode_deploy_on_k8s=false" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6gd.xlarge" \
@@ -138,7 +138,7 @@ jobs:
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
              --set logicalVolume.pool_name=testing1 \
-             --set image.simplyblock.tag=R25.3-PRE-Hotfix \
+             --set image.simplyblock.tag=main \
              --set image.spdkcsi.tag=master-arm64 \
              --set storagenode.create=false \
              --set cachingnode.create=true \
