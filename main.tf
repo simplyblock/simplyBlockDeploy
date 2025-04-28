@@ -271,7 +271,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port       = 8080
-    to_port         = 8080
+    to_port         = 8280
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
     description     = "For SPDK Proxy for the storage node from mgmt node"
@@ -279,7 +279,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 8080
-    to_port     = 8080
+    to_port     = 8280
     protocol    = "tcp"
     self        = true
     description = "For SPDK Proxy for the storage node from other storage nodes"
@@ -574,8 +574,8 @@ resource "aws_iam_policy" "mgmt_policy" {
         ],
         Effect = "Allow",
         Resource = [
-          "arn:aws:codeartifact:eu-west-1:565979732541:repository/simplyblock/sbcli",
-          "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
+          "arn:aws:codeartifact:eu-west-1:${local.account_id}:repository/simplyblock/sbcli",
+          "arn:aws:codeartifact:eu-west-1:${local.account_id}:domain/simplyblock"
         ]
       },
       {
