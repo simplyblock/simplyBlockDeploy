@@ -462,6 +462,8 @@ else
         sleep 3
     done
 
+    trap cleanup EXIT INT TERM
+    
     for node in ${sec_storage_private_ips}; do
         echo ""
         echo "joining secondary node \${node}"
