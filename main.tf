@@ -246,11 +246,19 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
-    from_port   = 9090
-    to_port     = 9290
+    from_port   = 9100
+    to_port     = 9900
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "storage node lvol connect"
+  }
+
+  ingress {
+    from_port   = 9060
+    to_port     = 9099
+    protocol    = "tcp"
+    self        = true
+    description = "storage node remote devices"
   }
 
   ingress {
@@ -271,7 +279,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port       = 8080
-    to_port         = 8080
+    to_port         = 8890
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
     description     = "For SPDK Proxy for the storage node from mgmt node"
@@ -279,7 +287,7 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 8080
-    to_port     = 8080
+    to_port     = 8890
     protocol    = "tcp"
     self        = true
     description = "For SPDK Proxy for the storage node from other storage nodes"
@@ -313,7 +321,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id]
+    security_groups = [aws_security_group.bastion_sg.id,aws_security_group.mgmt_node_sg.id]
     description     = "SSH from Bastion Server"
   }
 
@@ -574,8 +582,8 @@ resource "aws_iam_policy" "mgmt_policy" {
         ],
         Effect = "Allow",
         Resource = [
-          "arn:aws:codeartifact:eu-west-1:565979732541:repository/simplyblock/sbcli",
-          "arn:aws:codeartifact:eu-west-1:565979732541:domain/simplyblock"
+          "arn:aws:codeartifact:eu-west-1:${local.account_id}:repository/simplyblock/sbcli",
+          "arn:aws:codeartifact:eu-west-1:${local.account_id}:domain/simplyblock"
         ]
       },
       {

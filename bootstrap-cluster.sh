@@ -2,6 +2,7 @@
 set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-ohio.pem"
+TEMP_KEY="/tmp/tmpkey.pem"
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -39,6 +40,11 @@ print_help() {
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
     echo "  --help                               Print this help message"
     exit 0
+}
+
+cleanup() {
+echo "Cleaning up temp key..."
+rm -f "$TEMP_KEY"
 }
 
 MAX_LVOL=""
@@ -268,7 +274,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} -d cluster create"
+command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -373,7 +379,7 @@ sleep 3
 echo "Adding storage nodes..."
 echo ""
 # node 1
-command="${SBCLI_CMD} -d storage-node add-node"
+command="${SBCLI_CMD} --dev -d storage-node add-node"
 
 if [[ -n "$MAX_LVOL" ]]; then
     command+=" --max-lvol $MAX_LVOL"
@@ -430,19 +436,34 @@ if [ "$K8S_SNODE" == "true" ]; then
     :  # Do nothing
 
 else
+    scp -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p ec2-user@${BASTION_IP}" \
+        "$KEY" ec2-user@${mnodes[0]}:/tmp/tmpkey.pem
+        
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
         ec2-user@${mnodes[0]} "
     MANGEMENT_NODE_IP=${mnodes[0]}
+    chmod 400 $TEMP_KEY
     for node in ${storage_private_ips}; do
+        echo \"\"
+        echo \"Getting PCIe address on node \${node} \"
+        echo \"\"
+
+        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no ec2-user@\$node \"lspci -D | grep -i 'NVM' | awk 'NR > 1 {print \\\$1}' | paste -sd ' ' -\")
+
+        echo \"PCIe: \$PCIE\"
+        
         echo ""
         echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
+        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --ssd-pcie \$PCIE\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
     done
 
+    trap cleanup EXIT INT TERM
+    
     for node in ${sec_storage_private_ips}; do
         echo ""
         echo "joining secondary node \${node}"
