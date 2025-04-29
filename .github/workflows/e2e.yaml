@@ -93,14 +93,14 @@ jobs:
           terraform plan \
             -var "mgmt_nodes=1" \
             -var "storage_nodes=3" \
-            -var "storage_nodes_arch=arm64" \
-            -var "storage_nodes_instance_type=m6g.2xlarge" \
-            -var "sec_storage_nodes_instance_type=m6g.2xlarge" \
+            -var "storage_nodes_arch=amd64" \
+            -var "storage_nodes_instance_type=m6i.2xlarge" \
+            -var "sec_storage_nodes_instance_type=m6i.2xlarge" \
             -var "sec_storage_nodes=0" \
             -var "snode_deploy_on_k8s=false" \
             -var "extra_nodes=1" \
-            -var "extra_nodes_instance_type=m6gd.xlarge" \
-            -var "extra_nodes_arch=arm64" \
+            -var "extra_nodes_instance_type=m6id.xlarge" \
+            -var "extra_nodes_arch=amd64" \
             -var "region=us-east-2" \
             -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" \
             -out=tfplan
