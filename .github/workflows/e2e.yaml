@@ -179,31 +179,31 @@ jobs:
           export CGO_ENABLED=1
           make e2e-test E2E_TEST_ARGS="--ginkgo.focus=\"SPDKCSI-(NVMEOF|SNAPSHOT|CLONE|NodeRestart)\" --ginkgo.dry-run"
 
-      # - name: Upload docker logs to s3
-      #   run: |
-      #     if [[ "${{ github.event_name }}" == 'schedule' || "${{ env.upload_logs }}" == 'true' ]]; then
-      #       $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
-      #     else
-      #       $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
-      #     fi
-      #   if: always()
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     AWS_REGION: ${{ secrets.AWS_REGION }}
-      #     S3_BUCKET_NAME: "simplyblock-e2e-test-logs"
-      #     RUN_ID: ${{ github.run_id }}
+      - name: Upload docker logs to s3
+        run: |
+          if [[ "${{ github.event_name }}" == 'schedule' || "${{ env.upload_logs }}" == 'true' ]]; then
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
+          else
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
+          fi
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET_NAME: "simplyblock-e2e-test-logs"
+          RUN_ID: ${{ github.run_id }}
 
-      # - name: Send Slack Notification
-      #   if: always()
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #   run: |
-      #     if [[ ${{ job.status }} == 'success' ]]; then
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
-      #     else
-      #       curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
-      #     fi
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ ${{ job.status }} == 'success' ]]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests successfully completed!"}' $SLACK_WEBHOOK_URL
+          else
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Kubernetes E2E tests failed!"}' $SLACK_WEBHOOK_URL
+          fi
 
       - name: Destroy Cluster
         if: always()
