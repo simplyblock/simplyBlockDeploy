@@ -446,16 +446,6 @@ else
     MANGEMENT_NODE_IP=${mnodes[0]}
     chmod 400 $TEMP_KEY
     for node in ${storage_private_ips}; do
-        echo \"\"
-        echo \"Getting PCIe address on node \${node} \"
-        echo \"\"
-
-        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -i $TEMP_KEY -o StrictHostKeyChecking=no -W %h:%p ec2-user@${BASTION_IP}" \
-         ec2-user@\${node} "lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
-        
-        echo \"PCIe: \$PCIE\"   
-        
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
@@ -469,7 +459,7 @@ else
     for node in ${sec_storage_private_ips}; do
         echo ""
         echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0 --ssd-pcie \$PCIE\"
+        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
