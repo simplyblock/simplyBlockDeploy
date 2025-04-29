@@ -313,7 +313,7 @@ resource "aws_security_group" "storage_nodes_sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id]
+    security_groups = [aws_security_group.bastion_sg.id,aws_security_group.mgmt_node_sg.id]
     description     = "SSH from Bastion Server"
   }
 
