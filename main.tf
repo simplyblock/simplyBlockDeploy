@@ -254,7 +254,7 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
-    from_port   = 9080
+    from_port   = 9060
     to_port     = 9099
     protocol    = "tcp"
     self        = true
