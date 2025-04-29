@@ -246,11 +246,19 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   ingress {
-    from_port   = 9090
+    from_port   = 9100
     to_port     = 9900
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "storage node lvol connect"
+  }
+
+  ingress {
+    from_port   = 9080
+    to_port     = 9099
+    protocol    = "tcp"
+    self        = true
+    description = "storage node remote devices"
   }
 
   ingress {
