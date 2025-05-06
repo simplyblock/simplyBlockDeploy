@@ -57,6 +57,8 @@ IOBUF_LARGE_BUFFSIZE=""
 LOG_DEL_INTERVAL=""
 METRICS_RETENTION_PERIOD=""
 SBCLI_CMD="${SBCLI_CMD:-sbcli-dev}"
+SBCLI_INSTALL_SOURCE="${SBCLI_BRANCH:+git+https://github.com/simplyblock-io/sbcli.git@${SBCLI_BRANCH}}"
+SBCLI_INSTALL_SOURCE="${SBCLI_INSTALL_SOURCE:-${SBCLI_CMD}}"
 SPDK_IMAGE=""
 CPU_MASK=""
 CONTACT_POINT=""
@@ -243,7 +245,7 @@ for node_ip in ${storage_private_ips}; do
             pip uninstall -y \$old_pkg
         fi
         sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
-        pip install ${SBCLI_CMD} --upgrade
+        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
@@ -263,7 +265,7 @@ for node_ip in ${sec_storage_private_ips}; do
             pip uninstall -y \$old_pkg
         fi
         sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
-        pip install ${SBCLI_CMD} --upgrade
+        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
         if [ "$K8S_SNODE" == "true" ]; then
             :  # Do nothing
         else
@@ -282,7 +284,7 @@ for node_ip in ${mnodes[@]}; do
             \$old_pkg sn deploy-cleaner
             pip uninstall -y \$old_pkg
         fi
-        pip install ${SBCLI_CMD} --upgrade
+        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
 done
 
