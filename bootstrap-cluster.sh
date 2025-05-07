@@ -297,6 +297,10 @@ add_other_mgmt_nodes() {
 }
 
 add_storage_nodes() {
+    if [[ "$K8S_SNODE" == "true" ]]; then
+        echo "Skipping storage node addition for k8s nodes"
+        return
+    fi
     local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
     [[ -n "$MAX_LVOL" ]] && add_cmd+=" --max-lvol $MAX_LVOL"
     [[ -n "$MAX_SNAPSHOT" ]] && add_cmd+=" --max-snap $MAX_SNAPSHOT"
