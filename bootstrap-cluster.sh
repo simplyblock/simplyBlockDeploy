@@ -3,6 +3,15 @@ set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
 TEMP_KEY="/tmp/tmpkey.pem"
+nr_hugepages=$NR_HUGEPAGES
+BASTION_IP=$BASTION_IP
+GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
+mnodes=$MNODES
+echo "mgmt_private_ips: ${mnodes}"
+IFS=' ' read -ra mnodes <<<"$mnodes"
+storage_private_ips=$STORAGE_PRIVATE_IPS
+sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
+
 
 print_help() {
     echo "Usage: $0 [options]"
