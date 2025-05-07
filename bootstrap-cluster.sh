@@ -244,6 +244,7 @@ ssh_exec() {
 
 install_sbcli_on_node() {
     local node_ip="$1"
+    echo "Installing sbcli on node: $node_ip"
     ssh_exec "$node_ip" "
         old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
         if [[ -n \"\${old_pkg}\" ]]; then
@@ -265,7 +266,18 @@ bootstrap_cluster() {
     # append optional flags
     [[ -n "$LOG_DEL_INTERVAL" ]] && command+=" --log-del-interval $LOG_DEL_INTERVAL"
     [[ -n "$METRICS_RETENTION_PERIOD" ]] && command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
-    # ... all other flags ...
+    [[ -n "$CONTACT_POINT" ]] && command+=" --contact-point $CONTACT_POINT"
+    [[ -n "$GRAFANA_ENDPOINT" ]] && command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
+    [[ -n "$NDCS" ]] && command+=" --data-chunks-per-stripe $NDCS"
+    [[ -n "$NPCS" ]] && command+=" --parity-chunks-per-stripe $NPCS"
+    [[ -n "$CHUNK_BS" ]] && command+=" --distr-chunk-bs $CHUNK_BS"
+    [[ -n "$CAP_WARN" ]] && command+=" --cap-warn $CAP_WARN"
+    [[ -n "$CAP_CRIT" ]] && command+=" --cap-crit $CAP_CRIT"
+    [[ -n "$PROV_CAP_WARN" ]] && command+=" --prov-cap-warn $PROV_CAP_WARN"
+    [[ -n "$PROV_CAP_CRIT" ]] && command+=" --prov-cap-crit $PROV_CAP_CRIT"
+    [[ -n "$HA_TYPE" ]] && command+=" --ha-type $HA_TYPE"
+    [[ -n "$ENABLE_NODE_AFFINITY" ]] && command+=" --enable-node-affinity"
+    [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
 
     ssh_exec "$mgmt_ip" "$command --ifname eth0"
 }
@@ -287,7 +299,21 @@ add_other_mgmt_nodes() {
 add_storage_nodes() {
     local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
     [[ -n "$MAX_LVOL" ]] && add_cmd+=" --max-lvol $MAX_LVOL"
-    # ... add all other flags ...
+    [[ -n "$MAX_SNAPSHOT" ]] && add_cmd+=" --max-snap $MAX_SNAPSHOT"
+    [[ -n "$MAX_SIZE" ]] && add_cmd+=" --max-size $MAX_SIZE"
+    [[ -n "$NO_DEVICE" ]] && add_cmd+=" --number-of-devices $NO_DEVICE"
+    [[ -n "$IOBUF_SMALL_BUFFSIZE" ]] && add_cmd+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
+    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS"
+    [[ -n "$IOBUF_LARGE_BUFFSIZE" ]] && add_cmd+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
+    [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS"
+    [[ -n "$VCPU_COUNT" ]] && add_cmd+=" --vcpu-count $VCPU_COUNT"
+    [[ -n "$ID_DEVICE_BY_NQN" ]] && add_cmd+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
+    [[ -n "$SPDK_IMAGE" ]] && add_cmd+=" --spdk-image $SPDK_IMAGE"
+    [[ -n "$CPU_MASK" ]] && add_cmd+=" --cpu-mask $CPU_MASK"
+    [[ "$DISABLE_HA_JM" == "true" ]] && add_cmd+=" --disable-ha-jm"
+    [[ "$SPDK_DEBUG" == "true" ]] && add_cmd+=" --spdk-debug"
+    [[ -n "$NUMBER_DISTRIB" ]] && add_cmd+=" --number-of-distribs $NUMBER_DISTRIB"
+    [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
 
     scp -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -i $KEY -W %h:%p root@${BASTION_IP}" \
