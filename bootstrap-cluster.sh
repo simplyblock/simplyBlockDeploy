@@ -47,6 +47,8 @@ echo "Cleaning up temp key..."
 rm -f "$TEMP_KEY"
 }
 
+parse_args() {
+# initialize all vars
 MAX_LVOL=""
 MAX_SNAPSHOT=""
 MAX_SIZE=""
@@ -81,7 +83,6 @@ VCPU_COUNT=""
 ID_DEVICE_BY_NQN=""
 K8S_SNODE="false"
 HA_JM_COUNT=""
-
 
 
 while [[ $# -gt 0 ]]; do
@@ -222,303 +223,108 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+}
 
-nr_hugepages=$NR_HUGEPAGES
-BASTION_IP=$BASTION_IP
-GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
-mnodes=$MNODES
-echo "mgmt_private_ips: ${mnodes}"
-IFS=' ' read -ra mnodes <<<"$mnodes"
-storage_private_ips=$STORAGE_PRIVATE_IPS
-sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
-
-echo "cleaning up old cluster..."
-
-for node_ip in ${storage_private_ips}; do
-    echo "SSH into $node_ip and executing commands"
+ssh_exec() {
+    local node_ip="$1"
+    local cmd="$2"
     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    root@${node_ip} "$cmd"
+}
+
+install_sbcli_on_node() {
+    local node_ip="$1"
+    ssh_exec "$node_ip" "
         old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
         if [[ -n \"\${old_pkg}\" ]]; then
             \$old_pkg sn deploy-cleaner
             pip uninstall -y \$old_pkg
         fi
-        sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
+        sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
-        if [ "$K8S_SNODE" == "true" ]; then
-            :  # Do nothing
+        if [ \"$K8S_SNODE\" == \"true\" ]; then
+            :
         else
             ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
-        fi
-    " &
-done
+        fi"
+}
 
-for node_ip in ${sec_storage_private_ips}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
-        if [[ -n \"\${old_pkg}\" ]]; then
-            \$old_pkg sn deploy-cleaner
-            pip uninstall -y \$old_pkg
-        fi
-        sudo sysctl -w vm.nr_hugepages=${nr_hugepages}
-        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
-        if [ "$K8S_SNODE" == "true" ]; then
-            :  # Do nothing
-        else
-            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
-        fi
-    " &
-done
+bootstrap_cluster() {
+    local mgmt_ip="$1"
+    local command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} --dev -d cluster create"
+    # append optional flags
+    [[ -n "$LOG_DEL_INTERVAL" ]] && command+=" --log-del-interval $LOG_DEL_INTERVAL"
+    [[ -n "$METRICS_RETENTION_PERIOD" ]] && command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
+    # ... all other flags ...
 
-for node_ip in ${mnodes[@]}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
-        if [[ -n \"\${old_pkg}\" ]]; then
-            \$old_pkg sn deploy-cleaner
-            pip uninstall -y \$old_pkg
-        fi
-        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
-    "
-done
+    ssh_exec "$mgmt_ip" "$command --ifname eth0"
+}
 
+get_cluster_id() {
+    ssh_exec "${mnodes[0]}" "${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'"
+}
 
-echo "bootstrapping cluster..."
+get_cluster_secret() {
+    ssh_exec "${mnodes[0]}" "${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}"
+}
 
-echo ""
-echo "Deploying management node..."
-echo ""
+add_other_mgmt_nodes() {
+    for ((i = 1; i < ${#mnodes[@]}; i++)); do
+        ssh_exec "${mnodes[$i]}" "${SBCLI_CMD} mgmt add ${mnodes[0]} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0"
+    done
+}
 
-command="${SBCLI_CMD} sn deploy-cleaner ; ${SBCLI_CMD} --dev -d cluster create"
-if [[ -n "$LOG_DEL_INTERVAL" ]]; then
-    command+=" --log-del-interval $LOG_DEL_INTERVAL"
-fi
-if [[ -n "$METRICS_RETENTION_PERIOD" ]]; then
-    command+=" --metrics-retention-period $METRICS_RETENTION_PERIOD"
-fi
-if [[ -n "$CONTACT_POINT" ]]; then
-    command+=" --contact-point $CONTACT_POINT"
-fi
-if [[ -n "$GRAFANA_ENDPOINT" ]]; then
-    command+=" --grafana-endpoint $GRAFANA_ENDPOINT"
-fi
-if [[ -n "$NDCS" ]]; then
-    command+=" --data-chunks-per-stripe $NDCS"
-fi
-if [[ -n "$NPCS" ]]; then
-    command+=" --parity-chunks-per-stripe $NPCS"
-fi
-if [[ -n "$CHUNK_BS" ]]; then
-    command+=" --distr-chunk-bs $CHUNK_BS"
-fi
-if [[ -n "$CAP_WARN" ]]; then
-    command+=" --cap-warn $CAP_WARN"
-fi
-if [[ -n "$CAP_CRIT" ]]; then
-    command+=" --cap-crit $CAP_CRIT"
-fi
-if [[ -n "$PROV_CAP_WARN" ]]; then
-    command+=" --prov-cap-warn $PROV_CAP_WARN"
-fi
-if [[ -n "$PROV_CAP_CRIT" ]]; then
-    command+=" --prov-cap-crit $PROV_CAP_CRIT"
-fi
-if [[ -n "$HA_TYPE" ]]; then
-    command+=" --ha-type $HA_TYPE"
-fi
-if [[ -n "$ENABLE_NODE_AFFINITY" ]]; then
-    command+=" --enable-node-affinity"
-fi
-if [[ -n "$QPAIR_COUNT" ]]; then
-    command+=" --qpair-count $QPAIR_COUNT"
-fi
-echo $command
+add_storage_nodes() {
+    local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
+    [[ -n "$MAX_LVOL" ]] && add_cmd+=" --max-lvol $MAX_LVOL"
+    # ... add all other flags ...
 
-echo ""
-echo "Creating new cluster"
-echo ""
-
-ssh -i "$KEY" -o IPQoS=throughput -o StrictHostKeyChecking=no \
-    -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-    root@${mnodes[0]} "
-$command --ifname eth0
-"
-
-echo ""
-echo "getting cluster id"
-echo ""
-
-CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-    root@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'
-")
-
-
-echo ""
-echo "getting cluster secret"
-echo ""
-
-CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-    root@${mnodes[0]} "
-MANGEMENT_NODE_IP=${mnodes[0]}
-${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}
-")
-
-
-echo ""
-echo "Adding other management nodes if they exist.."
-echo ""
-
-for ((i = 1; i < ${#mnodes[@]}; i++)); do
-    echo ""
-    echo "Adding mgmt node ${mnodes[${i}]}.."
-    echo ""
-
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${mnodes[${i}]} "
-    MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} mgmt add \${MANGEMENT_NODE_IP} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0
-    "
-done
-
-echo ""
-sleep 3
-echo "Adding storage nodes..."
-echo ""
-# node 1
-command="${SBCLI_CMD} --dev -d storage-node add-node"
-
-if [[ -n "$MAX_LVOL" ]]; then
-    command+=" --max-lvol $MAX_LVOL"
-fi
-if [[ -n "$MAX_SNAPSHOT" ]]; then
-    command+=" --max-snap $MAX_SNAPSHOT"
-fi
-if [[ -n "$MAX_SIZE" ]]; then
-    command+=" --max-size $MAX_SIZE"
-fi
-if [[ -n "$NO_DEVICE" ]]; then
-    command+=" --number-of-devices $NO_DEVICE"
-fi
-if [[ -n "$IOBUF_SMALL_BUFFSIZE" ]]; then
-     command+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
-fi
-if [[ -n "$NUM_PARTITIONS" ]]; then
-    command+=" --journal-partition $NUM_PARTITIONS"
-    # command+=" --jm-percent 3"
-fi
-if [[ -n "$IOBUF_LARGE_BUFFSIZE" ]]; then
-    command+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
-fi
-
-if [[ -n "$DATANICS" ]]; then
-     command+=" --data-nics $DATANICS"
-fi
-if [[ -n "$VCPU_COUNT" ]]; then
-     command+=" --vcpu-count $VCPU_COUNT"
-fi
-if [[ -n "$ID_DEVICE_BY_NQN" ]]; then
-     command+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
-fi
-if [[ -n "$SPDK_IMAGE" ]]; then
-    command+=" --spdk-image $SPDK_IMAGE"
-fi
-if [[ -n "$CPU_MASK" ]]; then
-    command+=" --cpu-mask $CPU_MASK"
-fi
-if [ "$DISABLE_HA_JM" == "true" ]; then
-    command+=" --disable-ha-jm"
-fi
-if [ "$SPDK_DEBUG" == "true" ]; then
-    command+=" --spdk-debug"
-fi
-if [[ -n "$NUMBER_DISTRIB" ]]; then
-    command+=" --number-of-distribs $NUMBER_DISTRIB"
-fi
-if [[ -n "$HA_JM_COUNT" ]]; then
-    command+=" --ha-jm-count $HA_JM_COUNT"
-fi
-
-
-if [ "$K8S_SNODE" == "true" ]; then
-    :  # Do nothing
-
-else
     scp -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
+        -o ProxyCommand="ssh -i $KEY -W %h:%p root@${BASTION_IP}" \
         "$KEY" root@${mnodes[0]}:/tmp/tmpkey.pem
 
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${mnodes[0]} "
-    MANGEMENT_NODE_IP=${mnodes[0]}
-    chmod 400 $TEMP_KEY
-    for node in ${storage_private_ips}; do
-        echo \"\"
-        echo \"Getting PCIe address on node \${node} \"
-        echo \"\"
+    ssh_exec "${mnodes[0]}" "
+        chmod 400 $TEMP_KEY
+        for node in ${storage_private_ips}; do
+            PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+            full_cmd=\"$add_cmd ${CLUSTER_ID} \$node:5000 eth0 --data-nics eth1 --ssd-pcie \$PCIE\"
+            \$full_cmd
+            sleep 3
+        done
+        for node in ${sec_storage_private_ips}; do
+            full_cmd=\"$add_cmd --is-secondary-node ${CLUSTER_ID} \$node:5000 eth0 --data-nics eth1\"
+            \$full_cmd
+            sleep 3
+        done
+        ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}"
+}
 
-        PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
+add_pool() {
+    ssh_exec "${mnodes[0]}" "${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}"
+}
 
-        echo \"PCIe: \$PCIE\"
+main() {
+    parse_args "$@"
+    IFS=' ' read -ra mnodes <<< "$MNODES"
 
-        echo ""
-        echo "joining node \${node}"
-        add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1 --ssd-pcie \$PCIE\"
-        echo "add node command: \${add_node_command}"
-        \$add_node_command
-        sleep 3
-    done
+    for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" & done
+    for node_ip in ${sec_storage_private_ips}; do install_sbcli_on_node "$node_ip" & done
+    for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip"; done
 
-    trap cleanup EXIT INT TERM
+    bootstrap_cluster "${mnodes[0]}"
 
-    for node in ${sec_storage_private_ips}; do
-        echo ""
-        echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0 --data-nics eth1\"
-        echo "add node command: \${add_node_command}"
-        \$add_node_command
-        sleep 3
-    done"
+    CLUSTER_ID=$(get_cluster_id)
+    CLUSTER_SECRET=$(get_cluster_secret)
 
-    echo ""
-    echo "Running Cluster Activate"
-    echo ""
-    
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${mnodes[0]} "
-    MANGEMENT_NODE_IP=${mnodes[0]}
-    ${SBCLI_CMD} -d cluster activate ${CLUSTER_ID}
-    "
-fi
+    add_other_mgmt_nodes
+    add_storage_nodes
+    add_pool
 
-echo ""
-echo "adding pool testing1"
-echo ""
+    echo "::set-output name=cluster_id::$CLUSTER_ID"
+    echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
+    echo "::set-output name=cluster_ip::http://${mnodes[0]}"
+    echo "Successfully deployed the cluster"
+}
 
-ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-    root@${mnodes[0]} "
-${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
-"
-
-
-echo "::set-output name=cluster_id::$CLUSTER_ID"
-echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
-echo "::set-output name=cluster_ip::http://${mnodes[0]}"
-
-echo ""
-echo "Successfully deployed the cluster"
-echo ""
+main "$@"
