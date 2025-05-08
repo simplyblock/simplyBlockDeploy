@@ -256,7 +256,12 @@ install_sbcli_on_node() {
             :
         else
             ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
-        fi"
+        fi
+        echo \"Overwriting SIMPLY_BLOCK_DOCKER_IMAGE with ${SIMPLY_BLOCK_DOCKER_IMAGE}\"
+        if [ -n ${SIMPLY_BLOCK_DOCKER_IMAGE+x} ]; then
+            sed -i \"s/^\\(SIMPLY_BLOCK_DOCKER_IMAGE=\\).*$/\\1${SIMPLY_BLOCK_DOCKER_IMAGE}/\" /usr/local/lib/python3.9/site-packages/simplyblock_core/env_var
+        fi
+        "
 }
 
 bootstrap_cluster() {
