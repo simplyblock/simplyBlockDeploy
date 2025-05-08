@@ -10,7 +10,6 @@ mnodes=$MNODES
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$STORAGE_PRIVATE_IPS
-sec_storage_private_ips=$SEC_STORAGE_PRIVATE_IPS
 
 
 print_help() {
@@ -331,7 +330,7 @@ add_storage_nodes() {
             \$full_cmd
             sleep 3
         done
-        for node in ${sec_storage_private_ips}; do
+        for node in ${SEC_STORAGE_PRIVATE_IPS:-}; do
             full_cmd=\"$add_cmd --is-secondary-node ${CLUSTER_ID} \$node:5000 eth0 --data-nics eth1\"
             \$full_cmd
             sleep 3
@@ -348,7 +347,7 @@ main() {
     IFS=' ' read -ra mnodes <<< "$MNODES"
 
     for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" & done
-    for node_ip in ${sec_storage_private_ips}; do install_sbcli_on_node "$node_ip" & done
+    for node_ip in ${SEC_STORAGE_PRIVATE_IPS:-}; do install_sbcli_on_node "$node_ip" & done
     for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip"; done
 
     bootstrap_cluster "${mnodes[0]}"
