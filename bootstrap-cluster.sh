@@ -281,7 +281,11 @@ install_sbcli_on_node() {
         ssh_exec "$node_ip" "
             echo ${configure_cmd} > /root/sn_deploy.log 2>&1
             $configure_cmd >> /root/sn_deploy.log 2>&1
-            ${SBCLI_CMD} sn deploy --ifname eth0 >> /root/sn_deploy.log 2>&1 &
+            if [ \"$K8S_SNODE\" == \"true\" ]; then
+                :
+            else
+                ${SBCLI_CMD} sn deploy --ifname eth0 >> /root/sn_deploy.log 2>&1 &
+            fi
         "
     fi
 }
