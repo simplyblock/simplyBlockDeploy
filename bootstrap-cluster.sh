@@ -2,7 +2,6 @@
 set -euo pipefail
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
-TEMP_KEY="/tmp/tmpkey.pem"
 nr_hugepages=$NR_HUGEPAGES
 BASTION_IP=$BASTION_IP
 GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
@@ -48,11 +47,6 @@ print_help() {
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
     echo "  --help                               Print this help message"
     exit 0
-}
-
-cleanup() {
-echo "Cleaning up temp key..."
-rm -f "$TEMP_KEY"
 }
 
 parse_args() {
@@ -316,20 +310,14 @@ add_storage_nodes() {
     [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT" #
     [[ -n "$NAMESPACE" ]] && add_cmd+=" --namespace $NAMESPACE" #
 
-    scp -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -i $KEY -W %h:%p root@${BASTION_IP}" \
-        "$KEY" root@${mnodes[0]}:/tmp/tmpkey.pem
-
     ssh_exec "${mnodes[0]}" "
-        chmod 400 $TEMP_KEY
         for node in ${storage_private_ips}; do
-            PCIE=\$(ssh -i $TEMP_KEY -o StrictHostKeyChecking=no root@\$node \"lspci -D | grep -i 'NVM' | awk '{print \\\$1}' | paste -sd ' ' -\")
-            full_cmd=\"$add_cmd ${CLUSTER_ID} \$node:5000 eth0 --data-nics eth1 --ssd-pcie \$PCIE\"
+            full_cmd=\"$add_cmd ${CLUSTER_ID} \$node:5000 eth0\"
             \$full_cmd
             sleep 3
         done
         for node in ${SEC_STORAGE_PRIVATE_IPS:-}; do
-            full_cmd=\"$add_cmd --is-secondary-node ${CLUSTER_ID} \$node:5000 eth0 --data-nics eth1\"
+            full_cmd=\"$add_cmd --is-secondary-node ${CLUSTER_ID} \$node:5000 eth0\"
             \$full_cmd
             sleep 3
         done
