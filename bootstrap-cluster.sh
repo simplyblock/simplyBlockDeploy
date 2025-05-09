@@ -42,9 +42,14 @@ print_help() {
     echo "  --k8s-snode                          Set Storage node to run on k8s (default: false)"
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
+    echo "  --enable-test-device                 Enable creation of test device (optional)"
+    echo "  --full-page-unmap                    Enable use_map_whole_page_on_1st_write flaf in bdev_distrib_create and bdev_alceml_create (optional)"
     echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
     echo "  --vcpu-count                         Set Number of vCPUs used for SPDK. (optional)"
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
+    echo "  --jm-percent                         Number in percent to use for JM from each device (optional)"
+    echo "  --size-of-device                     Size of device per storage node (optional)"
+    echo "  --namespace                          The Kubernetes Namespace in which storage node needs to be installed (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -90,6 +95,10 @@ SOCKETS_TO_USE=""
 PCI_ALLOWED=""
 PCI_BLOCKED=""
 NAMESPACE=""
+JM_PERCENT=""
+PARTITION_SIZE=""
+ENABLE_TEST_DEVICE="false"
+FULL_PAGE_UNMAP="false"
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -207,6 +216,12 @@ while [[ $# -gt 0 ]]; do
     --disable-ha-jm)
         DISABLE_HA_JM="true"
         ;;
+    --enable-test-device)
+        ENABLE_TEST_DEVICE="true"
+        ;;
+    --full-page-unmap)
+        FULL_PAGE_UNMAP="true"
+        ;;
     --data-nics)
         DATANICS="$2"
         shift
@@ -217,6 +232,14 @@ while [[ $# -gt 0 ]]; do
         ;;
     --id-device-by-nqn)
         ID_DEVICE_BY_NQN="$2"
+        shift
+        ;;
+    --jm-percent)
+        JM_PERCENT="$2"
+        shift
+        ;;
+    --size-of-device)
+        PARTITION_SIZE="$2"
         shift
         ;;
     --help)
@@ -305,19 +328,25 @@ add_storage_nodes() {
         return
     fi
     local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
-    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS" #
-    [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS" #
-    [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT" #
-    [[ -n "$NAMESPACE" ]] && add_cmd+=" --namespace $NAMESPACE" #
+    [[ -n "$MAX_SNAPSHOT" ]] && add_cmd+=" --max-snap $MAX_SNAPSHOT"
+    [[ -n "$IOBUF_SMALL_BUFFSIZE" ]] && add_cmd+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
+    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS"
+    [[ -n "$IOBUF_LARGE_BUFFSIZE" ]] && add_cmd+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
+    [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS"
+    [[ -n "$ID_DEVICE_BY_NQN" ]] && add_cmd+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
+    [[ -n "$SPDK_IMAGE" ]] && add_cmd+=" --spdk-image $SPDK_IMAGE"
+    [[ "$DISABLE_HA_JM" == "true" ]] && add_cmd+=" --disable-ha-jm"
+    [[ "$ENABLE_TEST_DEVICE" == "true" ]] && add_cmd+=" --enable-test-device"
+    [[ "$FULL_PAGE_UNMAP" == "true" ]] && add_cmd+=" --full-page-unmap"
+    [[ "$SPDK_DEBUG" == "true" ]] && add_cmd+=" --spdk-debug"
+    [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
+    [[ -n "$JM_PERCENT" ]] && add_cmd+=" --jm-percent $JM_PERCENT"
+    [[ -n "$PARTITION_SIZE" ]] && add_cmd+=" --size-of-device $PARTITION_SIZE"
 
     ssh_exec "${mnodes[0]}" "
         for node in ${storage_private_ips}; do
             full_cmd=\"$add_cmd ${CLUSTER_ID} \$node:5000 eth0\"
-            \$full_cmd
-            sleep 3
-        done
-        for node in ${SEC_STORAGE_PRIVATE_IPS:-}; do
-            full_cmd=\"$add_cmd --is-secondary-node ${CLUSTER_ID} \$node:5000 eth0\"
+            echo \"\$full_cmd\"
             \$full_cmd
             sleep 3
         done
@@ -341,7 +370,6 @@ main() {
     [[ -n "$PCI_BLOCKED" ]] && configure_cmd+=" --pci-blocked $PCI_BLOCKED"
 
     for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
-    for node_ip in ${SEC_STORAGE_PRIVATE_IPS:-}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
     for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip" ""; done
 
     bootstrap_cluster "${mnodes[0]}"
