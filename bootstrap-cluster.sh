@@ -91,7 +91,11 @@ VCPU_COUNT=""
 ID_DEVICE_BY_NQN=""
 K8S_SNODE="false"
 HA_JM_COUNT=""
-
+NODES_PER_SOCKET=""
+SOCKETS_TO_USE=""
+PCI_ALLOWED=""
+PCI_BLOCKED=""
+NAMESPACE=""
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -252,16 +256,17 @@ install_sbcli_on_node() {
         fi
         sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
-        if [ \"$K8S_SNODE\" == \"true\" ]; then
-            :
-        else
-            ${SBCLI_CMD} sn deploy --ifname eth0 > /root/sn_deploy.log 2>&1 &
-        fi
-        echo \"Overwriting SIMPLY_BLOCK_DOCKER_IMAGE with ${SIMPLY_BLOCK_DOCKER_IMAGE}\"
-        if [ -n ${SIMPLY_BLOCK_DOCKER_IMAGE+x} ]; then
-            sed -i \"s/^\\(SIMPLY_BLOCK_DOCKER_IMAGE=\\).*$/\\1${SIMPLY_BLOCK_DOCKER_IMAGE}/\" /usr/local/lib/python3.9/site-packages/simplyblock_core/env_var
-        fi
+    "
+
+    # sbcli configure
+    if [[ -n "$2" ]]; then
+        local configure_cmd="$2"
+        ssh_exec "$node_ip" "
+            echo ${configure_cmd} > /root/sn_deploy.log 2>&1
+            $configure_cmd >> /root/sn_deploy.log 2>&1 &
+            ${SBCLI_CMD} sn deploy --ifname eth0 >> /root/sn_deploy.log 2>&1 &
         "
+    fi
 }
 
 bootstrap_cluster() {
@@ -306,22 +311,10 @@ add_storage_nodes() {
         return
     fi
     local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
-    [[ -n "$MAX_LVOL" ]] && add_cmd+=" --max-lvol $MAX_LVOL"
-    [[ -n "$MAX_SNAPSHOT" ]] && add_cmd+=" --max-snap $MAX_SNAPSHOT"
-    [[ -n "$MAX_SIZE" ]] && add_cmd+=" --max-size $MAX_SIZE"
-    [[ -n "$NO_DEVICE" ]] && add_cmd+=" --number-of-devices $NO_DEVICE"
-    [[ -n "$IOBUF_SMALL_BUFFSIZE" ]] && add_cmd+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
-    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS"
-    [[ -n "$IOBUF_LARGE_BUFFSIZE" ]] && add_cmd+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
-    [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS"
-    [[ -n "$VCPU_COUNT" ]] && add_cmd+=" --vcpu-count $VCPU_COUNT"
-    [[ -n "$ID_DEVICE_BY_NQN" ]] && add_cmd+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
-    [[ -n "$SPDK_IMAGE" ]] && add_cmd+=" --spdk-image $SPDK_IMAGE"
-    [[ -n "$CPU_MASK" ]] && add_cmd+=" --cpu-mask $CPU_MASK"
-    [[ "$DISABLE_HA_JM" == "true" ]] && add_cmd+=" --disable-ha-jm"
-    [[ "$SPDK_DEBUG" == "true" ]] && add_cmd+=" --spdk-debug"
-    [[ -n "$NUMBER_DISTRIB" ]] && add_cmd+=" --number-of-distribs $NUMBER_DISTRIB"
-    [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
+    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS" #
+    [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS" #
+    [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT" #
+    [[ -n "$NAMESPACE" ]] && add_cmd+=" --namespace $NAMESPACE" #
 
     scp -i "$KEY" -o StrictHostKeyChecking=no \
         -o ProxyCommand="ssh -i $KEY -W %h:%p root@${BASTION_IP}" \
@@ -351,9 +344,17 @@ main() {
     parse_args "$@"
     IFS=' ' read -ra mnodes <<< "$MNODES"
 
-    for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" & done
-    for node_ip in ${SEC_STORAGE_PRIVATE_IPS:-}; do install_sbcli_on_node "$node_ip" & done
-    for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip"; done
+    local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
+    [[ -n "$MAX_LVOL" ]] && configure_cmd+=" --max-lvol $MAX_LVOL"
+    [[ -n "$MAX_SIZE" ]] && configure_cmd+=" --max-size $MAX_SIZE"
+    [[ -n "$NODES_PER_SOCKET" ]] && configure_cmd+=" --nodes-per-socket $NODES_PER_SOCKET"
+    [[ -n "$SOCKETS_TO_USE" ]] && configure_cmd+=" --sockets-to-use $SOCKETS_TO_USE"
+    [[ -n "$PCI_ALLOWED" ]] && configure_cmd+=" --pci-allowed $PCI_ALLOWED"
+    [[ -n "$PCI_BLOCKED" ]] && configure_cmd+=" --pci-blocked $PCI_BLOCKED"
+
+    for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
+    for node_ip in ${SEC_STORAGE_PRIVATE_IPS:-}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
+    for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip" ""; done
 
     bootstrap_cluster "${mnodes[0]}"
 
