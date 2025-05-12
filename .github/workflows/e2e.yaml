@@ -133,7 +133,7 @@ jobs:
       - name: Install SPDK-CSI using Helm
         run: |
           cd simplyblock-csi/charts/spdk-csi/latest/spdk-csi
-          helm install -n spdk-csi --create-namespace spdk-csi ./ \
+          helm install -n simplyblk --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
              --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
@@ -157,7 +157,7 @@ jobs:
       - name: Install SIMPLYBLK-CONTROLLER using Helm
         run: |
           cd simplyblock-csi/charts/sb-controller/latest
-          helm install -n spdk-csi --create-namespace sb-controller ./ \
+          helm install -n simplyblk --create-namespace sb-controller ./ \
              --set storagenode.create=true \
              --set cachingnode.create=false 
 
