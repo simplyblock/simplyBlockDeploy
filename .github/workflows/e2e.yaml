@@ -23,11 +23,11 @@ on:
         type: boolean
 jobs:
   e2e:
-    #runs-on: self-hosted
+    # # runs-on: self-hosted
+    # concurrency:
+    #   group: ${{ github.workflow }}
+    #   cancel-in-progress: false
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}
-      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -150,7 +150,7 @@ jobs:
           chmod +x config-apply.sh
           ./config-apply.sh
 
-      - name: Apply configuration
+      - name: Reboot Workers
         run: |
           $GITHUB_WORKSPACE/reboot-worker.sh
 
