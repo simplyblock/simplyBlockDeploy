@@ -96,7 +96,7 @@ jobs:
             -var "storage_nodes_instance_type=m6i.2xlarge" \
             -var "sec_storage_nodes_instance_type=m6i.2xlarge" \
             -var "sec_storage_nodes=0" \
-            -var "snode_deploy_on_k8s=false" \
+            -var "snode_deploy_on_k8s=true" \
             -var "extra_nodes=1" \
             -var "extra_nodes_instance_type=m6id.xlarge" \
             -var "extra_nodes_arch=amd64" \
@@ -108,13 +108,13 @@ jobs:
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
-        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-size 150g --number-of-devices 1 --journal-partition 0
+        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-size 150g --number-of-devices 1 --journal-partition 0 --k8s-snode
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
 
       - name: Bootstrap K3s
-        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh
+        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh --k8s-snode
         id: bootstrap_k3s
 
       - name: copying  Kubeconfig file
@@ -131,7 +131,7 @@ jobs:
 
       - name: Install SPDK-CSI using Helm
         run: |
-          cd simplyblock-csi/charts/latest/spdk-csi
+          cd simplyblock-csi/charts/spdk-csi/latest/spdk-csi
           helm install -n spdk-csi --create-namespace spdk-csi ./ \
              --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
              --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
@@ -139,9 +139,26 @@ jobs:
              --set logicalVolume.pool_name=testing1 \
              --set image.simplyblock.tag=main \
              --set image.spdkcsi.tag=master-arm64 \
-             --set storagenode.create=false \
-             --set cachingnode.create=true \
+             --set storagenode.create=true \
+             --set cachingnode.create=false \
              --set logicalVolume.encryption=true
+
+      - name: Apply configuration
+        run: |
+          cd simplyblock-csi/scripts
+          chmod +x config-apply.sh
+          ./config-apply.sh
+
+      - name: Apply configuration
+        run: |
+          $GITHUB_WORKSPACE/reboot-worker.sh
+
+      - name: Install SIMPLYBLK-CONTROLLER using Helm
+        run: |
+          cd simplyblock-csi/charts/sb-controller/latest
+          helm install -n spdk-csi --create-namespace sb-controller ./ \
+             --set storagenode.create=true \
+             --set cachingnode.create=false 
 
       - name: Check Cluster Status
         run: |
