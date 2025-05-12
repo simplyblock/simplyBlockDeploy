@@ -22,7 +22,7 @@ on:
         default: false
         type: boolean
       k8s-snode:
-        description: "Add snode on k8s"
+        description: "Run snode on k8s"
         required: false
         default: false
         type: boolean

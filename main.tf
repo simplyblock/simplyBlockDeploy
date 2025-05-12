@@ -255,15 +255,15 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 9060
-    to_port     = 9098
+    to_port     = 9099
     protocol    = "tcp"
     self        = true
     description = "storage node remote devices"
   }
 
   ingress {
-    from_port   = 9099
-    to_port     = 9099
+    from_port   = 9030
+    to_port     = 9060
     protocol    = "tcp"
     self        = true
     description = "storage node hubLvol"
