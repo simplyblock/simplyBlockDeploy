@@ -23,7 +23,8 @@ on:
         type: boolean
 jobs:
   e2e:
-    runs-on: self-hosted
+    #runs-on: self-hosted
+    runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}
       cancel-in-progress: false
