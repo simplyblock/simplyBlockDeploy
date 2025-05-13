@@ -128,6 +128,14 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var sec_storage_nodes=1 -var sec_storage_nodes_instance_type="m5.large" --auto-approve
 ```
 
+### Specifying the parameters for Storage node Configuration 
+
+```bash
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
+                -var max_lvol=20 -var max_size="200G" -var nodes_per_socket=1 \
+                -var socket_to_use="0" -var 'pci_allowed=[""]' -var 'pci_blocked==[""]' --auto-approve
+```
+
 ### Save Terraform Output to a File
 
 ```bash

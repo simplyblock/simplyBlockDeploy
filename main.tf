@@ -777,6 +777,10 @@ curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip
 unzip awscliv2.zip
 sudo ./aws/install
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
+                  --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
+                  --pci-allowed ${var.pci_allowed} --pci-blocked ${var.pci_blocked}
+
   ${var.sbcli_cmd} storage-node deploy
 fi
 EOF
