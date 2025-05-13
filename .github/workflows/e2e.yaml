@@ -178,19 +178,19 @@ jobs:
           eval $HELM_CMD
 
       - name: Apply configuration
-        if: ${{ github.event.inputs.k8s-snode }}
+        if: ${{ github.event.inputs.k8s-snode == 'true' }}
         run: |
           cd simplyblock-csi/scripts
           chmod +x config-apply.sh
           ./config-apply.sh
 
       - name: Reboot Workers
-        if: ${{ github.event.inputs.k8s-snode }}
+        if: ${{ github.event.inputs.k8s-snode == 'true' }}
         run: |
           $GITHUB_WORKSPACE/reboot-worker.sh
 
       - name: Install SIMPLYBLK-CONTROLLER using Helm
-        if: ${{ github.event.inputs.k8s-snode }}
+        if: ${{ github.event.inputs.k8s-snode == 'true' }}
         run: |
           cd simplyblock-csi/charts/sb-controller/latest
           helm install -n simplyblk --create-namespace sb-controller ./ \
