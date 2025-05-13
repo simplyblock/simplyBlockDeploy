@@ -35,7 +35,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set upload_logs for scheduled and push events
         if: github.event_name == 'schedule' || github.event_name == 'push'
@@ -116,13 +116,13 @@ jobs:
 
           echo "Running: $TF_CMD"
           eval $TF_CMD
-            
+
       - name: Apply Terraform Changes
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
         run: |
-          CMD="$GITHUB_WORKSPACE/bootstrap-cluster.sh --max-snap 10 --journal-partition 0"
+          CMD="$GITHUB_WORKSPACE/aws/bootstrap-cluster.sh --max-snap 10 --journal-partition 0"
           if ${{ github.event.inputs.k8s-snode }}; then
             CMD="$CMD --k8s-snode"
           fi
@@ -134,7 +134,7 @@ jobs:
 
       - name: Bootstrap K3s
         run: |
-          CMD="$GITHUB_WORKSPACE/bootstrap-k3s.sh"
+          CMD="$GITHUB_WORKSPACE/aws/bootstrap-k3s.sh"
           if ${{ github.event.inputs.k8s-snode }}; then
             CMD="$CMD --k8s-snode"
           fi
@@ -151,8 +151,11 @@ jobs:
         run: |
           sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
-      - name: Clone simplyblock-csi repo
-        run: git clone -b ${{ github.event.inputs.simplyblock_csi_branch || 'master'}} https://github.com/simplyblock-io/simplyblock-csi.git
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: https://github.com/simplyblock-io/simplyblock-csi.git
+          ref: ${{ github.event.inputs.simplyblock_csi_branch || 'master'}}
 
       - name: Install SPDK-CSI using Helm
         run: |
@@ -186,7 +189,7 @@ jobs:
       - name: Reboot Workers
         if: ${{ github.event.inputs.k8s-snode == 'true' }}
         run: |
-          $GITHUB_WORKSPACE/reboot-worker.sh
+          $GITHUB_WORKSPACE/aws/reboot-worker.sh
 
       - name: Install SIMPLYBLK-CONTROLLER using Helm
         if: ${{ github.event.inputs.k8s-snode == 'true' }}
@@ -207,9 +210,9 @@ jobs:
             response=$(curl -s -X GET "$CLUSTER_API_GATEWAY_ENDPOINT/cluster/$CLUSTER_UUID" \
               -H "Content-Type: application/json" \
               -H "Authorization: $CLUSTER_UUID $CLUSTER_SECRET")
-            
+
             status=$(echo $response | jq -r '.results[0].status')
-            
+
             if [ "$status" != "active" ]; then
                 echo "Cluster status is not active, current status: $status, retrying"
                 n=$((n+1)) 
@@ -222,7 +225,6 @@ jobs:
           echo "Cluster status is not active"
           exit 1
 
-                  
       - name: Run tests
         run: |
           cd simplyblock-csi
@@ -234,9 +236,9 @@ jobs:
       - name: Upload docker logs to s3
         run: |
           if [[ "${{ github.event_name }}" == 'schedule' || "${{ env.upload_logs }}" == 'true' ]]; then
-            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
+            $GITHUB_WORKSPACE/aws/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
           else
-            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
+            $GITHUB_WORKSPACE/aws/upload_docker_logs_to_s3.sh
           fi
         if: always()
         env:

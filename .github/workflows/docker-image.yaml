@@ -6,14 +6,10 @@ on:
       - 'main'
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@master
-
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -25,11 +21,12 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Push docker image
-      env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: simplyblockdeploy
-        IMAGE_TAG: latest
-      run: |
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+    - name: Build and publish image
+      uses: docker/build-push-action@v6
+      with:
+        context: "{defaultContext}:aws"
+        file: docker/Dockerfile
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/simplyblockdeploy:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
