@@ -150,3 +150,34 @@ variable "snode_deploy_on_k8s" {
     error_message = "The value must be either 'true' or 'false'."
   }
 }
+
+
+variable "max_lvol" {
+  type        = number
+  default     = 20
+}
+
+variable "max_size" {
+  type        = string
+  default     = "200G"
+}
+
+variable "nodes_per_socket" {
+  type        = number
+  default     = 1
+}
+
+variable "socket_to_use" {
+  type        = string
+  default     = "0"
+}
+
+variable "pci_allowed" {
+  type        = list(string)
+  default     = [""]
+}
+
+variable "pci_blocked" {
+  type        = list(string)
+  default     = [""]
+}

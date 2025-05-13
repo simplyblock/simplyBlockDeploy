@@ -255,15 +255,15 @@ resource "aws_security_group" "storage_nodes_sg" {
 
   ingress {
     from_port   = 9060
-    to_port     = 9098
+    to_port     = 9099
     protocol    = "tcp"
     self        = true
     description = "storage node remote devices"
   }
 
   ingress {
-    from_port   = 9099
-    to_port     = 9099
+    from_port   = 9030
+    to_port     = 9060
     protocol    = "tcp"
     self        = true
     description = "storage node hubLvol"
@@ -740,6 +740,10 @@ curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip
 unzip awscliv2.zip
 sudo ./aws/install
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
+                --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
+                --pci-allowed "${join(",", var.pci_allowed)}" --pci-blocked "${join(",", var.pci_blocked)}"
+
   ${var.sbcli_cmd} storage-node deploy
 fi
 EOF
@@ -777,6 +781,10 @@ curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip
 unzip awscliv2.zip
 sudo ./aws/install
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
+                --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
+                --pci-allowed "${join(",", var.pci_allowed)}" --pci-blocked "${join(",", var.pci_blocked)}"
+
   ${var.sbcli_cmd} storage-node deploy
 fi
 EOF
