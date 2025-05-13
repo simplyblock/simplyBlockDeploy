@@ -123,7 +123,7 @@ jobs:
 
       - name: Bootstrap Cluster
         run: |
-          CMD="$GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-size 150g --number-of-devices 1 --journal-partition 0"
+          CMD="$GITHUB_WORKSPACE/bootstrap-cluster.sh --max-snap 10 --journal-partition 0"
           if ${{ github.event.inputs.k8s-snode }}; then
             CMD="$CMD --k8s-snode"
           fi
