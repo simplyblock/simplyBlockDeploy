@@ -193,12 +193,9 @@ jobs:
         if: ${{ github.event.inputs.k8s-snode }}
         run: |
           cd simplyblock-csi/charts/sb-controller/latest
-          HELM_CMD="helm install -n simplyblk --create-namespace sb-controller ./ \
-             --set cachingnode.create=false" \
+          helm install -n simplyblk --create-namespace sb-controller ./ \
+             --set cachingnode.create=false \
              --set storagenode.create=true
-             
-          echo "Running: $HELM_CMD"
-          eval $HELM_CMD
 
       - name: Check Cluster Status
         run: |
