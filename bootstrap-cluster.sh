@@ -388,9 +388,9 @@ main() {
     add_storage_nodes
     add_pool
 
-    echo "::set-output name=cluster_id::$CLUSTER_ID"
-    echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
-    echo "::set-output name=cluster_ip::http://${mnodes[0]}"
+    echo "cluster_id=$CLUSTER_ID" >> ${GITHUB_OUTPUT:-/dev/stdout}
+    echo "cluster_secret=$CLUSTER_SECRET" >> ${GITHUB_OUTPUT:-/dev/stdout}
+    echo "cluster_ip=http://${mnodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
     echo "Successfully deployed the cluster"
 }
 
