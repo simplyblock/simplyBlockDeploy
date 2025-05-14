@@ -435,10 +435,10 @@ ${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}
 
 API_INVOKE_URL=$(terraform output -raw api_invoke_url)
 
-echo "::set-output name=cluster_id::$CLUSTER_ID"
-echo "::set-output name=cluster_secret::$CLUSTER_SECRET"
-echo "::set-output name=cluster_ip::http://${mnodes[0]}"
-echo "::set-output name=cluster_api_gateway_endpoint::$API_INVOKE_URL"
+echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+echo "cluster_secret=$CLUSTER_SECRET" >> $GITHUB_OUTPUT
+echo "cluster_ip=http://${mnodes[0]}" >> $GITHUB_OUTPUT
+echo "cluster_api_gateway_endpoint=$API_INVOKE_URL" >> $GITHUB_OUTPUT
 
 echo ""
 echo "Successfully deployed the cluster"

@@ -62,8 +62,8 @@ IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
 storage_private_ips=$(terraform output -raw storage_private_ips)
 sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
-echo "::set-output name=KEY::$KEY"
-echo "::set-output name=extra_node_ip::${mnodes[0]}"
+echo "KEY=$KEY" >> $GITHUB_OUTPUT
+echo "extra_node_ip=${mnodes[0]}" >> $GITHUB_OUTPUT
 
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
