@@ -21,12 +21,6 @@ on:
         required: false
         default: false
         type: boolean
-      k8s-snode:
-        description: "Run snode on k8s"
-        required: false
-        default: false
-        type: boolean
-
 jobs:
   e2e:
     runs-on: self-hosted
@@ -35,7 +29,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Set upload_logs for scheduled and push events
         if: github.event_name == 'schedule' || github.event_name == 'push'
@@ -95,51 +89,31 @@ jobs:
 
       - name: Plan Terraform Changes
         run: |
-          TF_CMD="terraform plan \
-            -var \"mgmt_nodes=1\" \
-            -var \"storage_nodes=3\" \
-            -var \"storage_nodes_arch=amd64\" \
-            -var \"storage_nodes_instance_type=m6i.2xlarge\" \
-            -var \"sec_storage_nodes_instance_type=m6i.2xlarge\" \
-            -var \"sec_storage_nodes=0\" \
-            -var \"extra_nodes=1\" \
-            -var \"extra_nodes_instance_type=m6id.xlarge\" \
-            -var \"extra_nodes_arch=amd64\" \
-            -var \"region=us-east-2\" \
-            -var \"sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}\""
-
-          if ${{ github.event.inputs.k8s-snode }}; then
-            TF_CMD="$TF_CMD -var \"snode_deploy_on_k8s=true\""
-          fi
-
-          TF_CMD="$TF_CMD -out=tfplan"
-
-          echo "Running: $TF_CMD"
-          eval $TF_CMD
-
+          terraform plan \
+            -var "mgmt_nodes=1" \
+            -var "storage_nodes=3" \
+            -var "storage_nodes_arch=arm64" \
+            -var "storage_nodes_instance_type=m6g.2xlarge" \
+            -var "sec_storage_nodes_instance_type=m6g.2xlarge" \
+            -var "snode_deploy_on_k8s=true" \
+            -var "extra_nodes=1" \
+            -var "extra_nodes_instance_type=m6gd.xlarge" \
+            -var "extra_nodes_arch=arm64" \
+            -var "region=us-east-2" \
+            -var "sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}" \
+            -out=tfplan
+            
       - name: Apply Terraform Changes
         run: terraform apply tfplan
 
       - name: Bootstrap Cluster
-        run: |
-          CMD="$GITHUB_WORKSPACE/aws/bootstrap-cluster.sh --max-snap 10 --journal-partition 0"
-          if ${{ github.event.inputs.k8s-snode }}; then
-            CMD="$CMD --k8s-snode"
-          fi
-          echo "Running: $CMD"
-          eval $CMD
+        run: $GITHUB_WORKSPACE/bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g --number-of-devices 1 --k8s-snode
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
 
       - name: Bootstrap K3s
-        run: |
-          CMD="$GITHUB_WORKSPACE/aws/bootstrap-k3s.sh"
-          if ${{ github.event.inputs.k8s-snode }}; then
-            CMD="$CMD --k8s-snode"
-          fi
-          echo "Running: $CMD"
-          eval $CMD
+        run: $GITHUB_WORKSPACE/bootstrap-k3s.sh --k8s-snode
         id: bootstrap_k3s
 
       - name: copying  Kubeconfig file
@@ -151,53 +125,22 @@ jobs:
         run: |
           sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          repository: https://github.com/simplyblock-io/simplyblock-csi.git
-          ref: ${{ github.event.inputs.simplyblock_csi_branch || 'master'}}
+      - name: Clone simplyblock-csi repo
+        run: git clone -b ${{ github.event.inputs.simplyblock_csi_branch || 'master'}} https://github.com/simplyblock-io/simplyblock-csi.git
 
       - name: Install SPDK-CSI using Helm
         run: |
-          cd simplyblock-csi/charts/spdk-csi/latest/spdk-csi
-          HELM_CMD="helm install -n simplyblk --create-namespace spdk-csi ./ \
-            --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
-            --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
-            --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
-            --set logicalVolume.pool_name=testing1 \
-            --set image.simplyblock.tag=main \
-            --set image.spdkcsi.tag=master-arm64 \
-            --set cachingnode.create=false \
-            --set logicalVolume.encryption=true"
-
-          if ${{ github.event.inputs.k8s-snode }}; then
-            HELM_CMD="$HELM_CMD --set storagenode.create=true"
-          else
-            HELM_CMD="$HELM_CMD --set storagenode.create=false"
-          fi
-
-          echo "Running: $HELM_CMD"
-          eval $HELM_CMD
-
-      - name: Apply configuration
-        if: ${{ github.event.inputs.k8s-snode == 'true' }}
-        run: |
-          cd simplyblock-csi/scripts
-          chmod +x config-apply.sh
-          ./config-apply.sh
-
-      - name: Reboot Workers
-        if: ${{ github.event.inputs.k8s-snode == 'true' }}
-        run: |
-          $GITHUB_WORKSPACE/aws/reboot-worker.sh
-
-      - name: Install SIMPLYBLK-CONTROLLER using Helm
-        if: ${{ github.event.inputs.k8s-snode == 'true' }}
-        run: |
-          cd simplyblock-csi/charts/sb-controller/latest
-          helm install -n simplyblk --create-namespace sb-controller ./ \
-             --set cachingnode.create=false \
-             --set storagenode.create=true
+          cd simplyblock-csi/charts/latest/spdk-csi
+          helm install -n spdk-csi --create-namespace spdk-csi ./ \
+             --set csiConfig.simplybk.uuid=${{ steps.bootstrap_cluster.outputs.cluster_id }} \
+             --set csiConfig.simplybk.ip=${{ steps.bootstrap_cluster.outputs.cluster_api_gateway_endpoint }} \
+             --set csiSecret.simplybk.secret=${{ steps.bootstrap_cluster.outputs.cluster_secret }} \
+             --set logicalVolume.pool_name=testing1 \
+             --set image.simplyblock.tag=main \
+             --set image.spdkcsi.tag=master-arm64 \
+             --set storagenode.create=true \
+             --set cachingnode.create=true \
+             --set logicalVolume.encryption=true
 
       - name: Check Cluster Status
         run: |
@@ -210,9 +153,9 @@ jobs:
             response=$(curl -s -X GET "$CLUSTER_API_GATEWAY_ENDPOINT/cluster/$CLUSTER_UUID" \
               -H "Content-Type: application/json" \
               -H "Authorization: $CLUSTER_UUID $CLUSTER_SECRET")
-
+            
             status=$(echo $response | jq -r '.results[0].status')
-
+            
             if [ "$status" != "active" ]; then
                 echo "Cluster status is not active, current status: $status, retrying"
                 n=$((n+1)) 
@@ -225,20 +168,21 @@ jobs:
           echo "Cluster status is not active"
           exit 1
 
+                  
       - name: Run tests
         run: |
           cd simplyblock-csi
           echo "Running tests in namespace ${{ steps.get-namespace.outputs.namespace }}"
           export CSI_NAMESPACE=spdk-csi
           export CGO_ENABLED=1
-          make e2e-test E2E_TEST_ARGS="--ginkgo.focus=\"SPDKCSI-(NVMEOF|SNAPSHOT|CLONE|NodeRestart)\" --ginkgo.dry-run"
+          make e2e-test
 
       - name: Upload docker logs to s3
         run: |
           if [[ "${{ github.event_name }}" == 'schedule' || "${{ env.upload_logs }}" == 'true' ]]; then
-            $GITHUB_WORKSPACE/aws/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh --k8s --namespace "spdk-csi"
           else
-            $GITHUB_WORKSPACE/aws/upload_docker_logs_to_s3.sh
+            $GITHUB_WORKSPACE/upload_docker_logs_to_s3.sh
           fi
         if: always()
         env:
