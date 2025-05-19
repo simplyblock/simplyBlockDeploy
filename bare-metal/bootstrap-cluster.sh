@@ -274,6 +274,9 @@ install_sbcli_on_node() {
         sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
+    if [ -n "${SIMPLY_BLOCK_DOCKER_IMAGE+x}" ]; then
+        ssh_exec "$node_ip" "sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" /usr/local/lib/python3.9/site-packages/simplyblock_core/env_var"
+    fi
 
     # sbcli configure
     if [[ -n "$2" ]]; then
