@@ -100,6 +100,9 @@ PARTITION_SIZE=""
 ENABLE_TEST_DEVICE="false"
 FULL_PAGE_UNMAP="false"
 
+PROXY_URL="http://34.32.77.31:5000"
+INSECURE_URL="34.32.77.31:5000"
+
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
@@ -262,8 +265,43 @@ ssh_exec() {
     root@${node_ip} "$cmd"
 }
 
+setup_docker_proxy() {
+    DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
+
+    if [ ! -f "$DOCKER_DAEMON_JSON" ]; then
+        sudo bash -c "echo '{}' > $DOCKER_DAEMON_JSON"
+    fi
+
+    if ! command -v jq &> /dev/null; then
+        echo "jq could not be found. Please install jq."
+        exit 1
+    fi
+
+    CONFIG=$(sudo cat "$DOCKER_DAEMON_JSON")
+    PROXY_URL=$1
+    INSECURE_URL=$2
+    echo "Setting up Docker proxy with URL: $PROXY_URL and Insecure URL: $INSECURE_URL"
+
+    UPDATED_CONFIG=$(echo "$CONFIG" | jq --arg url "$PROXY_URL" '
+    .["registry-mirrors"] = (.["registry-mirrors"] // []) + (if (.["registry-mirrors"] // []) | index($url) then [] else [$url] end)
+    ')
+
+    UPDATED_CONFIG=$(echo "$UPDATED_CONFIG" | jq --arg url "$INSECURE_URL" '
+    .["insecure-registries"] = (.["insecure-registries"] // []) + (if (.["insecure-registries"] // []) | index($url) then [] else [$url] end)
+    ')
+
+    echo "$UPDATED_CONFIG" | sudo tee "$DOCKER_DAEMON_JSON.tmp" > /dev/null
+    sudo mv "$DOCKER_DAEMON_JSON.tmp" "$DOCKER_DAEMON_JSON"
+
+    echo "Restarting Docker..."
+    sudo systemctl restart docker
+    echo "Done."
+}
+
 install_sbcli_on_node() {
     local node_ip="$1"
+    ssh_exec "$node_ip" "$(declare -f setup_docker_proxy); setup_docker_proxy $PROXY_URL $INSECURE_URL"
+
     echo "Installing sbcli on node: $node_ip"
     ssh_exec "$node_ip" "
         old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
