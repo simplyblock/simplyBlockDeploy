@@ -201,6 +201,12 @@ resource "aws_iam_policy" "tfengine_dynamodb_policy" {
 EOF
 }
 
+resource "aws_iam_policy" "sbdeployPolicy" {
+  name        = "${terraform.workspace}-sbdeployPolicyy"
+  description = "sbdeployPolicy"
+  policy      = file("${path.module}/aws-policy.json")
+}
+
 # Attach the policy to the instance profile
 resource "aws_iam_role_policy_attachment" "AmazonSSMManagedInstanceCore" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -209,7 +215,7 @@ resource "aws_iam_role_policy_attachment" "AmazonSSMManagedInstanceCore" {
 
 # NOTE: Terraform uses the same role that we use to deploy the cluster to the customer's account
 resource "aws_iam_role_policy_attachment" "sbdeployPolicy" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/sbdeployPolicy"
+  policy_arn = aws_iam_policy.sbdeployPolicy.arn
   role       = aws_iam_role.tfengine.name
 }
 

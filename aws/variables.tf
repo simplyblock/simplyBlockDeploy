@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "sbcli_cmd" {
-  default     = "sbcli-mig"
+  default     = "sbctl"
   description = "sbcli command to be used"
   type        = string
 }
