@@ -23,18 +23,18 @@ resource "aws_security_group" "eks_nodes_sg" {
 
   ingress {
     from_port       = 8080
-    to_port         = 8080
+    to_port         = 8890
     protocol        = "tcp"
     security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "For SPDK Proxy for the storage node"
+    description     = "For SPDK Proxy for the storage node from mgmt node"
   }
 
   ingress {
-    from_port       = 2375
-    to_port         = 2375
-    protocol        = "tcp"
-    security_groups = [aws_security_group.mgmt_node_sg.id]
-    description     = "docker engine API"
+    from_port   = 8080
+    to_port     = 8890
+    protocol    = "tcp"
+    self        = true
+    description = "For SPDK Proxy for the storage node from other storage nodes"
   }
 
   ingress {
@@ -46,13 +46,69 @@ resource "aws_security_group" "eks_nodes_sg" {
   }
 
   ingress {
+    from_port   = 4420
+    to_port     = 4420
+    protocol    = "tcp"
+    self        = true
+    description = "storage nodes discovery"
+  }
+
+  ingress {
+    from_port   = 9100
+    to_port     = 9900
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "storage node lvol connect"
+  }
+
+  ingress {
+    from_port   = 9060
+    to_port     = 9099
+    protocol    = "tcp"
+    self        = true
+    description = "storage node remote devices"
+  }
+
+  ingress {
+    from_port   = 9030
+    to_port     = 9060
+    protocol    = "tcp"
+    self        = true
+    description = "storage node hubLvol"
+  }
+
+  ingress {
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
-    cidr_blocks = var.whitelist_ips
-    description = "caching node"
+    security_groups = [aws_security_group.mgmt_node_sg.id, aws_security_group.extra_nodes_sg.id]
+    description     = "access SNodeAPI from mgmt and k3s nodes"
   }
 
+  ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    self            = true
+    description     = "access SNodeAPI from snode node workers"
+  }
+
+  ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+
+  ingress {
+    from_port   = 12201
+    to_port     = 12201
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Graylog GELF Communication TCP"
+  }
+  
   egress {
     from_port   = 0
     to_port     = 0
@@ -68,7 +124,7 @@ module "eks" {
   version = "19.16.0"
 
   cluster_name    = "${terraform.workspace}-${var.cluster_name}"
-  cluster_version = "1.30"
+  cluster_version = "1.31"
 
   cluster_endpoint_private_access = true # default is true
   cluster_endpoint_public_access  = true
@@ -133,8 +189,7 @@ module "eks" {
         lockdown = "integrity"
 
         [settings.kubernetes.node-labels]
-        label1 = "foo"
-        label2 = "bar"
+        type = "simplyblock-storage-plane"
 
         [settings.kubernetes.node-taints]
         dedicated = "experimental:PreferNoSchedule"
@@ -148,17 +203,26 @@ module "eks" {
       EOT
     }
 
-    eks-nodes = {
-      desired_size = 1
-      min_size     = 1
-      max_size     = 2
+    storage-nodes = {
+      desired_size = 3
+      min_size     = 3
+      max_size     = 3
 
       labels = {
-        role = "general"
+        type = "simplyblock-storage-plane"
       }
 
-      ami_type                = "AL2_x86_64"
-      instance_types          = ["t3.large"]
+      taints = {
+        dedicated = {
+          key    = "dedicated"
+          value  = "simplyblock-storage-plane"
+          effect = "NO_SCHEDULE"
+        }
+      }
+
+
+      ami_type                = "AL2023_x86_64_STANDARD"
+      instance_types          = ["i3en.2xlarge"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
@@ -166,18 +230,41 @@ module "eks" {
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli
         sudo modprobe nvme-tcp
+        sudo dnf install tuned
+      EOT
+    }
+
+    eks-nodes = {
+      desired_size = 2
+      min_size     = 2
+      max_size     = 2
+
+      labels = {
+        role = "general"
+      }
+
+      ami_type                = "AL2023_x86_64_STANDARD"
+      instance_types          = ["t3.xlarge"]
+      capacity_type           = "ON_DEMAND"
+      key_name                = local.selected_key_name
+      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
+      pre_bootstrap_user_data = <<-EOT
+        echo "installing nvme-cli.."
+        sudo yum install -y nvme-cli
+        sudo modprobe nvme-tcp
+        sudo dnf install tuned
       EOT
     }
 
     cache-nodes = {
-      desired_size = 2
-      min_size     = 2
-      max_size     = 3
+      desired_size = 0
+      min_size     = 0
+      max_size     = 1
       labels = {
         role = "cache"
       }
 
-      ami_type                = "AL2_x86_64"
+      ami_type                = "AL2023_x86_64_STANDARD"
       instance_types          = ["m6id.large"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name

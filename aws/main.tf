@@ -656,7 +656,7 @@ resource "aws_iam_instance_profile" "inst_profile" {
 }
 
 resource "aws_instance" "bastion" {
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = "t2.micro"
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
@@ -672,7 +672,7 @@ resource "aws_instance" "bastion" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = local.region_ami_map[var.region] # RHEL 9
+  ami                    = local.region_ami_map[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
@@ -710,7 +710,7 @@ EOF
 resource "aws_instance" "storage_nodes" {
   for_each = local.snodes
 
-  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
+  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = var.storage_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
