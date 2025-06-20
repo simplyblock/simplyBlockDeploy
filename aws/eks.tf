@@ -167,10 +167,14 @@ module "eks" {
       use_custom_launch_template = false
       vpc_security_group_ids     = [aws_security_group.eks_nodes_sg[0].id]
       min_size                   = 0
-      max_size                   = 1
+      max_size                   = 2
       desired_size               = 0
       key_name                   = local.selected_key_name
       enable_bootstrap_user_data = true
+      remote_access = {
+        ec2_ssh_key = local.selected_key_name
+        source_security_group_ids = [aws_security_group.eks_nodes_sg[0].id]
+      }
       # This will get added to the template
       bootstrap_extra_args = <<-EOT
         # The admin host container provides SSH access and runs with "superpowers".
@@ -204,8 +208,8 @@ module "eks" {
     }
 
     storage-nodes = {
-      desired_size = 3
-      min_size     = 3
+      desired_size = 0
+      min_size     = 0
       max_size     = 3
 
       labels = {
