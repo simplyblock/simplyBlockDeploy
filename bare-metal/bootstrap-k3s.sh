@@ -116,7 +116,7 @@ sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]} --disable=traefik' bash
 sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
 sudo /usr/local/bin/k3s kubectl get node
 sudo yum install -y pciutils
