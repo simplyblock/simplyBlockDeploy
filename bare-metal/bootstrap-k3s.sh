@@ -47,59 +47,59 @@ echo "cleaning up old K8s cluster..."
 
 
 
-# for node_ip in ${mnodes[@]}; do
-#     echo "SSH into $node_ip and executing commands"
-#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-#         root@${node_ip} "
-#         if command -v k3s &>/dev/null; then
-#             echo "Uninstalling k3s..."
-#             /usr/local/bin/k3s-uninstall.sh
-#         fi
+for node_ip in ${mnodes[@]}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        if command -v k3s &>/dev/null; then
+            echo "Uninstalling k3s..."
+            /usr/local/bin/k3s-uninstall.sh
+        fi
 
-#         # Remove installed packages
-#         echo "Removing installed packages..."
-#         sudo yum remove -y fio nvme-cli make golang
+        # Remove installed packages
+        echo "Removing installed packages..."
+        sudo yum remove -y fio nvme-cli make golang
 
-#         sleep 10 
-#     "
-# done
+        sleep 10 
+    "
+done
 
-# for node_ip in ${storage_private_ips}; do
-#     echo "SSH into $node_ip and executing commands"
-#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-#         root@${node_ip} "
-#         if command -v k3s &>/dev/null; then
-#             echo "Uninstalling k3s..."
-#             /usr/local/bin/k3s-uninstall.sh
-#         fi
+for node_ip in ${storage_private_ips}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        if command -v k3s &>/dev/null; then
+            echo "Uninstalling k3s..."
+            /usr/local/bin/k3s-uninstall.sh
+        fi
 
-#         # Remove installed packages
-#         echo "Removing installed packages..."
-#         sudo yum remove -y fio nvme-cli make golang
+        # Remove installed packages
+        echo "Removing installed packages..."
+        sudo yum remove -y fio nvme-cli make golang
 
-#         sleep 10 
-#     "
-# done
+        sleep 10 
+    "
+done
 
-# for node_ip in ${sec_storage_private_ips}; do
-#     echo "SSH into $node_ip and executing commands"
-#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
-#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-#         root@${node_ip} "
-#         if command -v k3s &>/dev/null; then
-#             echo "Uninstalling k3s..."
-#             /usr/local/bin/k3s-uninstall.sh
-#         fi
+for node_ip in ${sec_storage_private_ips}; do
+    echo "SSH into $node_ip and executing commands"
+    ssh -i "$KEY" -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        root@${node_ip} "
+        if command -v k3s &>/dev/null; then
+            echo "Uninstalling k3s..."
+            /usr/local/bin/k3s-uninstall.sh
+        fi
 
-#         # Remove installed packages
-#         echo "Removing installed packages..."
-#         sudo yum remove -y fio nvme-cli make golang
+        # Remove installed packages
+        echo "Removing installed packages..."
+        sudo yum remove -y fio nvme-cli make golang
 
-#         sleep 10 
-#     "
-# done
+        sleep 10 
+    "
+done
 
 echo "bootstrapping k3s cluster..."
 
