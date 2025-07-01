@@ -47,59 +47,59 @@ echo "cleaning up old K8s cluster..."
 
 
 
-for node_ip in ${mnodes[@]}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        if command -v k3s &>/dev/null; then
-            echo "Uninstalling k3s..."
-            /usr/local/bin/k3s-uninstall.sh
-        fi
+# for node_ip in ${mnodes[@]}; do
+#     echo "SSH into $node_ip and executing commands"
+#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
+#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+#         root@${node_ip} "
+#         if command -v k3s &>/dev/null; then
+#             echo "Uninstalling k3s..."
+#             /usr/local/bin/k3s-uninstall.sh
+#         fi
 
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
+#         # Remove installed packages
+#         echo "Removing installed packages..."
+#         sudo yum remove -y fio nvme-cli make golang
 
-        sleep 10 
-    "
-done
+#         sleep 10 
+#     "
+# done
 
-for node_ip in ${storage_private_ips}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        if command -v k3s &>/dev/null; then
-            echo "Uninstalling k3s..."
-            /usr/local/bin/k3s-uninstall.sh
-        fi
+# for node_ip in ${storage_private_ips}; do
+#     echo "SSH into $node_ip and executing commands"
+#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
+#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+#         root@${node_ip} "
+#         if command -v k3s &>/dev/null; then
+#             echo "Uninstalling k3s..."
+#             /usr/local/bin/k3s-uninstall.sh
+#         fi
 
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
+#         # Remove installed packages
+#         echo "Removing installed packages..."
+#         sudo yum remove -y fio nvme-cli make golang
 
-        sleep 10 
-    "
-done
+#         sleep 10 
+#     "
+# done
 
-for node_ip in ${sec_storage_private_ips}; do
-    echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
-        root@${node_ip} "
-        if command -v k3s &>/dev/null; then
-            echo "Uninstalling k3s..."
-            /usr/local/bin/k3s-uninstall.sh
-        fi
+# for node_ip in ${sec_storage_private_ips}; do
+#     echo "SSH into $node_ip and executing commands"
+#     ssh -i "$KEY" -o StrictHostKeyChecking=no \
+#         -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+#         root@${node_ip} "
+#         if command -v k3s &>/dev/null; then
+#             echo "Uninstalling k3s..."
+#             /usr/local/bin/k3s-uninstall.sh
+#         fi
 
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
+#         # Remove installed packages
+#         echo "Removing installed packages..."
+#         sudo yum remove -y fio nvme-cli make golang
 
-        sleep 10 
-    "
-done
+#         sleep 10 
+#     "
+# done
 
 echo "bootstrapping k3s cluster..."
 
@@ -111,7 +111,9 @@ sudo modprobe nvme-tcp
 sudo modprobe nbd
 total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
 total_memory_mb=\$((total_memory_kb / 1024))
-hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+#hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+hugepages=0
+
 sudo sysctl -w vm.nr_hugepages=\$hugepages
 sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
 sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
@@ -122,6 +124,8 @@ sudo /usr/local/bin/k3s kubectl get node
 sudo yum install -y pciutils
 lspci
 sudo chown root:root /etc/rancher/k3s/k3s.yaml
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo sed -i "s/127.0.0.1/${mnodes[0]}/g" ~/.kube/config
 sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
@@ -141,13 +145,16 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo modprobe nbd
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
     total_memory_mb=\$((total_memory_kb / 1024))
-    hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+    #hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+    hugepages=0
+
     sudo sysctl -w vm.nr_hugepages=\$hugepages
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
     curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
     sudo /usr/local/bin/k3s kubectl get node
+ 
     sudo yum install -y pciutils
     lspci
     sudo yum install -y make golang

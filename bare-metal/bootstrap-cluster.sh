@@ -50,6 +50,7 @@ print_help() {
     echo "  --jm-percent                         Number in percent to use for JM from each device (optional)"
     echo "  --size-of-device                     Size of device per storage node (optional)"
     echo "  --namespace                          The Kubernetes Namespace in which storage node needs to be installed (optional)"
+    echo "  --mode                               The Environment to deploy management services (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -95,6 +96,7 @@ SOCKETS_TO_USE=""
 PCI_ALLOWED=""
 PCI_BLOCKED=""
 NAMESPACE=""
+MODE=""
 JM_PERCENT=""
 PARTITION_SIZE=""
 ENABLE_TEST_DEVICE="false"
@@ -245,6 +247,10 @@ while [[ $# -gt 0 ]]; do
         PARTITION_SIZE="$2"
         shift
         ;;
+    --mode)
+        MODE="$2"
+        shift
+        ;;
     --help)
         print_help
         ;;
@@ -352,6 +358,7 @@ bootstrap_cluster() {
     [[ -n "$HA_TYPE" ]] && command+=" --ha-type $HA_TYPE"
     [[ -n "$ENABLE_NODE_AFFINITY" ]] && command+=" --enable-node-affinity"
     [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
+    [[ -n "$MODE" ]] && command+=" --mode $MODE"
 
     ssh_exec "$mgmt_ip" "$command --ifname eth0"
 }
@@ -366,7 +373,11 @@ get_cluster_secret() {
 
 add_other_mgmt_nodes() {
     for ((i = 1; i < ${#mnodes[@]}; i++)); do
-        ssh_exec "${mnodes[$i]}" "${SBCLI_CMD} mgmt add ${mnodes[0]} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0"
+        local command="${SBCLI_CMD} mgmt add ${mnodes[0]} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0"
+        # append optional flags
+        [[ -n "$MODE" ]] && command+=" --mode $MODE"
+
+        ssh_exec "${mnodes[$i]}" "$command"
     done
 }
 
