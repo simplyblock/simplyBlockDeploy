@@ -121,10 +121,10 @@ resource "aws_security_group" "eks_nodes_sg" {
 module "eks" {
   count   = var.enable_eks
   source  = "terraform-aws-modules/eks/aws"
-  version = "19.16.0"
+  version = "~> 20.31"
 
   cluster_name    = "${terraform.workspace}-${var.cluster_name}"
-  cluster_version = "1.31"
+  cluster_version = "1.33"
 
   cluster_endpoint_private_access = true # default is true
   cluster_endpoint_public_access  = true
@@ -144,8 +144,6 @@ module "eks" {
     }
   }
 
-  enable_irsa = true
-
   eks_managed_node_group_defaults = {
     disk_size                  = 30
     iam_role_attach_cni_policy = true
@@ -157,9 +155,6 @@ module "eks" {
 
   eks_managed_node_groups = {
 
-    # FIXME: Caching-node not working properly with bottlerocket ami_type
-    # https://simplyblock.atlassian.net/browse/SFAM-865
-
     bottlerocket = {
       instance_types             = ["m6id.large"]
       ami_type                   = "BOTTLEROCKET_x86_64"
@@ -167,7 +162,7 @@ module "eks" {
       use_custom_launch_template = false
       vpc_security_group_ids     = [aws_security_group.eks_nodes_sg[0].id]
       min_size                   = 0
-      max_size                   = 2
+      max_size                   = 3
       desired_size               = 0
       key_name                   = local.selected_key_name
       enable_bootstrap_user_data = true
@@ -208,75 +203,43 @@ module "eks" {
     }
 
     storage-nodes = {
-      desired_size = 0
-      min_size     = 0
+      desired_size = 3
+      min_size     = 3
       max_size     = 3
 
       labels = {
         type = "simplyblock-storage-plane"
       }
 
-      taints = {
-        dedicated = {
-          key    = "dedicated"
-          value  = "simplyblock-storage-plane"
-          effect = "NO_SCHEDULE"
-        }
-      }
-
-
       ami_type                = "AL2023_x86_64_STANDARD"
       instance_types          = ["i3en.2xlarge"]
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
+      bootstrap_extra_args = <<-EOT
+        # The admin host container provides SSH access and runs with "superpowers".
+        # It is disabled by default, but can be disabled explicitly.
+        [settings.host-containers.admin]
+        enabled = true
+
+        # The control host container provides out-of-band access via SSM.
+        # It is enabled by default, and can be disabled if you do not expect to use SSM.
+        # This could leave you with no way to access the API and change settings on an existing node!
+        [settings.host-containers.control]
+        enabled = true
+
+        # extra args added
+        [settings.kernel]
+        lockdown = "integrity"
+
+        [settings.kubernetes.node-labels]
+        type = "simplyblock-storage-plane"
+      EOT
       pre_bootstrap_user_data = <<-EOT
         echo "installing nvme-cli.."
         sudo yum install -y nvme-cli
         sudo modprobe nvme-tcp
         sudo dnf install tuned
-      EOT
-    }
-
-    eks-nodes = {
-      desired_size = 2
-      min_size     = 2
-      max_size     = 2
-
-      labels = {
-        role = "general"
-      }
-
-      ami_type                = "AL2023_x86_64_STANDARD"
-      instance_types          = ["t3.xlarge"]
-      capacity_type           = "ON_DEMAND"
-      key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
-      pre_bootstrap_user_data = <<-EOT
-        echo "installing nvme-cli.."
-        sudo yum install -y nvme-cli
-        sudo modprobe nvme-tcp
-        sudo dnf install tuned
-      EOT
-    }
-
-    cache-nodes = {
-      desired_size = 0
-      min_size     = 0
-      max_size     = 1
-      labels = {
-        role = "cache"
-      }
-
-      ami_type                = "AL2023_x86_64_STANDARD"
-      instance_types          = ["m6id.large"]
-      capacity_type           = "ON_DEMAND"
-      key_name                = local.selected_key_name
-      vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
-      pre_bootstrap_user_data = <<-EOT
-        echo "installing nvme-cli.."
-        sudo yum install -y nvme-cli
-        sudo modprobe nvme-tcp
       EOT
     }
   }
@@ -286,3 +249,31 @@ module "eks" {
     Environment = "${terraform.workspace}-dev"
   }
 }
+
+# resource "aws_eks_access_entry" "example" {
+#   cluster_name      = var.cluster_name
+#   principal_arn     = aws_iam_role.example.arn
+#   kubernetes_groups = ["group-1", "group-2"]
+#   type              = "STANDARD"
+# }
+
+# resource "aws_eks_access_policy_association" "eksadmin" {
+#   cluster_name  = var.cluster_name
+#   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
+#   principal_arn = aws_iam_user.example.arn
+
+#   access_scope {
+#     type       = "cluster"
+#   }
+# }
+
+# resource "aws_eks_access_policy_association" "eksclusteradmin" {
+#   cluster_name  = var.cluster_name
+#   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+#   principal_arn = aws_iam_user.example.arn
+
+#   access_scope {
+#     type       = "cluster"
+#   }
+# }
+

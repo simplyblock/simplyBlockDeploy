@@ -1,6 +1,7 @@
 
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
+  version = "5.21.0"
 
   name = "${terraform.workspace}-storage-vpc-sb"
   cidr = "10.0.0.0/16"
@@ -545,97 +546,7 @@ data "aws_iam_policy_document" "assume_role_policy" {
   }
 }
 
-# create a policy
-resource "aws_iam_policy" "mgmt_policy" {
-  name        = "${terraform.workspace}-mgmt_node_policy"
-  description = "Policy for allowing EC2 to communicate with other resources"
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInstanceAttribute",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeTags",
-          "ec2:DescribeVolumes",
-          "ec2:RunInstances",
-          "ec2:CreateVolume",
-          "ec2:AttachVolume",
-          "ec2:DetachVolume",
-          "ec2:CreateTags"
-        ],
-        "Resource" : "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : "sts:GetServiceBearerToken",
-        "Resource" : "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : "iam:PassRole",
-        "Resource" : "*"
-      },
-      {
-        Action = [
-          "codeartifact:GetAuthorizationToken",
-          "codeartifact:GetRepositoryEndpoint",
-          "codeartifact:ReadFromRepository",
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:codeartifact:eu-west-1:${local.account_id}:repository/simplyblock/sbcli",
-          "arn:aws:codeartifact:eu-west-1:${local.account_id}:domain/simplyblock"
-        ]
-      },
-      {
-        Action = [
-          "ssm:SendCommand",
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ec2:${var.region}:${local.account_id}:instance/*",
-          "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        Action = [
-          "ssm:GetCommandInvocation"
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "s3:GetObject"
-        ],
-        "Resource" : [
-          "${aws_s3_bucket.tfengine_logs.arn}/*",
-          "arn:aws:s3:::${var.tf_state_bucket_name}/*"
-        ]
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "s3:ListBucket"
-        ],
-        "Resource" : [
-          "arn:aws:s3:::${var.tf_state_bucket_name}"
-        ]
-      }
-    ]
-  })
-}
 
 # create a role with an assumed policy
 resource "aws_iam_role" "role" {
@@ -643,11 +554,6 @@ resource "aws_iam_role" "role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
-# attach policy to the role
-resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
-  role       = aws_iam_role.role.name
-  policy_arn = aws_iam_policy.mgmt_policy.arn
-}
 
 # create instance profile
 resource "aws_iam_instance_profile" "inst_profile" {

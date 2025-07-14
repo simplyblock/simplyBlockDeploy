@@ -32,6 +32,8 @@ print_help() {
     echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
     echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
+    echo "  --max-lvol                           Set Maximum lvols (optional)"
+    echo "  --number-of-devices <value>          Set number of devices (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -70,6 +72,14 @@ HA_JM_COUNT=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
+    --max-lvol)
+        MAX_LVOL="$2"
+        shift
+        ;;
+    --number-of-devices)
+        NO_DEVICE="$2"
+        shift
+        ;;
     --max-snap)
         MAX_SNAPSHOT="$2"
         shift
@@ -241,7 +251,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
+command="${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
