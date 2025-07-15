@@ -65,9 +65,53 @@ sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 echo "KEY=$KEY" >> ${GITHUB_OUTPUT:-/dev/stdout}
 echo "extra_node_ip=${mnodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
 
+detect_ssh_user() {
+    local target_ip="$1"
+    local bastion_ip="$2"
+    local user="ec2-user"
+
+    for u in ec2-user ubuntu; do
+        if ssh -i "$KEY" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=5 \
+            -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -i \"$KEY\" -o StrictHostKeyChecking=no -W %h:%p ec2-user@$bastion_ip" \
+            $u@$target_ip "command -v bash" >/dev/null 2>&1; then
+            user="$u"
+            break
+        fi
+    done
+
+    echo "$user"
+}
+
+
+read -r -d '' PKG_INSTALL_SNIPPET <<'EOF'
+detect_pkg_manager() {
+    if command -v yum >/dev/null 2>&1; then
+        echo "yum"
+    elif command -v apt >/dev/null 2>&1; then
+        echo "apt"
+    else
+        echo "unknown"
+    fi
+}
+
+PKG_MANAGER=$(detect_pkg_manager)
+
+if [ "$PKG_MANAGER" = "yum" ]; then
+    sudo yum install -y fio nvme-cli pciutils make golang
+elif [ "$PKG_MANAGER" = "apt" ]; then
+    sudo apt update
+    sudo apt install -y fio nvme-cli pciutils make golang
+else
+    echo "Unsupported package manager: $PKG_MANAGER"
+    exit 1
+fi
+EOF
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
-sudo yum install -y fio nvme-cli;
+$PKG_INSTALL_SNIPPET
 sudo modprobe nvme-tcp
 sudo modprobe nbd
 total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
@@ -80,10 +124,7 @@ sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
 sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
 sudo /usr/local/bin/k3s kubectl get node
-sudo yum install -y pciutils
-lspci
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
-sudo yum install -y make golang
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
 echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
@@ -97,7 +138,7 @@ TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cat 
 
 for ((i=1; i<${#mnodes[@]}; i++)); do
     ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
-    sudo yum install -y fio nvme-cli;
+    $PKG_INSTALL_SNIPPET
     sudo modprobe nvme-tcp
     sudo modprobe nbd
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
@@ -109,9 +150,6 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
     curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
     sudo /usr/local/bin/k3s kubectl get node
-    sudo yum install -y pciutils
-    lspci
-    sudo yum install -y make golang
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
     echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
@@ -128,10 +166,13 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo "Adding primary storage node ${node}.."
         echo ""
 
+        SSH_USER=$(detect_ssh_user "$node" "$BASTION_IP")
+
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
             -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-            ec2-user@${node} "
-            sudo yum install -y fio nvme-cli;
+            ${SSH_USER}@${node} "
+
+            $PKG_INSTALL_SNIPPET
             sudo modprobe nvme-tcp
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
@@ -144,9 +185,6 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
             curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
             sudo /usr/local/bin/k3s kubectl get node
-            sudo yum install -y pciutils
-            lspci
-            sudo yum install -y make golang
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
             echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
@@ -162,9 +200,12 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo "Adding secondary storage node ${node}.."
         echo ""
 
+        SSH_USER=$(detect_ssh_user "$node")
+
         ssh -i "$KEY" -o StrictHostKeyChecking=no \
             -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-            ec2-user@${node} "
+            ${SSH_USER}@${node} "
+
             sudo yum install -y fio nvme-cli;
             sudo modprobe nvme-tcp
             sudo modprobe nbd
