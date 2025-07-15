@@ -19,10 +19,6 @@ Follow the installation instructions for AWS CLI based on your operating system:
 
 After installing AWS CLI, configure it with your AWS credentials by running the `aws configure` command and providing your Access Key ID, Secret Access Key, region, and output format.
 
-# Intro
-
-Terraform template to set up a simple cluster.
-
 # Deploy Infrastructure
 
 ## Change Node Counts
@@ -62,12 +58,6 @@ terraform plan
 
 ## Apply Configurations
 
-### Basic Deployment
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 --auto-approve
-```
-
 ### Deploying with EKS
 
 ```bash
@@ -80,24 +70,11 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var enable_eks=1 --auto-
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var az=us-east-2b --auto-approve
 ```
 
-### Specifying the Arch type to Deploy
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes_arch=arm64 \
-                -var extra_nodes_instance_type="m6gd.xlarge" --auto-approve
-```
-
 ### Specifying Instance Types
 
 ```bash
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
-```
-
-### Specifying the Number of EBS Volumes
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
 ```
 
 ### Specifying the Size of EBS Volumes
@@ -171,12 +148,6 @@ chmod +x ./bootstrap-cluster.sh
 ```
 
 ### Deploy Storage-node to K8s
-
-#### Set Terraform variable snode_deploy_on_k8s to true
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var snode_deploy_on_k8s="true" --auto-approve
-```
 
 #### Set cluster argument --k8s-snode
 

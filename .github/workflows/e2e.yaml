@@ -102,14 +102,11 @@ jobs:
             -var \"storage_nodes_instance_type=m6i.2xlarge\" \
             -var \"sec_storage_nodes_instance_type=m6i.2xlarge\" \
             -var \"sec_storage_nodes=0\" \
-            -var \"extra_nodes=1\" \
-            -var \"extra_nodes_instance_type=m6id.xlarge\" \
-            -var \"extra_nodes_arch=amd64\" \
             -var \"region=us-east-2\" \
             -var \"sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}\""
 
           if ${{ github.event.inputs.k8s-snode }}; then
-            TF_CMD="$TF_CMD -var \"snode_deploy_on_k8s=true\""
+            TF_CMD="$TF_CMD -var \"enable_eks=1\""
           fi
 
           TF_CMD="$TF_CMD -out=tfplan"

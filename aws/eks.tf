@@ -147,14 +147,11 @@ module "eks" {
   eks_managed_node_group_defaults = {
     disk_size                  = 30
     iam_role_attach_cni_policy = true
-    # remote_access = {
-    #   ec2_ssh_key               = local.selected_key_name
-    #   source_security_group_ids = [aws_security_group.eks_nodes_sg[0].id]
-    # }
   }
 
   eks_managed_node_groups = {
 
+    # bottlerock storage nodes
     bottlerocket = {
       instance_types             = ["m6id.large"]
       ami_type                   = "BOTTLEROCKET_x86_64"
@@ -202,17 +199,20 @@ module "eks" {
       EOT
     }
 
-    storage-nodes = {
-      desired_size = 3
+    # AL2023 storage nodes
+    # TODO: add support for ARM images
+    al2023 = {
+      desired_size = var.storage_nodes
       min_size     = 3
-      max_size     = 3
+      max_size     = 10
 
       labels = {
         type = "simplyblock-storage-plane"
       }
 
       ami_type                = "AL2023_x86_64_STANDARD"
-      instance_types          = ["i3en.2xlarge"]
+      instance_types          = [var.storage_nodes_instance_type]
+      architecture             = var.storage_nodes_arch
       capacity_type           = "ON_DEMAND"
       key_name                = local.selected_key_name
       vpc_security_group_ids  = [aws_security_group.eks_nodes_sg[0].id]
