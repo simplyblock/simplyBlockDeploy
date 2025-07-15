@@ -573,6 +573,10 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "${terraform.workspace}-bastion"
   }
+  user_data = <<EOF
+#!/bin/bash
+echo "${file(pathexpand(var.ssh_key_path))}" >> /home/ec2-user/.ssh/authorized_keys
+EOF
 }
 
 resource "aws_instance" "mgmt_nodes" {
