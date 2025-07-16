@@ -51,6 +51,7 @@ print_help() {
     echo "  --size-of-device                     Size of device per storage node (optional)"
     echo "  --namespace                          The Kubernetes Namespace in which storage node needs to be installed (optional)"
     echo "  --mode                               The Environment to deploy management services (optional)"
+    echo "  --cleanup                            cleans up the cluster before deployment"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -101,6 +102,7 @@ JM_PERCENT=""
 PARTITION_SIZE=""
 ENABLE_TEST_DEVICE="false"
 FULL_PAGE_UNMAP="false"
+CLEAN_UP="false"
 
 PROXY_URL="http://34.1.171.127:5000"
 INSECURE_URL="34.1.171.127:5000"
@@ -227,6 +229,9 @@ while [[ $# -gt 0 ]]; do
     --full-page-unmap)
         FULL_PAGE_UNMAP="true"
         ;;
+    --cleanup)
+        CLEAN_UP="true"
+        ;;
     --data-nics)
         DATANICS="$2"
         shift
@@ -316,6 +321,7 @@ install_sbcli_on_node() {
             pip uninstall -y \$old_pkg
         fi
         sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}
+        sudo yum install -y git
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
     if [ -n "${SIMPLY_BLOCK_DOCKER_IMAGE+x}" ]; then
@@ -381,6 +387,59 @@ add_other_mgmt_nodes() {
     done
 }
 
+cleanup_and_reboot() {
+
+    for node_ip in ${storage_private_ips}; do
+        echo "SSH into $node_ip and run cleanup commands"
+            ssh_exec "$node_ip" "
+
+            sudo systemctl stop firewalld
+            sudo systemctl stop ufw
+            sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+
+            ${SBCLI_CMD} sn deploy-cleaner || { echo \"Error: ${SBCLI_CMD} deploy-cleaner failed\";}
+
+            docker stop \$(docker ps -aq) || true
+            docker rm -f \$(docker ps -aq) || true
+            docker builder prune --all -f
+            docker system prune -af
+            docker volume prune -f
+            docker rmi -f \$(docker images -aq) || true
+
+            # Remove sbcli
+            pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
+            rm -rf /usr/local/bin/sbc*
+
+            /usr/local/bin/k3s-agent-uninstall.sh || { echo \"Error: Failed to uninstall k3s agent\";}
+            echo "rebooting the node"
+            sudo reboot || { echo "Error: Failed to reboot the node";}
+        "
+    done
+
+    for ((i = 0; i < ${#mnodes[@]}; i++)); do
+        ssh_exec "${mnodes[$i]}" "
+            sudo systemctl stop firewalld
+            sudo systemctl stop ufw
+            sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+
+            ${SBCLI_CMD} sn deploy-cleaner || { echo \"Error: ${SBCLI_CMD} deploy-cleaner failed\";}
+
+            docker stop \$(docker ps -aq) || true
+            docker rm -f \$(docker ps -aq) || true
+            docker builder prune --all -f
+            docker system prune -af
+            docker volume prune -f
+            docker rmi -f \$(docker images -aq) || true
+
+            # Remove ${SBCLI_CMD}
+            pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
+            rm -rf /usr/local/bin/sbc*
+
+            /usr/local/bin/k3s-agent-uninstall.sh || { echo \"Error: Failed to uninstall k3s agent\";}
+        "
+    done
+}
+
 add_storage_nodes() {
     if [[ "$K8S_SNODE" == "true" ]]; then
         echo "Skipping storage node addition for k8s nodes"
@@ -419,6 +478,12 @@ add_pool() {
 main() {
     parse_args "$@"
     IFS=' ' read -ra mnodes <<< "$MNODES"
+
+    # cleanup if requested
+    if [[ "$CLEAN_UP" == "true" ]]; then
+        echo "Cleaning up the cluster before deployment"
+        cleanup_and_reboot
+    fi
 
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
     [[ -n "$MAX_LVOL" ]] && configure_cmd+=" --max-lvol $MAX_LVOL"
