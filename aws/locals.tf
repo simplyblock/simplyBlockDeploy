@@ -49,4 +49,5 @@ locals {
   az_index  = lookup(local.az_suffix_to_number, local.az_suffix, -1)
 
   account_id = data.aws_caller_identity.current.account_id
+  current_user_arn  = data.aws_caller_identity.current.arn
 }

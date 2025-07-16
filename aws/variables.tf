@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "sbcli_cmd" {
-  default     = "sbctl"
+  default     = "sbcli-pre"
   description = "sbcli command to be used"
   type        = string
 }

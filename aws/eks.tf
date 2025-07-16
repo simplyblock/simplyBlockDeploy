@@ -250,30 +250,19 @@ module "eks" {
   }
 }
 
-# resource "aws_eks_access_entry" "example" {
-#   cluster_name      = var.cluster_name
-#   principal_arn     = aws_iam_role.example.arn
-#   kubernetes_groups = ["group-1", "group-2"]
-#   type              = "STANDARD"
-# }
 
-# resource "aws_eks_access_policy_association" "eksadmin" {
-#   cluster_name  = var.cluster_name
-#   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-#   principal_arn = aws_iam_user.example.arn
+resource "aws_eks_access_entry" "user1" {
+  cluster_name      = module.eks[0].cluster_name
+  principal_arn     = data.aws_caller_identity.current.arn
+  type              = "STANDARD"
+}
 
-#   access_scope {
-#     type       = "cluster"
-#   }
-# }
+resource "aws_eks_access_policy_association" "eksclusteradmin" {
+  cluster_name  = module.eks[0].cluster_name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = data.aws_caller_identity.current.arn
 
-# resource "aws_eks_access_policy_association" "eksclusteradmin" {
-#   cluster_name  = var.cluster_name
-#   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-#   principal_arn = aws_iam_user.example.arn
-
-#   access_scope {
-#     type       = "cluster"
-#   }
-# }
-
+  access_scope {
+    type       = "cluster"
+  }
+}
