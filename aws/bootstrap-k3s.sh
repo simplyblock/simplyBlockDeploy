@@ -70,7 +70,7 @@ detect_ssh_user() {
     local bastion_ip="$2"
     local user="ec2-user"
 
-    for u in ec2-user ubuntu; do
+    for u in ec2-user rocky ubuntu; do
         if ssh -i "$KEY" \
             -o BatchMode=yes \
             -o ConnectTimeout=5 \
