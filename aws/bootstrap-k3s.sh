@@ -123,7 +123,6 @@ sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
 sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
-sudo /usr/local/bin/k3s kubectl get node
 sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
@@ -149,7 +148,6 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
     curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
-    sudo /usr/local/bin/k3s kubectl get node
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
     echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
@@ -184,7 +182,6 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
             curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
-            sudo /usr/local/bin/k3s kubectl get node
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
             echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
@@ -218,7 +215,6 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
             curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
-            sudo /usr/local/bin/k3s kubectl get node
             sudo yum install -y pciutils
             lspci
             sudo yum install -y make golang
