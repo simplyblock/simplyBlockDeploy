@@ -56,12 +56,6 @@ for node_ip in ${mnodes[@]}; do
             echo "Uninstalling k3s..."
             /usr/local/bin/k3s-uninstall.sh
         fi
-
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
-
-        sleep 10 
     "
 done
 
@@ -74,12 +68,6 @@ for node_ip in ${storage_private_ips}; do
             echo "Uninstalling k3s..."
             /usr/local/bin/k3s-uninstall.sh
         fi
-
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
-
-        sleep 10 
     "
 done
 
@@ -92,12 +80,6 @@ for node_ip in ${sec_storage_private_ips}; do
             echo "Uninstalling k3s..."
             /usr/local/bin/k3s-uninstall.sh
         fi
-
-        # Remove installed packages
-        echo "Removing installed packages..."
-        sudo yum remove -y fio nvme-cli make golang
-
-        sleep 10 
     "
 done
 
