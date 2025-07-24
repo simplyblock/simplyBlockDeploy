@@ -277,10 +277,21 @@ ssh_exec() {
 }
 
 setup_docker_proxy() {
-    DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
+    DOCKER_DIR="/etc/docker"
+    DOCKER_DAEMON_JSON="$DOCKER_DIR/daemon.json"
+
+    PROXY_URL=$1
+    INSECURE_URL=$2
+
+    # Ensure /etc/docker exists
+    if [ ! -d "$DOCKER_DIR" ]; then
+        echo "Creating $DOCKER_DIR..."
+        sudo mkdir -p "$DOCKER_DIR"
+    fi
 
     if [ ! -f "$DOCKER_DAEMON_JSON" ]; then
-        sudo bash -c "echo '{}' > $DOCKER_DAEMON_JSON"
+        echo "Creating empty $DOCKER_DAEMON_JSON..."
+        echo '{}' | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
     fi
 
     if ! command -v jq &> /dev/null; then
@@ -288,10 +299,9 @@ setup_docker_proxy() {
         exit 1
     fi
 
-    CONFIG=$(sudo cat "$DOCKER_DAEMON_JSON")
-    PROXY_URL=$1
-    INSECURE_URL=$2
     echo "Setting up Docker proxy with URL: $PROXY_URL and Insecure URL: $INSECURE_URL"
+
+    CONFIG=$(sudo cat "$DOCKER_DAEMON_JSON")
 
     UPDATED_CONFIG=$(echo "$CONFIG" | jq --arg url "$PROXY_URL" '
     .["registry-mirrors"] = (.["registry-mirrors"] // []) + (if (.["registry-mirrors"] // []) | index($url) then [] else [$url] end)
@@ -301,13 +311,22 @@ setup_docker_proxy() {
     .["insecure-registries"] = (.["insecure-registries"] // []) + (if (.["insecure-registries"] // []) | index($url) then [] else [$url] end)
     ')
 
-    echo "$UPDATED_CONFIG" | sudo tee "$DOCKER_DAEMON_JSON.tmp" > /dev/null
-    sudo mv "$DOCKER_DAEMON_JSON.tmp" "$DOCKER_DAEMON_JSON"
+    echo "$UPDATED_CONFIG" | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
 
     echo "Restarting Docker..."
-    sudo systemctl restart docker
+
+    # Try restarting docker
+    if systemctl list-units --type=service | grep -q 'docker.service'; then
+        sudo systemctl restart docker
+    elif command -v service &> /dev/null && service --status-all | grep -Fq docker; then
+        sudo service docker restart
+    else
+        echo "Docker service not found. You may need to restart Docker manually."
+    fi
+
     echo "Done."
 }
+
 
 install_sbcli_on_node() {
     local node_ip="$1"
