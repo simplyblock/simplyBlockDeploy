@@ -189,7 +189,7 @@ if [ "$K8S_SNODE" == "true" ]; then
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane --overwrite"
+        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
     done
 
     for node in ${sec_storage_private_ips[@]}; do
@@ -225,6 +225,6 @@ if [ "$K8S_SNODE" == "true" ]; then
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-storage-plane-reserve --overwrite"
+        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane-reserve --overwrite"
     done
 fi
