@@ -193,7 +193,7 @@ module "eks" {
         lockdown = "integrity"
 
         [settings.kubernetes.node-labels]
-        io.simplyblock.node-type = "simplyblock-storage-plane"
+        "io.simplyblock.node-type" = "simplyblock-storage-plane"
 
         [settings.kubernetes.node-taints]
         dedicated = "experimental:PreferNoSchedule"
@@ -213,7 +213,7 @@ module "eks" {
       max_size     = 3
 
       labels = {
-        io.simplyblock.node-type = "simplyblock-storage-plane"
+        "io.simplyblock.node-type" = "simplyblock-storage-plane"
       }
 
       taints = {
