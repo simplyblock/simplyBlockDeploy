@@ -277,21 +277,10 @@ ssh_exec() {
 }
 
 setup_docker_proxy() {
-    DOCKER_DIR="/etc/docker"
-    DOCKER_DAEMON_JSON="$DOCKER_DIR/daemon.json"
-
-    PROXY_URL=$1
-    INSECURE_URL=$2
-
-    # Ensure /etc/docker exists
-    if [ ! -d "$DOCKER_DIR" ]; then
-        echo "Creating $DOCKER_DIR..."
-        sudo mkdir -p "$DOCKER_DIR"
-    fi
+    DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
 
     if [ ! -f "$DOCKER_DAEMON_JSON" ]; then
-        echo "Creating empty $DOCKER_DAEMON_JSON..."
-        echo '{}' | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
+        sudo bash -c "echo '{}' > $DOCKER_DAEMON_JSON"
     fi
 
     if ! command -v jq &> /dev/null; then
@@ -299,9 +288,10 @@ setup_docker_proxy() {
         exit 1
     fi
 
-    echo "Setting up Docker proxy with URL: $PROXY_URL and Insecure URL: $INSECURE_URL"
-
     CONFIG=$(sudo cat "$DOCKER_DAEMON_JSON")
+    PROXY_URL=$1
+    INSECURE_URL=$2
+    echo "Setting up Docker proxy with URL: $PROXY_URL and Insecure URL: $INSECURE_URL"
 
     UPDATED_CONFIG=$(echo "$CONFIG" | jq --arg url "$PROXY_URL" '
     .["registry-mirrors"] = (.["registry-mirrors"] // []) + (if (.["registry-mirrors"] // []) | index($url) then [] else [$url] end)
@@ -311,22 +301,13 @@ setup_docker_proxy() {
     .["insecure-registries"] = (.["insecure-registries"] // []) + (if (.["insecure-registries"] // []) | index($url) then [] else [$url] end)
     ')
 
-    echo "$UPDATED_CONFIG" | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
+    echo "$UPDATED_CONFIG" | sudo tee "$DOCKER_DAEMON_JSON.tmp" > /dev/null
+    sudo mv "$DOCKER_DAEMON_JSON.tmp" "$DOCKER_DAEMON_JSON"
 
     echo "Restarting Docker..."
-
-    # Try restarting docker
-    if systemctl list-units --type=service | grep -q 'docker.service'; then
-        sudo systemctl restart docker
-    elif command -v service &> /dev/null && service --status-all | grep -Fq docker; then
-        sudo service docker restart
-    else
-        echo "Docker service not found. You may need to restart Docker manually."
-    fi
-
+    sudo systemctl restart docker
     echo "Done."
 }
-
 
 install_sbcli_on_node() {
     local node_ip="$1"
