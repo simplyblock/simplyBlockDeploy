@@ -309,7 +309,7 @@ setup_docker_proxy() {
     sudo mv "$DOCKER_DAEMON_JSON.tmp" "$DOCKER_DAEMON_JSON"
 
     echo "Restarting Docker..."
-    sudo systemctl restart docker
+    sudo systemctl restart docker || true
     echo "Done."
 }
 
