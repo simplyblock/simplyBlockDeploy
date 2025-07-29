@@ -338,6 +338,17 @@ install_sbcli_on_node() {
     # sbcli configure
     if [[ -n "$2" ]]; then
         local configure_cmd="$2"
+
+        # cleanup partitions
+        ssh_exec "$node_ip" "
+              for disk in nvme0n1 nvme1n1 nvme2n1 nvme3n1; do
+                for part in 1 2; do
+                  echo \"Cleaning up partitions on \$disk:\$part\"
+                  sudo parted /dev/\$disk rm \$part || true
+                done
+              done
+        "
+
         ssh_exec "$node_ip" "
             echo ${configure_cmd} > /root/sn_deploy.log 2>&1
             $configure_cmd >> /root/sn_deploy.log 2>&1
