@@ -279,6 +279,10 @@ ssh_exec() {
 setup_docker_proxy() {
     DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
 
+    if [ ! -d "/etc/docker" ]; then
+        sudo mkdir -p /etc/docker
+    fi
+
     if [ ! -f "$DOCKER_DAEMON_JSON" ]; then
         sudo bash -c "echo '{}' > $DOCKER_DAEMON_JSON"
     fi
