@@ -381,8 +381,9 @@ bootstrap_cluster() {
     [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
+    [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
 
-    ssh_exec "$mgmt_ip" "$command --ifname eth0"
+    ssh_exec "$mgmt_ip" "$command"
 }
 
 get_cluster_id() {
