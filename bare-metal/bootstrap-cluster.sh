@@ -314,6 +314,12 @@ setup_docker_proxy() {
 }
 
 install_sbcli_on_node() {
+    # claim hugepages as early as possible
+    if [[ -n "$2" ]]; then
+        echo "running on storage node: $node_ip. claiming hugepages..."
+        ssh_exec "$node_ip" "sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}"
+    fi
+
     local node_ip="$1"
     ssh_exec "$node_ip" "$(declare -f setup_docker_proxy); setup_docker_proxy $PROXY_URL $INSECURE_URL"
 
@@ -324,7 +330,7 @@ install_sbcli_on_node() {
             \$old_pkg sn deploy-cleaner
             pip uninstall -y \$old_pkg
         fi
-        sudo sysctl -w vm.nr_hugepages=${NR_HUGEPAGES}
+
         sudo yum install -y git
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
