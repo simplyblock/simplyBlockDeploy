@@ -380,6 +380,7 @@ bootstrap_cluster() {
     [[ -n "$ENABLE_NODE_AFFINITY" ]] && command+=" --enable-node-affinity"
     [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
+    [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
 
     ssh_exec "$mgmt_ip" "$command --ifname eth0"
 }
@@ -394,9 +395,11 @@ get_cluster_secret() {
 
 add_other_mgmt_nodes() {
     for ((i = 1; i < ${#mnodes[@]}; i++)); do
-        local command="${SBCLI_CMD} mgmt add ${mnodes[0]} ${CLUSTER_ID} ${CLUSTER_SECRET} eth0"
+        local command="${SBCLI_CMD} mgmt add ${mnodes[0]} ${CLUSTER_ID} ${CLUSTER_SECRET}"
         # append optional flags
         [[ -n "$MODE" ]] && command+=" --mode $MODE"
+        [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
+        [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
 
         ssh_exec "${mnodes[$i]}" "$command"
     done
