@@ -399,9 +399,13 @@ add_other_mgmt_nodes() {
         # append optional flags
         [[ -n "$MODE" ]] && command+=" --mode $MODE"
         [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
-        [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
+        [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip ${mnodes[$i]}"
 
-        ssh_exec "${mnodes[$i]}" "$command"
+        if [[ "$MODE" == "kubernetes" ]]; then
+            ssh_exec "$mgmt_ip" "$command"
+        else
+            ssh_exec "${mnodes[$i]}" "$command"
+        fi
     done
 }
 
