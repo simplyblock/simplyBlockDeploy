@@ -439,7 +439,6 @@ cleanup_and_reboot() {
             pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
             rm -rf /usr/local/bin/sbc*
 
-            /usr/local/bin/k3s-agent-uninstall.sh || { echo \"Error: Failed to uninstall k3s agent\";}
             echo "rebooting the node"
             sudo reboot || { echo "Error: Failed to reboot the node";}
         "
@@ -466,7 +465,6 @@ cleanup_and_reboot() {
             rm -rf /usr/local/bin/sbc*
             rm -rf /usr/local/lib/python3.9/site-packages/simplyblock*
 
-            /usr/local/bin/k3s-agent-uninstall.sh || { echo \"Error: Failed to uninstall k3s agent\";}
         "
     done
 }
