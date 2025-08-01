@@ -66,7 +66,7 @@ for node_ip in ${storage_private_ips}; do
         root@${node_ip} "
         if command -v k3s &>/dev/null; then
             echo "Uninstalling k3s..."
-            /usr/local/bin/k3s-uninstall.sh
+            /usr/local/bin/k3s-agent-uninstall.sh
         fi
     "
 done
@@ -78,7 +78,7 @@ for node_ip in ${sec_storage_private_ips}; do
         root@${node_ip} "
         if command -v k3s &>/dev/null; then
             echo "Uninstalling k3s..."
-            /usr/local/bin/k3s-uninstall.sh
+            /usr/local/bin/k3s-agent-uninstall.sh
         fi
     "
 done
