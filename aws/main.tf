@@ -596,36 +596,6 @@ resource "aws_iam_policy" "mgmt_policy" {
         ]
       },
       {
-        Action = [
-          "ssm:SendCommand",
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ec2:${var.region}:${local.account_id}:instance/*",
-          "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        Action = [
-          "ssm:GetCommandInvocation"
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "s3:GetObject"
-        ],
-        "Resource" : [
-          "${aws_s3_bucket.tfengine_logs.arn}/*",
-          "arn:aws:s3:::${var.tf_state_bucket_name}/*"
-        ]
-      },
-      {
         "Effect" : "Allow",
         "Action" : [
           "s3:ListBucket"
