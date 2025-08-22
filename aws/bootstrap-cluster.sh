@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+KEY="${KEY:-$HOME/.ssh/id_ed25519}"
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -32,6 +32,8 @@ print_help() {
     echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
     echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
+    echo "  --max-lvol                           Set Maximum lvols (optional)"
+    echo "  --number-of-devices <value>          Set number of devices (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -70,6 +72,14 @@ HA_JM_COUNT=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
+    --max-lvol)
+        MAX_LVOL="$2"
+        shift
+        ;;
+    --number-of-devices)
+        NO_DEVICE="$2"
+        shift
+        ;;
     --max-snap)
         MAX_SNAPSHOT="$2"
         shift
@@ -184,37 +194,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
+echo "reading terraform outputs..."
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
-
-ssh_dir="$HOME/.ssh"
-
-if [ ! -d "$ssh_dir" ]; then
-    mkdir -p "$ssh_dir"
-    echo "Directory $ssh_dir created."
-else
-    echo "Directory $ssh_dir already exists."
-fi
-
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
-
 mnodes=$(terraform output -raw mgmt_private_ips)
+storage_private_ips=$(terraform output -raw storage_private_ips)
+
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
-storage_private_ips=$(terraform output -raw storage_private_ips)
-sec_storage_private_ips=$(terraform output -raw sec_storage_private_ips)
 
 echo "bootstrapping cluster..."
 
@@ -241,7 +228,7 @@ echo ""
 echo "Deploying management node..."
 echo ""
 
-command="sudo docker swarm leave --force ; ${SBCLI_CMD} --dev -d cluster create"
+command="${SBCLI_CMD} --dev -d cluster create"
 if [[ -n "$LOG_DEL_INTERVAL" ]]; then
     command+=" --log-del-interval $LOG_DEL_INTERVAL"
 fi
@@ -397,15 +384,6 @@ else
         echo ""
         echo "joining node \${node}"
         add_node_command=\"${command} ${CLUSTER_ID} \${node}:5000 eth0\"
-        echo "add node command: \${add_node_command}"
-        \$add_node_command
-        sleep 3
-    done
-    
-    for node in ${sec_storage_private_ips}; do
-        echo ""
-        echo "joining secondary node \${node}"
-        add_node_command=\"${command} --is-secondary-node ${CLUSTER_ID} \${node}:5000 eth0\"
         echo "add node command: \${add_node_command}"
         \$add_node_command
         sleep 3
