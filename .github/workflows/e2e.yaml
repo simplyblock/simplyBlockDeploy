@@ -102,14 +102,11 @@ jobs:
             -var \"storage_nodes_instance_type=m6i.2xlarge\" \
             -var \"sec_storage_nodes_instance_type=m6i.2xlarge\" \
             -var \"sec_storage_nodes=0\" \
-            -var \"extra_nodes=1\" \
-            -var \"extra_nodes_instance_type=m6id.xlarge\" \
-            -var \"extra_nodes_arch=amd64\" \
             -var \"region=us-east-2\" \
             -var \"sbcli_cmd=${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}\""
 
           if ${{ github.event.inputs.k8s-snode }}; then
-            TF_CMD="$TF_CMD -var \"snode_deploy_on_k8s=true\""
+            TF_CMD="$TF_CMD -var \"enable_eks=1\""
           fi
 
           TF_CMD="$TF_CMD -out=tfplan"
@@ -131,25 +128,6 @@ jobs:
         id: bootstrap_cluster
         env:
           SBCLI_CMD: ${{ github.event.inputs.sbcli_cmd || 'sbcli-dev' }}
-
-      - name: Bootstrap K3s
-        run: |
-          CMD="$GITHUB_WORKSPACE/aws/bootstrap-k3s.sh"
-          if ${{ github.event.inputs.k8s-snode }}; then
-            CMD="$CMD --k8s-snode"
-          fi
-          echo "Running: $CMD"
-          eval $CMD
-        id: bootstrap_k3s
-
-      - name: copying  Kubeconfig file
-        run: |
-          mkdir -p ${HOME}/.kube
-          scp -o StrictHostKeyChecking=no -i ${{ steps.bootstrap_k3s.outputs.KEY }} ec2-user@${{ steps.bootstrap_k3s.outputs.extra_node_ip }}:/etc/rancher/k3s/k3s.yaml ${HOME}/.kube/config
-
-      - name: update .kube/config address
-        run: |
-          sed -i "s/127.0.0.1/${{ steps.bootstrap_k3s.outputs.extra_node_ip }}/g" ${HOME}/.kube/config
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -185,11 +163,6 @@ jobs:
           cd simplyblock-csi/scripts
           chmod +x config-apply.sh
           ./config-apply.sh
-
-      - name: Reboot Workers
-        if: ${{ github.event.inputs.k8s-snode == 'true' }}
-        run: |
-          $GITHUB_WORKSPACE/aws/reboot-worker.sh
 
       - name: Install SIMPLYBLK-CONTROLLER using Helm
         if: ${{ github.event.inputs.k8s-snode == 'true' }}

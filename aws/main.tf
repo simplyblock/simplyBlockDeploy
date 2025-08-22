@@ -31,7 +31,7 @@ module "vpc" {
 }
 
 module "apigatewayendpoint" {
-  count                  = var.enable_apigateway == 1 && var.mgmt_nodes > 0 ? 1 : 0
+  count                  = var.mgmt_nodes > 0 ? 1 : 0
   source                 = "./modules/apigateway"
   region                 = var.region
   mgmt_node_instance_ids = aws_instance.mgmt_nodes[*].id
@@ -546,97 +546,6 @@ data "aws_iam_policy_document" "assume_role_policy" {
   }
 }
 
-# create a policy
-resource "aws_iam_policy" "mgmt_policy" {
-  name        = "${terraform.workspace}-mgmt_node_policy"
-  description = "Policy for allowing EC2 to communicate with other resources"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInstanceAttribute",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeTags",
-          "ec2:DescribeVolumes",
-          "ec2:RunInstances",
-          "ec2:CreateVolume",
-          "ec2:AttachVolume",
-          "ec2:DetachVolume",
-          "ec2:CreateTags"
-        ],
-        "Resource" : "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : "sts:GetServiceBearerToken",
-        "Resource" : "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : "iam:PassRole",
-        "Resource" : "*"
-      },
-      {
-        Action = [
-          "codeartifact:GetAuthorizationToken",
-          "codeartifact:GetRepositoryEndpoint",
-          "codeartifact:ReadFromRepository",
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:codeartifact:eu-west-1:${local.account_id}:repository/simplyblock/sbcli",
-          "arn:aws:codeartifact:eu-west-1:${local.account_id}:domain/simplyblock"
-        ]
-      },
-      {
-        Action = [
-          "ssm:SendCommand",
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ec2:${var.region}:${local.account_id}:instance/*",
-          "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        Action = [
-          "ssm:GetCommandInvocation"
-        ],
-        Effect = "Allow",
-        Resource = [
-          "arn:aws:ssm:${var.region}:${local.account_id}:*"
-        ]
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "s3:GetObject"
-        ],
-        "Resource" : [
-          "${aws_s3_bucket.tfengine_logs.arn}/*",
-          "arn:aws:s3:::${var.tf_state_bucket_name}/*"
-        ]
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "s3:ListBucket"
-        ],
-        "Resource" : [
-          "arn:aws:s3:::${var.tf_state_bucket_name}"
-        ]
-      }
-    ]
-  })
-}
 
 # create a role with an assumed policy
 resource "aws_iam_role" "role" {
@@ -644,11 +553,6 @@ resource "aws_iam_role" "role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
-# attach policy to the role
-resource "aws_iam_role_policy_attachment" "s3_get_object_attachment" {
-  role       = aws_iam_role.role.name
-  policy_arn = aws_iam_policy.mgmt_policy.arn
-}
 
 # create instance profile
 resource "aws_iam_instance_profile" "inst_profile" {
@@ -669,6 +573,10 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "${terraform.workspace}-bastion"
   }
+  user_data = <<EOF
+#!/bin/bash
+echo "${file(pathexpand(var.ssh_key_path))}" >> /home/ec2-user/.ssh/authorized_keys
+EOF
 }
 
 resource "aws_instance" "mgmt_nodes" {
@@ -694,6 +602,7 @@ resource "aws_instance" "mgmt_nodes" {
 
   user_data = <<EOF
 #!/bin/bash
+echo "${file(pathexpand(var.ssh_key_path))}" >> /home/ec2-user/.ssh/authorized_keys
 echo "installing sbcli.."
 sudo  yum install -y pip jq
 pip install ${local.sbcli_pkg}
@@ -713,7 +622,6 @@ resource "aws_instance" "storage_nodes" {
 
   ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = var.storage_nodes_instance_type
-  key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
   subnet_id              = module.vpc.private_subnets[local.az_index]
   iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
@@ -732,6 +640,7 @@ resource "aws_instance" "storage_nodes" {
 
   user_data = <<EOF
 #!/bin/bash
+echo "${file(pathexpand(var.ssh_key_path))}" >> /home/ec2-user/.ssh/authorized_keys
 sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
 cat /proc/meminfo | grep -i hug
 echo "installing sbcli.."
@@ -740,123 +649,10 @@ pip install ${local.sbcli_pkg}
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
   ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
                 --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
                 --pci-allowed "${join(",", var.pci_allowed)}" --pci-blocked "${join(",", var.pci_blocked)}"
 
   ${var.sbcli_cmd} storage-node deploy
-fi
-EOF
-}
-
-resource "aws_instance" "sec_storage_nodes" {
-  for_each = local.sec_snodes
-  ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 9
-  instance_type          = var.sec_storage_nodes_instance_type
-  key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.storage_nodes_sg.id]
-  subnet_id              = module.vpc.private_subnets[local.az_index]
-  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
-  root_block_device {
-    volume_size = 45
-  }
-  tags = {
-    Name = "${terraform.workspace}-sec-storage-${each.value + 1}"
-  }
-
-  lifecycle {
-    ignore_changes = [
-      subnet_id,
-    ]
-  }
-
-  user_data = <<EOF
-#!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
-cat /proc/meminfo | grep -i hug
-echo "installing sbcli.."
-sudo yum install -y pip unzip
-pip install ${local.sbcli_pkg}
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
-  ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
-                --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
-                --pci-allowed "${join(",", var.pci_allowed)}" --pci-blocked "${join(",", var.pci_blocked)}"
-
-  ${var.sbcli_cmd} storage-node deploy
-fi
-EOF
-}
- 
-resource "aws_ebs_volume" "storage_nodes_ebs" {
-  count             = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
-  availability_zone = data.aws_availability_zones.available.names[local.az_index]
-  size              = var.storage_nodes_ebs_size1
-
-  tags = {
-    Name = "simplyblock-jm"
-  }
-
-  lifecycle {
-    ignore_changes = [
-      availability_zone,
-    ]
-  }
-}
-
-resource "aws_ebs_volume" "storage_nodes_ebs2" {
-  for_each = var.storage_nodes > 0 ? local.node_disks : {}
-
-  availability_zone = data.aws_availability_zones.available.names[local.az_index]
-  size              = var.storage_nodes_ebs_size2
-
-  tags = {
-    Name = "simplyblock-storage"
-  }
-
-  lifecycle {
-    ignore_changes = [
-      availability_zone,
-    ]
-  }
-}
-
-resource "aws_volume_attachment" "attach_sn2" {
-  for_each = var.storage_nodes > 0 ? local.node_disks : {}
-
-  device_name = each.value.disk_dev_path
-  volume_id   = aws_ebs_volume.storage_nodes_ebs2[each.key].id
-  instance_id = aws_instance.storage_nodes[each.value.node_name].id
-}
-
-resource "aws_volume_attachment" "attach_sn" {
-  count       = var.volumes_per_storage_nodes > 0 && var.storage_nodes > 0 ? var.storage_nodes : 0
-  device_name = "/dev/sdh"
-  volume_id   = aws_ebs_volume.storage_nodes_ebs[count.index].id
-  instance_id = aws_instance.storage_nodes[count.index].id
-}
-
-# can be used for testing caching nodes
-resource "aws_instance" "extra_nodes" {
-  count                  = var.extra_nodes
-  ami                    = local.ami_map[var.extra_nodes_arch][var.region] # RHEL 9
-  instance_type          = var.extra_nodes_instance_type
-  key_name               = local.selected_key_name
-  vpc_security_group_ids = [aws_security_group.extra_nodes_sg.id]
-  subnet_id              = module.vpc.public_subnets[1]
-  iam_instance_profile   = aws_iam_instance_profile.inst_profile.name
-  root_block_device {
-    volume_size = 45
-  }
-  tags = {
-    Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
-  }
-  user_data = <<EOF
-#!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
-cat /proc/meminfo | grep -i hug
 EOF
 }

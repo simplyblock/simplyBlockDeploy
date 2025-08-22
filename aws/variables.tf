@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "sbcli_cmd" {
-  default     = "sbctl"
+  default     = "sbcli-pre"
   description = "sbcli command to be used"
   type        = string
 }
@@ -52,11 +52,6 @@ variable "mgmt_nodes" {
 }
 
 variable "storage_nodes" {
-  default = 3
-  type    = number
-}
-
-variable "sec_storage_nodes" {
   default = 0
   type    = number
 }
@@ -72,63 +67,14 @@ variable "mgmt_nodes_instance_type" {
 }
 
 variable "storage_nodes_instance_type" {
-  default = "m5.large"
+  default = "i3en.2xlarge" # Simplyblock requires atleast 6 VPCs per storage node
   type    = string
-}
-
-variable "sec_storage_nodes_instance_type" {
-  default = "m5.large"
-  type    = string
-}
-
-variable "extra_nodes_instance_type" {
-  default = "m5.large"
-  type    = string
-}
-
-variable "storage_nodes_ebs_size1" {
-  default = 2
-  type    = number
-}
-
-variable "storage_nodes_ebs_size2" {
-  default = 50
-  type    = number
-}
-
-variable "volumes_per_storage_nodes" {
-  default = 1
-  type    = number
-  validation {
-    condition     = var.volumes_per_storage_nodes <= 6
-    error_message = "The number of volumes per storage node must not exceed 6."
-  }
 }
 
 variable "nr_hugepages" {
   default     = 2048
-  description = "number of huge pages"
+  description = "number of huge pages. To be used when eks is not enabled"
   type        = number
-}
-
-variable "enable_apigateway" {
-  default = 1
-  type    = number
-}
-
-variable "tf_state_bucket_name" {
-  default = "simplyblock-terraform-state-bucket"
-  type    = string
-}
-
-variable "extra_nodes_arch" {
-  type        = string
-  default     = "amd64"
-
-  validation {
-    condition     = contains(["arm64", "amd64"], var.extra_nodes_arch)
-    error_message = "The architecture type must be either 'arm64' or 'amd64'."
-  }
 }
 
 variable "storage_nodes_arch" {
@@ -141,16 +87,11 @@ variable "storage_nodes_arch" {
   }
 }
 
-variable "snode_deploy_on_k8s" {
+variable "ssh_key_path" {
+  description = "Path to the public SSH key"
   type        = string
-  default     = "false"
-
-  validation {
-    condition     = contains(["false", "true"], var.snode_deploy_on_k8s)
-    error_message = "The value must be either 'true' or 'false'."
-  }
+  default     = "~/.ssh/id_ed25519.pub"
 }
-
 
 variable "max_lvol" {
   type        = number

@@ -1,17 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  volume_device_names = ["/dev/sdi", "/dev/sdj", "/dev/sdk", "/dev/sdl", "/dev/sdm", "/dev/sdn", "/dev/sdo"]
-
-  snodes = toset([for n in range(var.storage_nodes) : tostring(n)])
-
-  sec_snodes = toset([for n in range(var.sec_storage_nodes) : tostring(n)])
-
-  node_disks = { for pair in setproduct(local.snodes, slice(local.volume_device_names, 0, var.volumes_per_storage_nodes)) : "${pair[0]}:${pair[1]}" => {
-    node_name     = pair[0]
-    disk_dev_path = pair[1]
-  } }
-
+  snodes = toset([for n in range(var.enable_eks == 1 ? 0 : var.storage_nodes) : tostring(n)])
   key_name = {
     "us-east-1"  = "simplyblock-us-east-1.pem"
     "us-east-2"  = "simplyblock-us-east-2.pem"
@@ -58,15 +48,6 @@ locals {
   az_suffix = substr(var.az, -1, 1)
   az_index  = lookup(local.az_suffix_to_number, local.az_suffix, -1)
 
-  efs_file_systems = {
-    mongodb_data    = "mongodb_data"
-    os_data         = "os_data"
-    graylog_data    = "graylog_data"
-    graylog_journal = "graylog_journal"
-    graylog_config  = "graylog_config"
-    grafana_data    = "grafana_data"
-    prometheus_data = "prometheus_data"
-  }
-
   account_id = data.aws_caller_identity.current.account_id
+  current_user_arn  = data.aws_caller_identity.current.arn
 }
