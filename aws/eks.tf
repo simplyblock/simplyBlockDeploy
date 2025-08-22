@@ -121,10 +121,10 @@ resource "aws_security_group" "eks_nodes_sg" {
 module "eks" {
   count   = var.enable_eks
   source  = "terraform-aws-modules/eks/aws"
-  version = "19.16.0"
+  version = "~> 20.31"
 
   cluster_name    = "${terraform.workspace}-${var.cluster_name}"
-  cluster_version = "1.31"
+  cluster_version = "1.33"
 
   cluster_endpoint_private_access = true # default is true
   cluster_endpoint_public_access  = true
