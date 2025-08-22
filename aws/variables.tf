@@ -56,11 +56,6 @@ variable "storage_nodes" {
   type    = number
 }
 
-variable "sec_storage_nodes" {
-  default = 0
-  type    = number
-}
-
 variable "extra_nodes" {
   default = 0
   type    = number
@@ -76,33 +71,9 @@ variable "storage_nodes_instance_type" {
   type    = string
 }
 
-variable "sec_storage_nodes_instance_type" {
-  default = "m5.large"
-  type    = string
-}
-
 variable "extra_nodes_instance_type" {
   default = "m5.large"
   type    = string
-}
-
-variable "storage_nodes_ebs_size1" {
-  default = 2
-  type    = number
-}
-
-variable "storage_nodes_ebs_size2" {
-  default = 50
-  type    = number
-}
-
-variable "volumes_per_storage_nodes" {
-  default = 1
-  type    = number
-  validation {
-    condition     = var.volumes_per_storage_nodes <= 6
-    error_message = "The number of volumes per storage node must not exceed 6."
-  }
 }
 
 variable "nr_hugepages" {

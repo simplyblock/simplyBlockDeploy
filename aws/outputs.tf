@@ -2,10 +2,6 @@ output "storage_private_ips" {
   value = join(" ", [for inst in aws_instance.storage_nodes : inst.private_ip])
 }
 
-output "sec_storage_private_ips" {
-  value = join(" ", [for inst in aws_instance.sec_storage_nodes : inst.private_ip])
-}
-
 output "mgmt_public_ips" {
   value = join(" ", aws_instance.mgmt_nodes[*].public_ip)
 }
@@ -58,17 +54,6 @@ output "storage_public_ips" {
   value = join(" ", [for inst in aws_instance.storage_nodes : inst.public_ip])
 }
 
-output "sec_storage_node_details" {
-  value = { for i, instance in aws_instance.sec_storage_nodes :
-    instance.tags["Name"] => {
-      type              = instance.instance_type
-      public_ip         = instance.public_ip
-      private_ip        = instance.private_ip
-      availability_zone = instance.availability_zone
-    }
-  }
-  description = "Details of the secondary storage node nodes."
-}
 
 output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
