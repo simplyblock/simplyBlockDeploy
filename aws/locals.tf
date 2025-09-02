@@ -20,11 +20,25 @@ locals {
 # it is basically rhel9 + the following lines:
 #  $sudo yum update -y
 #  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
-  region_ami_map = {
+  region_ami_map_rhel = {
     "us-east-1"  = "ami-0ff9547ee3e11637a"
     "us-east-2"  = "ami-00b0bb86a4287f38f"
     "eu-north-1" = "ami-01997ffb7707167a4"
     "eu-west-1"  = "ami-0a3bac9371ffc12f8"
+  }
+
+  region_ami_map_ubuntu24 = {
+    "us-east-1"  = "ami-04e601abe3e1a910f"
+    "us-east-2"  = "ami-09040d2236a88b93b"
+    "eu-north-1" = "ami-0d297098889a7122b"
+    "eu-west-1"  = "ami-0d71ea34b358e5e74"
+  }
+
+  region_ami_map_ubuntu22 = {
+    "us-east-1"  = "ami-0c55b159cbfafe1f0"
+    "us-east-2"  = "ami-0b5c5626245b0a322"
+    "eu-north-1" = "ami-07978312939991211"
+    "eu-west-1"  = "ami-0a563f173f6b97b04"
   }
 
   region_ami_map_arm = {
@@ -33,6 +47,14 @@ locals {
     "eu-north-1" = "ami-006af066a79f5190f"
     "eu-west-1"  = "ami-06028a225ee106d6f"
   }
+
+  region_ami_maps = {
+    rhel9        = region_ami_map_rhel
+    ubuntu24.04  = region_ami_map_ubuntu24
+    ubuntu22.04  = region_ami_map_ubuntu22
+  }
+
+  region_ami_map = local.region_ami_maps[var.storage_nodes_distro]
 
   ami_map = {
     "amd64" = local.region_ami_map

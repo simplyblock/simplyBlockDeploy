@@ -627,7 +627,7 @@ resource "aws_iam_instance_profile" "inst_profile" {
 }
 
 resource "aws_instance" "bastion" {
-  ami                    = local.region_ami_map[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
+  ami                    = local.region_ami_map_rhel[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = "t2.micro"
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
@@ -643,7 +643,7 @@ resource "aws_instance" "bastion" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = local.region_ami_map[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
+  ami                    = local.region_ami_map_rhel[var.region] # RHEL 9 // use this outside simplyblock aws acccount data.aws_ami.rhel9.id
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
@@ -702,15 +702,15 @@ resource "aws_instance" "storage_nodes" {
 
   user_data = <<EOF
 #!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
-cat /proc/meminfo | grep -i hug
-echo "installing sbcli.."
-sudo yum install -y pip unzip
-pip install ${local.sbcli_pkg}
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
+  sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
+  cat /proc/meminfo | grep -i hug
+  echo "installing sbcli.."
+sudo yum install -y pip unzip
+  pip install ${local.sbcli_pkg}
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
   ${var.sbcli_cmd} storage-node configure --max-lvol ${var.max_lvol} --max-size ${var.max_size} \
                 --nodes-per-socket ${var.nodes_per_socket} --sockets-to-use ${var.socket_to_use} \
                 --pci-allowed "${join(",", var.pci_allowed)}" --pci-blocked "${join(",", var.pci_blocked)}"

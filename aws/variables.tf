@@ -111,6 +111,16 @@ variable "storage_nodes_arch" {
     error_message = "The architecture type must be either 'arm64' or 'amd64'."
   }
 }
+variable "storage_nodes_distro" {
+  type        = string
+  default     = "rhel9"
+
+  validation {
+    condition     = contains(["rhel9", "ubuntu24.04", "ubuntu22.04"], var.storage_nodes_distro)
+    error_message = "The distribution type must be either 'rhel9', 'ubuntu24.04', or 'ubuntu22.04'."
+  }
+}
+
 
 variable "snode_deploy_on_k8s" {
   type        = string
