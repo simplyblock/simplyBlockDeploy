@@ -643,7 +643,7 @@ resource "aws_instance" "bastion" {
 
 resource "aws_instance" "mgmt_nodes" {
   count                  = var.mgmt_nodes
-  ami                    = local.region_ami_map_rhel10[var.region] # RHEL 10 // use this outside simplyblock aws acccount data.aws_ami.rhel10.id
+  ami                    = local.region_ami_map_rhel9[var.region] # RHEL 10 // use this outside simplyblock aws acccount data.aws_ami.rhel10.id
   instance_type          = var.mgmt_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.mgmt_node_sg.id]
@@ -723,7 +723,7 @@ EOF
 # can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = local.region_ami_map_rhel10[var.region]
+  ami                    = local.region_ami_map_rhel9[var.region]
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.extra_nodes_sg.id]
