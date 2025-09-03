@@ -45,7 +45,7 @@ helm install -n simplyblock --create-namespace spdk-csi simplyblock-csi/spdk-csi
             --set csiConfig.simplybk.ip=$CLUSTER_ENDPOINT \
             --set csiSecret.simplybk.secret=$CLUSTER_SECRET \
             --set logicalVolume.pool_name=testing1 \
-            --set image.simplyblock.tag=R25.6-PRE \
+            --set image.simplyblock.tag=pci_driver_handling \
             --set image.csi.tag=v0.1.5 \
             --set storagenode.create=true \
             --set storagenode.ubuntuHost=$UBUNTU_HOST \
