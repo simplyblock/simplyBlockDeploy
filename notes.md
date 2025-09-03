@@ -2,6 +2,26 @@
 
 By default it uses the key `~/.ssh/id_ed25519`. You would like to use a seperate key. They needs to be passed seperately in terraform variable and script
 
+intialize the state
+```
+TFSTATE_BUCKET=simplyblock-terraform-state-bucket
+TFSTATE_KEY=csi
+TFSTATE_REGION=us-east-2
+TFSTATE_DYNAMODB_TABLE=terraform-up-and-running-locks
+
+terraform init -reconfigure \
+    -backend-config="bucket=${TFSTATE_BUCKET}" \
+    -backend-config="key=${TFSTATE_KEY}" \
+    -backend-config="region=${TFSTATE_REGION}" \
+    -backend-config="dynamodb_table=${TFSTATE_DYNAMODB_TABLE}" \
+    -backend-config="encrypt=true"
+```
+create a workspace
+
+```
+terraform workspace -or-create <workspace-name>
+```
+
 ### Provision infra
 ```
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 -var sbcli_cmd=sbcli-rj -var storage_nodes_distro=rhel9
@@ -9,7 +29,7 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 -var s
 
 ### create mgmt cluster on docker 
 ```
-./bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --sbcli-cmd sbcli-rj --k8s-snode
+./bootstrap-cluster.sh --max-lvol 50 --max-snap 10 --sbcli-cmd sbcli-rj --k8s-snode
 ```
 
 ### setup k3s based k8s cluster [can be parallel]
