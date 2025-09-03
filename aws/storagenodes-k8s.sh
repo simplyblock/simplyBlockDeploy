@@ -27,12 +27,12 @@ echo "cluster ID: $CLUSTER_ID"
 echo "cluster secret: $CLUSTER_SECRET"
 
 NETWORK_INTERFACE="ens5"
-if [ $storage_node_distro == "rhel9" || $storage_node_distro == "rhel10" ]; then
+if [ "$storage_node_distro" = "rhel9" -o "$storage_node_distro" = "rhel10" ]; then
     NETWORK_INTERFACE="eth0"
 fi
 
 UBUNTU_HOST="false"
-if [ $storage_node_distro == "ubuntu2204" || $storage_node_distro == "ubuntu2404" ]; then
+if [ "$storage_node_distro" = "ubuntu2204" -o "$storage_node_distro" = "ubuntu2404" ]; then
     UBUNTU_HOST="true"
 fi
 
