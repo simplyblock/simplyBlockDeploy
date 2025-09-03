@@ -75,3 +75,6 @@ output "storage_node_distro" {
   value = var.storage_nodes_distro
 }
 
+output "sbcli_cmd" {
+  value = var.sbcli_cmd
+}

@@ -63,7 +63,7 @@ detect_ssh_user() {
 }
 
 
-read -r -d '' PKG_INSTALL_SNIPPET <<'EOF'
+PKG_INSTALL_SNIPPET='
 detect_pkg_manager() {
     if command -v yum >/dev/null 2>&1; then
         echo "yum"
@@ -85,7 +85,7 @@ else
     echo "Unsupported package manager: $PKG_MANAGER"
     exit 1
 fi
-EOF
+'
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 $PKG_INSTALL_SNIPPET
@@ -169,3 +169,21 @@ if [ "$K8S_SNODE" == "true" ]; then
         ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
     done
 fi
+
+# copy kubeconfig
+scp -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]}:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+#!/bin/bash
+
+PATTERN="s|https://[^:]*:[0-9]*|https://${mnodes}:6443|g"
+CONFIG_FILE="./kubeconfig"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS/BSD sed
+  sed -i '' "$PATTERN" "$CONFIG_FILE"
+else
+  # Linux/GNU sed
+  sed -i "$PATTERN" "$CONFIG_FILE"
+fi
+
+echo "Kubeconfig copied to ./kubeconfig. \nTo use it please run 'export KUBECONFIG=\$PWD/kubeconfig'"
+

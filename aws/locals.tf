@@ -49,9 +49,9 @@ locals {
   }
 
   region_ami_maps = {
-    rhel9        = region_ami_map_rhel
-    ubuntu24.04  = region_ami_map_ubuntu24
-    ubuntu22.04  = region_ami_map_ubuntu22
+    rhel9        = local.region_ami_map_rhel
+    ubuntu2404  = local.region_ami_map_ubuntu24
+    ubuntu2204  = local.region_ami_map_ubuntu22
   }
 
   region_ami_map = local.region_ami_maps[var.storage_nodes_distro]

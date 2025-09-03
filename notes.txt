@@ -1,0 +1,21 @@
+# with create cluster
+
+### Provision infra
+```
+terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 -var sbcli_cmd=sbcli-rj -var storage_nodes_distro=rhel9
+```
+
+### create mgmt cluster on docker 
+```
+./bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --sbcli-cmd sbcli-rj --k8s-snode
+```
+
+### setup k3s based k8s cluster [can be parallel]
+```
+./bootstrap-k3s.sh --k8s-snode
+```
+
+### Add storage nodes
+```
+./storagenodes-k8s.sh
+```
