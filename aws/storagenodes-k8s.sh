@@ -9,21 +9,16 @@ mnodes=$(terraform output -raw mgmt_private_ips)
 storage_node_distro=$(terraform output -raw storage_node_distro)
 export SBCLI_CMD=$(terraform output -raw sbcli_cmd)
 
-ssh_user="ubuntu"
-if [ $storage_node_distro == "rhel9" ]; then
-    ssh_user="ec2-user"
-fi
-
 CLUSTER_ID=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ${ssh_user}@${mnodes[0]} "
+    ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster list | grep simplyblock | awk '{print \$2}'
 ")
 
 CLUSTER_SECRET=$(ssh -i "$KEY" -o StrictHostKeyChecking=no \
     -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
-    ${ssh_user}@${mnodes[0]} "
+    ec2-user@${mnodes[0]} "
 MANGEMENT_NODE_IP=${mnodes[0]}
 ${SBCLI_CMD} cluster get-secret ${CLUSTER_ID}
 ")

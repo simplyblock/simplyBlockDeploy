@@ -28,26 +28,33 @@ locals {
   }
 
   region_ami_map_ubuntu24 = {
-    "us-east-1"  = "ami-04e601abe3e1a910f"
-    "us-east-2"  = "ami-09040d2236a88b93b"
-    "eu-north-1" = "ami-0d297098889a7122b"
+    "us-east-1"  = "ami-0360c520857e3138f"
+    "us-east-2"  = "ami-0cfde0ea8edd312d4"
+    "eu-north-1" = "ami-0a716d3f3b16d290c"
     "eu-west-1"  = "ami-0d71ea34b358e5e74"
   }
 
   region_ami_map_ubuntu22 = {
-    "us-east-1"  = "ami-0c55b159cbfafe1f0"
-    "us-east-2"  = "ami-0b5c5626245b0a322"
-    "eu-north-1" = "ami-07978312939991211"
+    "us-east-1"  = "ami-0bbdd8c17ed981ef9"
+    "us-east-2"  = "ami-0d9a665f802ae6227"
+    "eu-north-1" = "ami-07e075f00c26b085a"
     "eu-west-1"  = "ami-0a563f173f6b97b04"
   }
 
-  region_ami_map_arm = {
+  region_ami_map_rhel9_arm = {
     "us-east-1"  = "ami-0990e7074b32986af"
     "us-east-2"  = "ami-0e71db082192a9cf7"
     "eu-north-1" = "ami-006af066a79f5190f"
     "eu-west-1"  = "ami-06028a225ee106d6f"
   }
 
+  region_ami_map_talos = {
+    "us-east-1"  = "ami-064e388d915377924"
+    "us-east-2"  = "ami-090fb8e21a10977b3"
+    "eu-north-1" = "ami-07bd569b95443e16c"
+    "eu-west-1"  = "ami-0c2f6db59bde696db"
+  }
+  
   region_ami_maps = {
     rhel9        = local.region_ami_map_rhel
     ubuntu2404  = local.region_ami_map_ubuntu24
@@ -58,7 +65,7 @@ locals {
 
   ami_map = {
     "amd64" = local.region_ami_map
-    "arm64" = local.region_ami_map_arm
+    "arm64" = local.region_ami_map_rhel9_arm
   }
 
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
