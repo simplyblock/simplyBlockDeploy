@@ -117,8 +117,8 @@ variable "storage_nodes_distro" {
   default     = "rhel9"
 
   validation {
-    condition     = contains(["rhel9", "ubuntu2404", "ubuntu2204"], var.storage_nodes_distro)
-    error_message = "The distribution type must be either 'rhel9', 'ubuntu2404', or 'ubuntu2204'."
+    condition     = contains(["rhel9", "rhel10", "ubuntu2404", "ubuntu2204"], var.storage_nodes_distro)
+    error_message = "The distribution type must be either 'rhel9', 'rhel10', 'ubuntu2404', or 'ubuntu2204'."
   }
 }
 
