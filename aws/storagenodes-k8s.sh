@@ -27,9 +27,15 @@ echo "cluster ID: $CLUSTER_ID"
 echo "cluster secret: $CLUSTER_SECRET"
 
 NETWORK_INTERFACE="ens5"
-if [ $storage_node_distro == "rhel9" ]; then
+if [ $storage_node_distro == "rhel9" || $storage_node_distro == "rhel10" ]; then
     NETWORK_INTERFACE="eth0"
 fi
+
+UBUNTU_HOST="false"
+if [ $storage_node_distro == "ubuntu2204" || $storage_node_distro == "ubuntu2404" ]; then
+    UBUNTU_HOST="true"
+fi
+
 
 helm repo add simplyblock-csi https://raw.githubusercontent.com/simplyblock/simplyblock-csi/master/charts/spdk-csi
 helm repo update simplyblock-csi
@@ -42,6 +48,7 @@ helm install -n simplyblock --create-namespace spdk-csi simplyblock-csi/spdk-csi
             --set image.simplyblock.tag=R25.6-PRE \
             --set image.csi.tag=v0.1.5 \
             --set storagenode.create=true \
+            --set storagenode.ubuntuHost=$UBUNTU_HOST \
             --set logicalVolume.numDataChunks=1 \
             --set logicalVolume.numParityChunks=1 \
             --set storagenode.numPartitions=1 \
