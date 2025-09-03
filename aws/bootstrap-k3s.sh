@@ -1,6 +1,8 @@
 #!/bin/bash
 
-KEY="$HOME/.ssh/simplyblock-ohio.pem"
+set -exo pipefail
+
+KEY="${KEY:-$HOME/.ssh/id_ed25519}"
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -28,30 +30,6 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
-
-SECRET_VALUE=$(terraform output -raw secret_value)
-KEY_NAME=$(terraform output -raw key_name)
-
-ssh_dir="$HOME/.ssh"
-
-if [ ! -d "$ssh_dir" ]; then
-    mkdir -p "$ssh_dir"
-    echo "Directory $ssh_dir created."
-else
-    echo "Directory $ssh_dir already exists."
-fi
-
-if [[ -n "$SECRET_VALUE" ]]; then
-    KEY="$HOME/.ssh/$KEY_NAME"
-    if [ -f "$HOME/.ssh/$KEY_NAME" ]; then
-        echo "the ssh key: ${KEY} already exits on local"
-    else
-        echo "$SECRET_VALUE" >"$KEY"
-        chmod 400 "$KEY"
-    fi
-else
-    echo "Failed to retrieve secret value. Falling back to default key."
-fi
 
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 mnodes=($(terraform output -raw extra_nodes_public_ips))
@@ -85,7 +63,7 @@ detect_ssh_user() {
 }
 
 
-read -r -d '' PKG_INSTALL_SNIPPET <<'EOF'
+PKG_INSTALL_SNIPPET='
 detect_pkg_manager() {
     if command -v yum >/dev/null 2>&1; then
         echo "yum"
@@ -107,7 +85,7 @@ else
     echo "Unsupported package manager: $PKG_MANAGER"
     exit 1
 fi
-EOF
+'
 
 ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
 $PKG_INSTALL_SNIPPET
@@ -191,3 +169,21 @@ if [ "$K8S_SNODE" == "true" ]; then
         ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
     done
 fi
+
+# copy kubeconfig
+scp -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]}:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+#!/bin/bash
+
+PATTERN="s|https://[^:]*:[0-9]*|https://${mnodes}:6443|g"
+CONFIG_FILE="./kubeconfig"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS/BSD sed
+  sed -i '' "$PATTERN" "$CONFIG_FILE"
+else
+  # Linux/GNU sed
+  sed -i "$PATTERN" "$CONFIG_FILE"
+fi
+
+echo "Kubeconfig copied to ./kubeconfig. \nTo use it please run 'export KUBECONFIG=\$PWD/kubeconfig'"
+

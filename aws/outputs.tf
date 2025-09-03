@@ -70,3 +70,11 @@ output "grafana_invoke_url" {
 output "graylog_invoke_url" {
   value = "${try(module.apigatewayendpoint[0].api_invoke_url, "")}graylog"
 }
+
+output "storage_node_distro" {
+  value = var.storage_nodes_distro
+}
+
+output "sbcli_cmd" {
+  value = var.sbcli_cmd
+}

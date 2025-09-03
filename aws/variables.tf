@@ -67,7 +67,7 @@ variable "mgmt_nodes_instance_type" {
 }
 
 variable "storage_nodes_instance_type" {
-  default = "m5.large"
+  default = "i3en.2xlarge"
   type    = string
 }
 
@@ -112,9 +112,19 @@ variable "storage_nodes_arch" {
   }
 }
 
+variable "storage_nodes_distro" {
+  type        = string
+  default     = "rhel9"
+
+  validation {
+    condition     = contains(["rhel9", "rhel10", "ubuntu2404", "ubuntu2204"], var.storage_nodes_distro)
+    error_message = "The distribution type must be either 'rhel9', 'rhel10', 'ubuntu2404', or 'ubuntu2204'."
+  }
+}
+
 variable "snode_deploy_on_k8s" {
   type        = string
-  default     = "false"
+  default     = "true"
 
   validation {
     condition     = contains(["false", "true"], var.snode_deploy_on_k8s)

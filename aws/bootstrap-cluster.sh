@@ -199,6 +199,12 @@ BASTION_IP=$(terraform output -raw bastion_public_ip)
 GRAFANA_ENDPOINT=$(terraform output -raw grafana_invoke_url)
 mnodes=$(terraform output -raw mgmt_private_ips)
 storage_private_ips=$(terraform output -raw storage_private_ips)
+storage_node_distro=$(terraform output -raw storage_node_distro)
+
+ssh_user="ubuntu"
+if [ $storage_node_distro == "rhel9" ]; then
+    ssh_user="ec2-user"
+fi
 
 echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"

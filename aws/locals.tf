@@ -20,23 +20,60 @@ locals {
 # it is basically rhel9 + the following lines:
 #  $sudo yum update -y
 #  $sudo yum install -y yum-utils xorg-x11-xauth nvme-cli fio
-  region_ami_map = {
+  region_ami_map_rhel9 = {
     "us-east-1"  = "ami-0ff9547ee3e11637a"
     "us-east-2"  = "ami-00b0bb86a4287f38f"
     "eu-north-1" = "ami-01997ffb7707167a4"
     "eu-west-1"  = "ami-0a3bac9371ffc12f8"
   }
 
-  region_ami_map_arm = {
+  region_ami_map_rhel10 = {
+    "us-east-1"  = "ami-0fd3ac4abb734302a"
+    "us-east-2"  = "ami-0f70b01eb0d5c5caa"
+    "eu-north-1" = "ami-09627188d1e477c9e"
+    "eu-west-1"  = "ami-0ae53736fc234deff"
+  }
+
+  region_ami_map_ubuntu24 = {
+    "us-east-1"  = "ami-0360c520857e3138f"
+    "us-east-2"  = "ami-0cfde0ea8edd312d4"
+    "eu-north-1" = "ami-0a716d3f3b16d290c"
+    "eu-west-1"  = "ami-0d71ea34b358e5e74"
+  }
+
+  region_ami_map_ubuntu22 = {
+    "us-east-1"  = "ami-0bbdd8c17ed981ef9"
+    "us-east-2"  = "ami-0d9a665f802ae6227"
+    "eu-north-1" = "ami-07e075f00c26b085a"
+    "eu-west-1"  = "ami-0a563f173f6b97b04"
+  }
+
+  region_ami_map_rhel9_arm = {
     "us-east-1"  = "ami-0990e7074b32986af"
     "us-east-2"  = "ami-0e71db082192a9cf7"
     "eu-north-1" = "ami-006af066a79f5190f"
     "eu-west-1"  = "ami-06028a225ee106d6f"
   }
 
+  region_ami_map_talos = {
+    "us-east-1"  = "ami-064e388d915377924"
+    "us-east-2"  = "ami-090fb8e21a10977b3"
+    "eu-north-1" = "ami-07bd569b95443e16c"
+    "eu-west-1"  = "ami-0c2f6db59bde696db"
+  }
+  
+  region_ami_maps = {
+    rhel9        = local.region_ami_map_rhel9
+    rhel10        = local.region_ami_map_rhel10
+    ubuntu2404  = local.region_ami_map_ubuntu24
+    ubuntu2204  = local.region_ami_map_ubuntu22
+  }
+
+  region_ami_map = local.region_ami_maps[var.storage_nodes_distro]
+
   ami_map = {
     "amd64" = local.region_ami_map
-    "arm64" = local.region_ami_map_arm
+    "arm64" = local.region_ami_map_rhel9_arm
   }
 
   sbcli_pkg = var.sbcli_pkg_version == "" ? var.sbcli_cmd : "${var.sbcli_cmd}==${var.sbcli_pkg_version}"
