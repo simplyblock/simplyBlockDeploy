@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -exo pipefail
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
 nr_hugepages=$NR_HUGEPAGES
