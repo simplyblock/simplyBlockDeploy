@@ -148,6 +148,7 @@ while [[ $# -gt 0 ]]; do
         ;;
     --sbcli-cmd)
         SBCLI_CMD="$2"
+        SBCLI_CMD="sbctl" # just use sbctl everywhere. Because its also an alternative target
         shift
         ;;
     --spdk-image)
