@@ -32,15 +32,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 BASTION_IP=$(terraform output -raw bastion_public_ip)
-mnodes=($(terraform output -raw extra_nodes_public_ips))
-
-mnodes_private_ips=$(terraform output -raw extra_nodes_private_ips)
-IFS=' ' read -ra mnodes_private_ips <<<"$mnodes_private_ips"
+k3snodes=($(terraform output -raw extra_nodes_public_ips))
+k3snodes_private_ips=($(terraform output -raw extra_nodes_private_ips))
+IFS=' ' read -ra k3snodes_private_ips <<<"$k3snodes_private_ips"
 
 storage_private_ips=$(terraform output -raw storage_private_ips)
 
 echo "KEY=$KEY" >> ${GITHUB_OUTPUT:-/dev/stdout}
-echo "extra_node_ip=${mnodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
+echo "extra_node_ip=${k3snodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
 
 detect_ssh_user() {
     local target_ip="$1"
@@ -87,34 +86,41 @@ else
 fi
 '
 
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "
+SSH_USER=$(detect_ssh_user ${k3snodes[0]} $BASTION_IP)
+
+ssh -i $KEY -o StrictHostKeyChecking=no ${SSH_USER}@${k3snodes[0]} "
 $PKG_INSTALL_SNIPPET
+sudo dnf install -y iptables iptables-services
+sudo modprobe br_netfilter
+sudo modprobe overlay
 sudo modprobe nvme-tcp
 sudo modprobe nbd
-total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-total_memory_mb=\$((total_memory_kb / 1024))
-hugepages=\$((total_memory_mb / 4 ))
-sudo sysctl -w vm.nr_hugepages=\$hugepages
-sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${mnodes[0]}' bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${k3snodes[0]} --disable=traefik' bash
 sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
-sudo chown ec2-user:ec2-user /etc/rancher/k3s/k3s.yaml
+sudo chown $SSH_USER:$SSH_USER /etc/rancher/k3s/k3s.yaml
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
+sudo reboot
 "
 
-MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[0]} | awk '{print \$1}'")
-ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
+echo "Waiting for the first k3s node ${k3snodes[0]} to come back online..."
+while ! ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "echo 'Node is back online'"; do
+    sleep 10
+done
 
-TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
+MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[0]} | awk '{print \$1}'")
+ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
 
-for ((i=1; i<${#mnodes[@]}; i++)); do
-    ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[${i}]} "
+TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
+
+for ((i=1; i<${#k3snodes[@]}; i++)); do
+    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[${i}]} "
     $PKG_INSTALL_SNIPPET
+    sudo dnf install -y iptables iptables-services
+    sudo modprobe br_netfilter
+    sudo modprobe overlay
     sudo modprobe nvme-tcp
     sudo modprobe nbd
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
@@ -124,15 +130,14 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-    curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
+    curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
     echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-    echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
     sudo sysctl --system
     "
 
-    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes_private_ips[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
+    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[${i}]} | awk '{print \$1}'")
+    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -148,33 +153,28 @@ if [ "$K8S_SNODE" == "true" ]; then
             ${SSH_USER}@${node} "
 
             $PKG_INSTALL_SNIPPET
+            sudo dnf install -y iptables iptables-services
+            sudo modprobe br_netfilter
+            sudo modprobe overlay
             sudo modprobe nvme-tcp
             sudo modprobe nbd
-            total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-            total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$((total_memory_mb / 4 / 2))
-    
-            sudo sysctl -w vm.nr_hugepages=\$hugepages
-            sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-            sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
-            curl -sfL https://get.k3s.io | K3S_URL=https://${mnodes[0]}:6443 K3S_TOKEN=$TOKEN bash
+            curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
-            echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
     done
 fi
 
 # copy kubeconfig
-scp -i $KEY -o StrictHostKeyChecking=no ec2-user@${mnodes[0]}:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+scp -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]}:/etc/rancher/k3s/k3s.yaml ./kubeconfig
 #!/bin/bash
 
-PATTERN="s|https://[^:]*:[0-9]*|https://${mnodes}:6443|g"
+PATTERN="s|https://[^:]*:[0-9]*|https://${k3snodes}:6443|g"
 CONFIG_FILE="./kubeconfig"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -186,4 +186,3 @@ else
 fi
 
 echo "Kubeconfig copied to ./kubeconfig. \nTo use it please run 'export KUBECONFIG=\$PWD/kubeconfig'"
-

@@ -5,6 +5,7 @@ KEY="${KEY:-$HOME/.ssh/id_ed25519}"
 echo "reading terraform outputs..."
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 CLUSTER_ENDPOINT=$(terraform output -raw api_invoke_url)
+CLUSTER_ENDPOINT="${CLUSTER_ENDPOINT%/}" # remove trailing slash if any
 mnodes=$(terraform output -raw mgmt_private_ips)
 storage_node_distro=$(terraform output -raw storage_node_distro)
 export SBCLI_CMD=$(terraform output -raw sbcli_cmd)
