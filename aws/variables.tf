@@ -76,12 +76,6 @@ variable "extra_nodes_instance_type" {
   type    = string
 }
 
-variable "nr_hugepages" {
-  default     = 2048
-  description = "number of huge pages"
-  type        = number
-}
-
 variable "enable_apigateway" {
   default = 1
   type    = number
@@ -117,8 +111,8 @@ variable "storage_nodes_distro" {
   default     = "rhel9"
 
   validation {
-    condition     = contains(["rhel9", "rhel10", "ubuntu2404", "ubuntu2204"], var.storage_nodes_distro)
-    error_message = "The distribution type must be either 'rhel9', 'rhel10', 'ubuntu2404', or 'ubuntu2204'."
+    condition     = contains(["rhel9", "rocky10", "ubuntu2404", "ubuntu2204"], var.storage_nodes_distro)
+    error_message = "The distribution type must be either 'rhel9', 'rocky10', 'ubuntu2404', or 'ubuntu2204'."
   }
 }
 

@@ -27,11 +27,12 @@ locals {
     "eu-west-1"  = "ami-0a3bac9371ffc12f8"
   }
 
-  region_ami_map_rhel10 = {
-    "us-east-1"  = "ami-0fd3ac4abb734302a"
-    "us-east-2"  = "ami-0f70b01eb0d5c5caa"
-    "eu-north-1" = "ami-09627188d1e477c9e"
-    "eu-west-1"  = "ami-0ae53736fc234deff"
+  # ProComputers - Rocky Linux 10.0 x86_64 MINIMAL - 20250821_083002
+  region_ami_map_rocky10 = { 
+    "us-east-1"  = "ami-00db0ce9e4bee387c"
+    "us-east-2"  = "ami-003e90bfc894e8060"
+    "eu-north-1" = "ami-0124e4fd3a74c572d"
+    "eu-west-1"  = "ami-034baf5a50303e318"
   }
 
   region_ami_map_ubuntu24 = {
@@ -61,10 +62,10 @@ locals {
     "eu-north-1" = "ami-07bd569b95443e16c"
     "eu-west-1"  = "ami-0c2f6db59bde696db"
   }
-  
+
   region_ami_maps = {
     rhel9        = local.region_ami_map_rhel9
-    rhel10        = local.region_ami_map_rhel10
+    rocky10      = local.region_ami_map_rocky10
     ubuntu2404  = local.region_ami_map_ubuntu24
     ubuntu2204  = local.region_ami_map_ubuntu22
   }
