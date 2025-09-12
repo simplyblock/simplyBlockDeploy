@@ -702,15 +702,6 @@ resource "aws_instance" "storage_nodes" {
 
   user_data = <<EOF
 #!/bin/bash
-
-# Disable SELinux to make k3s work properly on Rocky 10
-if [ -f /etc/selinux/config ] && [ ! -f /var/lib/cloud/selinux-disabled ]; then
-  sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-  touch /var/lib/cloud/selinux-disabled
-  echo "SELinux disabled, rebooting to apply changes"
-  reboot
-fi
-
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
   echo "installing sbcli.."
   sudo yum install -y pip unzip
@@ -742,14 +733,4 @@ resource "aws_instance" "extra_nodes" {
   tags = {
     Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
   }
-  user_data = <<EOF
-#!/bin/bash
-# Disable SELinux to make k3s work properly on Rocky 10
-if [ -f /etc/selinux/config ] && [ ! -f /var/lib/cloud/selinux-disabled ]; then
-  sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-  touch /var/lib/cloud/selinux-disabled
-  echo "SELinux disabled, rebooting to apply changes"
-  reboot
-fi
-EOF
 }

@@ -34,6 +34,7 @@ done
 BASTION_IP=$(terraform output -raw bastion_public_ip)
 k3snodes=($(terraform output -raw extra_nodes_public_ips))
 k3snodes_private_ips=($(terraform output -raw extra_nodes_private_ips))
+distro=$(terraform output -raw storage_node_distro)
 IFS=' ' read -ra k3snodes_private_ips <<<"$k3snodes_private_ips"
 
 storage_private_ips=$(terraform output -raw storage_private_ips)
@@ -101,13 +102,20 @@ sudo chown $SSH_USER:$SSH_USER /etc/rancher/k3s/k3s.yaml
 echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
 echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
 sudo sysctl --system
-sudo reboot
 "
 
-echo "Waiting for the first k3s node ${k3snodes[0]} to come back online..."
-while ! ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "echo 'Node is back online'"; do
+## In case of Rocky10, reboot the node
+
+if [ "$distro" == "rocky10" ]; then
+    echo "Rebooting the first k3s node ${k3snodes[0]} as it is Rocky Linux 10..."
+    ssh -i $KEY -o StrictHostKeyChecking=no ${SSH_USER}@${k3snodes[0]} "sudo reboot"
+    echo "Waiting for the first k3s node ${k3snodes[0]} to come back online..."
+    while ! ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "echo 'Node is back online'"; do
+        sleep 10
+    done
+    # even after node reboot, wait for the k3s server to come back up
     sleep 10
-done
+fi
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[0]} | awk '{print \$1}'")
 ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
@@ -121,12 +129,6 @@ for ((i=1; i<${#k3snodes[@]}; i++)); do
     sudo modprobe overlay
     sudo modprobe nvme-tcp
     sudo modprobe nbd
-    total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-    total_memory_mb=\$((total_memory_kb / 1024))
-    hugepages=\$((total_memory_mb / 4 / 2))
-    sudo sysctl -w vm.nr_hugepages=\$hugepages
-    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
     sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
     curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
     echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
@@ -156,6 +158,10 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo modprobe nvme-tcp
             sudo modprobe nbd
             sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+            total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+            total_memory_mb=\$((total_memory_kb / 1024))
+            hugepages=\$((total_memory_mb / 4 / 2))
+            sudo sysctl -w vm.nr_hugepages=\$hugepages
             curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
             echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
             echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
