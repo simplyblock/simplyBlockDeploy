@@ -76,12 +76,6 @@ variable "extra_nodes_instance_type" {
   type    = string
 }
 
-variable "nr_hugepages" {
-  default     = 2048
-  description = "number of huge pages"
-  type        = number
-}
-
 variable "enable_apigateway" {
   default = 1
   type    = number
@@ -132,6 +126,11 @@ variable "snode_deploy_on_k8s" {
   }
 }
 
+variable "snode_extra_nics" {
+  type        = number
+  default     = 2
+  description = "Number of extra network interfaces to attach to each storage node"
+}
 
 variable "max_lvol" {
   type        = number

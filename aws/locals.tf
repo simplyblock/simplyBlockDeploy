@@ -99,4 +99,14 @@ locals {
   }
 
   account_id = data.aws_caller_identity.current.account_id
+
+  snode_nic_pairs = flatten([
+    for node_key, _ in local.snodes : [
+      for i in range(var.snode_extra_nics) : {
+        node_key  = node_key
+        nic_index = i
+      }
+    ]
+  ])
+  
 }

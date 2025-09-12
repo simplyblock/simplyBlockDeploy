@@ -728,6 +728,31 @@ fi
 EOF
 }
 
+resource "aws_network_interface" "storage_nodes_extra" {
+  for_each = {
+    for pair in local.snode_nic_pairs :
+    "${pair.node_key}-${pair.nic_index}" => pair
+  }
+
+  subnet_id       = module.vpc.private_subnets[local.az_index]
+  security_groups = [aws_security_group.storage_nodes_sg.id]
+
+  tags = {
+    Name = "${terraform.workspace}-${each.key}"
+  }
+}
+
+resource "aws_network_interface_attachment" "storage_nodes_extra-attach" {
+  for_each = {
+    for pair in local.snode_nic_pairs :
+    "${pair.node_key}-${pair.nic_index}" => pair
+  }
+
+  instance_id          = aws_instance.storage_nodes[each.value.node_key].id
+  network_interface_id = aws_network_interface.storage_nodes_extra[each.key].id
+  device_index         = each.value.nic_index + 1
+}
+
 # can be used for testing caching nodes
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
@@ -743,9 +768,4 @@ resource "aws_instance" "extra_nodes" {
   tags = {
     Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
   }
-  user_data = <<EOF
-#!/bin/bash
-sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
-cat /proc/meminfo | grep -i hug
-EOF
 }
