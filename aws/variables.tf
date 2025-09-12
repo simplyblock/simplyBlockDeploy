@@ -128,7 +128,7 @@ variable "snode_deploy_on_k8s" {
 
 variable "snode_extra_nics" {
   type        = number
-  default     = 2
+  default     = 0
   description = "Number of extra network interfaces to attach to each storage node"
 }
 
