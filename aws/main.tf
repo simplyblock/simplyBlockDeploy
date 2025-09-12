@@ -711,8 +711,6 @@ resource "aws_instance" "storage_nodes" {
   user_data = <<EOF
 #!/bin/bash
 if [ "${var.snode_deploy_on_k8s}" = "false" ]; then
-  sudo sysctl -w vm.nr_hugepages=${var.nr_hugepages}
-  cat /proc/meminfo | grep -i hug
   echo "installing sbcli.."
 sudo yum install -y pip unzip
   pip install ${local.sbcli_pkg}
