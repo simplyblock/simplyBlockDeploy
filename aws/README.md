@@ -94,38 +94,17 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
                 -var mgmt_nodes_instance_type="m5.large" -var storage_nodes_instance_type="m5.large" --auto-approve
 ```
 
-### Specifying the Number of EBS Volumes
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var volumes_per_storage_nodes=2 --auto-approve
-```
-
-### Specifying the Size of EBS Volumes
-
-```bash
-# -var storage_nodes_ebs_size1=2 for Journal Manager
-# -var storage_nodes_ebs_size2=50 for Storage node
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var storage_nodes_ebs_size1=2 \
-                -var storage_nodes_ebs_size2=50 --auto-approve
-```
-
-### Specifying HugePage Size
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var nr_hugepages=2048 --auto-approve
-```
-
 ### Using Dev or Prod TFVars
 
 ```bash
 terraform apply -var-file="dev.tfvars" --auto-approve
 ```
 
-### Specifying the Number of Secondary Storage node and Instance Type
+### Specifying the Number of Extra NIC for Storage node
 
 ```bash
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
-                -var sec_storage_nodes=1 -var sec_storage_nodes_instance_type="m5.large" --auto-approve
+                -var snode_extra_nics=1 --auto-approve
 ```
 
 ### Specifying the parameters for Storage node Configuration 
