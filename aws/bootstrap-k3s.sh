@@ -76,7 +76,7 @@ detect_pkg_manager() {
 PKG_MANAGER=$(detect_pkg_manager)
 
 if [ "$PKG_MANAGER" = "yum" ]; then
-    sudo yum install -y fio nvme-cli pciutils make golang
+    sudo yum install -y fio nvme-cli pciutils make golang iptables iptables-services
 elif [ "$PKG_MANAGER" = "apt" ]; then
     sudo apt update
     sudo apt install -y fio nvme-cli pciutils make golang
@@ -90,7 +90,6 @@ SSH_USER=$(detect_ssh_user ${k3snodes[0]} $BASTION_IP)
 
 ssh -i $KEY -o StrictHostKeyChecking=no ${SSH_USER}@${k3snodes[0]} "
 $PKG_INSTALL_SNIPPET
-sudo dnf install -y iptables iptables-services
 sudo modprobe br_netfilter
 sudo modprobe overlay
 sudo modprobe nvme-tcp
@@ -118,7 +117,6 @@ TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "sudo c
 for ((i=1; i<${#k3snodes[@]}; i++)); do
     ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[${i}]} "
     $PKG_INSTALL_SNIPPET
-    sudo dnf install -y iptables iptables-services
     sudo modprobe br_netfilter
     sudo modprobe overlay
     sudo modprobe nvme-tcp
@@ -153,7 +151,6 @@ if [ "$K8S_SNODE" == "true" ]; then
             ${SSH_USER}@${node} "
 
             $PKG_INSTALL_SNIPPET
-            sudo dnf install -y iptables iptables-services
             sudo modprobe br_netfilter
             sudo modprobe overlay
             sudo modprobe nvme-tcp
