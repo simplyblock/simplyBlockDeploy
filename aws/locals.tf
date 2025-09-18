@@ -68,6 +68,7 @@ locals {
     rocky10      = local.region_ami_map_rocky10
     ubuntu2404  = local.region_ami_map_ubuntu24
     ubuntu2204  = local.region_ami_map_ubuntu22
+    talos       = local.region_ami_map_talos
   }
 
   region_ami_map = local.region_ami_maps[var.storage_nodes_distro]

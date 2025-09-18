@@ -38,6 +38,20 @@ if [ "$storage_node_distro" = "ubuntu2204" -o "$storage_node_distro" = "ubuntu24
 fi
 
 
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: simplyblock
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: latest
+EOF
+
 helm repo add simplyblock-csi https://raw.githubusercontent.com/simplyblock/simplyblock-csi/master/charts/spdk-csi
 helm repo update simplyblock-csi
 

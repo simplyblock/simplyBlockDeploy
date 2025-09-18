@@ -5,3 +5,4 @@ terraform.tfstate.backup
 outputs.json
 .terraform.tfstate.lock.info
 kubeconfig
+generated
