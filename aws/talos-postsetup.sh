@@ -11,3 +11,4 @@ talosctl health
 
 talosctl kubeconfig .
 export KUBECONFIG=$(pwd)/kubeconfig
+kubectl get nodes

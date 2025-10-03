@@ -67,7 +67,7 @@ variable "mgmt_nodes_instance_type" {
 }
 
 variable "storage_nodes_instance_type" {
-  default = "i3en.2xlarge"
+  default = "m5.large"
   type    = string
 }
 
