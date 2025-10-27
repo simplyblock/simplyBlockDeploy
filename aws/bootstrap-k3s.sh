@@ -118,7 +118,7 @@ if [ "$distro" == "rocky10" ]; then
 fi
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[0]} | awk '{print \$1}'")
-ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
+ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 
 TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
 
@@ -137,7 +137,7 @@ for ((i=1; i<${#k3snodes[@]}; i++)); do
     "
 
     NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
+    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -169,7 +169,7 @@ if [ "$K8S_SNODE" == "true" ]; then
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
+        ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/zone=default --overwrite"
     done
 fi
 
