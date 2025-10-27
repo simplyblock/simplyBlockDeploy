@@ -115,7 +115,7 @@ sudo sysctl --system
 "
 
 MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[0]} | awk '{print \$1}'")
-ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache --overwrite"
+ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 
 TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
 
@@ -145,7 +145,7 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     "
 
     NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache --overwrite"
+    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -180,7 +180,7 @@ if [ "$K8S_SNODE" == "true" ]; then
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane --overwrite"
+        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/zone=default --overwrite"
     done
 
     for node in ${sec_storage_private_ips[@]}; do
@@ -213,6 +213,6 @@ if [ "$K8S_SNODE" == "true" ]; then
         "
 
         NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane-reserve --overwrite"
+        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane-reserve topology.kubernetes.io/zone=default --overwrite"
     done
 fi
