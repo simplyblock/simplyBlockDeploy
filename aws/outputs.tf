@@ -78,3 +78,11 @@ output "storage_node_distro" {
 output "sbcli_cmd" {
   value = var.sbcli_cmd
 }
+
+output "talos_ip" {
+  value = try(module.talos[0].cp_ip_addresses, null)
+}
+
+output "talos_config_path" {
+  value = try(module.talos[0].talos_config_path, null)
+}

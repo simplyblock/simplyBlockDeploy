@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -exo pipefail
 
 KEY="${KEY:-$HOME/.ssh/id_ed25519}"
 

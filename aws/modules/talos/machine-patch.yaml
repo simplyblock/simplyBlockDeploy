@@ -1,0 +1,10 @@
+machine:
+  time:
+    servers:
+      - 169.254.169.123
+  kernel:
+    modules:
+      - name: nbd 
+      - name: uio_pci_generic
+      - name: vfio_pci
+      - name: vfio_iommu_type1

@@ -423,7 +423,6 @@ resource "aws_security_group" "storage_nodes_sg" {
   }
 
   # end
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -687,7 +686,7 @@ EOF
 }
 
 resource "aws_instance" "storage_nodes" {
-  for_each = local.snodes
+  for_each = var.storage_nodes_distro == "talos" ? {} : { for idx, sn in local.snodes : idx => sn }
 
   ami                    = local.ami_map[var.storage_nodes_arch][var.region] # RHEL 10 // use this outside simplyblock aws acccount data.aws_ami.rhel10.id
   instance_type          = var.storage_nodes_instance_type
@@ -754,7 +753,7 @@ resource "aws_network_interface_attachment" "storage_nodes_extra-attach" {
 # can be used for testing k3s nodes or any other purpose
 resource "aws_instance" "extra_nodes" {
   count                  = var.extra_nodes
-  ami                    = local.ami_map[var.storage_nodes_arch][var.region]
+  ami                    = local.region_ami_map_rhel9[var.region]
   instance_type          = var.extra_nodes_instance_type
   key_name               = local.selected_key_name
   vpc_security_group_ids = [aws_security_group.extra_nodes_sg.id]
@@ -764,6 +763,19 @@ resource "aws_instance" "extra_nodes" {
     volume_size = 45
   }
   tags = {
-    Name = "${terraform.workspace}-k8scluster-${count.index + 1}"
+    Name = "${terraform.workspace}-extranode-${count.index + 1}"
   }
+}
+
+module "talos" {
+  count = var.storage_nodes_distro == "talos" ? 1 : 0
+  source = "./modules/talos"
+  cluster_name = var.cluster_name
+  aws_region = var.region
+  control_plane_instance_type = "t3.medium"
+  worker_instance_type = var.storage_nodes_instance_type
+  worker_desired_capacity = var.storage_nodes
+  vpc_id = module.vpc.vpc_id
+  public_subnets = module.vpc.public_subnets
+  storage_node_sg = aws_security_group.storage_nodes_sg.id
 }
