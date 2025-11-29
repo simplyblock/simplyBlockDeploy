@@ -1,0 +1,47 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Run PyTest
+
+on:
+  workflow_dispatch:
+    inputs:
+      Cluster_IP:
+        description: 'Cluster_IP'
+        required: true
+        default: '192.168.10.91'
+      Cluster_ID:
+        description: 'Cluster_ID'
+        required: true
+        default: 'aa2f255e-edbc-41d2-a937-a97c9c25537c '
+      Cluster_Secret:
+        description: 'Cluster_Secret'
+        required: true
+        default: '557oiprmStClDUUeaXOM'
+      Test_Name:
+        description: 'Name of test to run. Empty to run all'
+        required: false
+        default: 'softdelete'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Test with pytest
+      run: |
+        python -m venv myenv
+        source myenv/bin/activate
+        pip install pytest
+        pip install -r test/requirements.txt
+        pytest test/api/test_snapshot.py \
+            --entrypoint=${{ github.event.inputs.Cluster_IP }} \
+            --cluster=${{ github.event.inputs.Cluster_ID }} \
+            --secret=${{ github.event.inputs.Cluster_Secret }} \
+            -k ${{ github.event.inputs.Test_Name }}
