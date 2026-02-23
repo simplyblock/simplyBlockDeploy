@@ -52,6 +52,7 @@ print_help() {
     echo "  --namespace                          The Kubernetes Namespace in which storage node needs to be installed (optional)"
     echo "  --mode                               The Environment to deploy management services (optional)"
     echo "  --cleanup                            cleans up the cluster before deployment"
+    echo "  --is-single-node                     Deploy as single-node cluster (optional)"
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -100,6 +101,7 @@ NAMESPACE=""
 MODE=""
 JM_PERCENT=""
 PARTITION_SIZE=""
+IS_SINGLE_NODE=""
 ENABLE_TEST_DEVICE="false"
 FULL_PAGE_UNMAP="false"
 CLEAN_UP="false"
@@ -257,6 +259,10 @@ while [[ $# -gt 0 ]]; do
         MODE="$2"
         shift
         ;;
+    --is-single-node)
+        IS_SINGLE_NODE="$2"
+        shift
+        ;;
     --help)
         print_help
         ;;
@@ -385,6 +391,7 @@ bootstrap_cluster() {
     [[ -n "$PROV_CAP_CRIT" ]] && command+=" --prov-cap-crit $PROV_CAP_CRIT"
     [[ -n "$HA_TYPE" ]] && command+=" --ha-type $HA_TYPE"
     [[ -n "$ENABLE_NODE_AFFINITY" ]] && command+=" --enable-node-affinity"
+    [[ -n "$IS_SINGLE_NODE" ]] && command+=" --is-single-node"
     [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
