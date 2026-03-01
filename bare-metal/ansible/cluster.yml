@@ -1,0 +1,417 @@
+- hosts: storage_nodes
+  gather_facts: false
+  remote_user: root
+  any_errors_fatal: true
+
+  vars:
+    cleanup: "{{ cleanup | default(false) }}"
+
+  tasks:
+    - block:
+        - name: Stop firewalls
+          systemd_service:
+            name: "{{ item }}"
+            state: stopped
+            enabled: false
+          loop:
+            - firewalld
+            - ufw
+          ignore_errors: true
+
+        - name: Disable IPv6 during cleanup
+          sysctl:
+            name: "{{ item }}"
+            value: "1"
+            sysctl_set: true
+            state: present
+            reload: yes
+          loop:
+            - net.ipv6.conf.all.disable_ipv6
+            - net.ipv6.conf.default.disable_ipv6
+          ignore_errors: true
+
+        - name: Run simplyblock cleanup if sbcli is present
+          command: "{{ sbcli_command_name | default('sbcli') }} sn deploy-cleaner"
+          ignore_errors: true
+
+        - name: Stop and prune docker
+          shell: |
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm -f $(docker ps -aq) 2>/dev/null || true
+            docker builder prune --all -f
+            docker system prune -af
+            docker volume prune -f
+            docker rmi -f $(docker images -aq) 2>/dev/null || true
+          args:
+            executable: /bin/bash
+
+        - name: Remove sbcli package if present
+          pip:
+            name: "{{ sbcli_package | default(sbcli_command_name | default('sbcli')) }}"
+            state: absent
+          ignore_errors: true
+
+        - name: Remove sbcli binaries
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /usr/local/bin/sbc
+            - /usr/local/bin/sbctl
+            - /usr/local/bin/sbcli
+            - /usr/local/lib/python3.9/site-packages/simplyblock_core
+            - /usr/local/lib/python3.9/site-packages/simplyblock_cli
+            - /usr/local/lib/python3.9/site-packages/simplyblock
+            - /usr/local/lib/python3.9/site-packages/simplyblock_cli_dev
+          ignore_errors: true
+
+        - name: Reboot storage node after cleanup
+          reboot:
+            reboot_timeout: 600
+      when: cleanup | bool
+
+
+- hosts: management_nodes
+  gather_facts: false
+  remote_user: root
+  any_errors_fatal: true
+
+  vars:
+    cleanup: "{{ cleanup | default(false) }}"
+
+  tasks:
+    - block:
+        - name: Stop firewalls
+          systemd_service:
+            name: "{{ item }}"
+            state: stopped
+            enabled: false
+          loop:
+            - firewalld
+            - ufw
+          ignore_errors: true
+
+        - name: Disable IPv6 during cleanup
+          sysctl:
+            name: "{{ item }}"
+            value: "1"
+            sysctl_set: true
+            state: present
+            reload: yes
+          loop:
+            - net.ipv6.conf.all.disable_ipv6
+            - net.ipv6.conf.default.disable_ipv6
+          ignore_errors: true
+
+        - name: Run simplyblock cleanup if sbcli is present
+          command: "{{ sbcli_command_name | default('sbcli') }} sn deploy-cleaner"
+          ignore_errors: true
+
+        - name: Stop and prune docker
+          shell: |
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm -f $(docker ps -aq) 2>/dev/null || true
+            docker builder prune --all -f
+            docker system prune -af
+            docker volume prune -f
+            docker rmi -f $(docker images -aq) 2>/dev/null || true
+          args:
+            executable: /bin/bash
+
+        - name: Remove sbcli package if present
+          pip:
+            name: "{{ sbcli_package | default(sbcli_command_name | default('sbcli')) }}"
+            state: absent
+          ignore_errors: true
+
+        - name: Remove sbcli binaries
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /usr/local/bin/sbc
+            - /usr/local/bin/sbctl
+            - /usr/local/bin/sbcli
+            - /usr/local/lib/python3.9/site-packages/simplyblock_core
+            - /usr/local/lib/python3.9/site-packages/simplyblock_cli
+            - /usr/local/lib/python3.9/site-packages/simplyblock
+            - /usr/local/lib/python3.9/site-packages/simplyblock_cli_dev
+          ignore_errors: true
+      when: cleanup | bool
+
+
+- hosts: all
+  remote_user: root
+  any_errors_fatal: true
+
+  vars:
+    docker_proxy_url: "{{ docker_proxy_url | default('http://34.1.171.127:5000') }}"
+    docker_insecure_registry: "{{ docker_insecure_registry | default('34.1.171.127:5000') }}"
+
+  handlers:
+    - name: Restart docker
+      systemd_service:
+        name: docker
+        state: restarted
+
+  tasks:
+    - name: Ensure management interface is present
+      assert:
+        that:
+          - management_nic in ansible_facts.interfaces
+
+    - name: Ensure data interface is present on storage nodes
+      assert:
+        that:
+          - data_nic in ansible_facts.interfaces
+      when: "'storage_nodes' in group_names"
+
+    - name: Enable docker repo
+      get_url:
+        url: "https://download.docker.com/linux/rhel/docker-ce.repo"
+        dest: /etc/yum.repos.d
+
+    - name: Ensure required packages are present
+      package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - python3-requests
+          - python3-pip
+          - tmux
+          - git
+          - parted
+        state: present
+
+    - name: Ensure docker daemon is running
+      systemd_service:
+        name: docker
+        state: started
+        enabled: yes
+        daemon-reload: yes
+
+    - name: Ensure docker is authenticated
+      docker_login:
+        username: "{{ docker_user }}"
+        password: "{{ docker_password }}"
+      when: (docker_user is defined) and (docker_password is defined)
+
+    - name: Check docker configuration existence
+      stat:
+        path: /etc/docker/daemon.json
+      register: docker_daemon_config_stat
+
+    - name: Read docker configuration
+      slurp:
+        src: /etc/docker/daemon.json
+      register: docker_daemon_config
+      when: docker_daemon_config_stat.stat.exists
+
+    - name: Merge docker proxy configuration
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {% set config = docker_daemon_config.content | default('{}' | b64encode) | b64decode | from_json %}
+          {% set mirrors = (config.get('registry-mirrors', []) + [docker_proxy_url]) | unique %}
+          {% set insecure = (config.get('insecure-registries', []) + [docker_insecure_registry]) | unique %}
+          {{ config | combine({'registry-mirrors': mirrors, 'insecure-registries': insecure}) | to_nice_json }}
+      notify: Restart docker
+
+    - name: Ensure sbcli is present and up-to-date
+      pip:
+        name: "{{ sbcli_package | default('sbcli-dev') }}"
+        state: "{{ 'forcereinstall' if (sbcli_package | default('sbcli-dev')) is url else 'latest' }}"
+
+    - name: Read sbcli details
+      community.general.read_csv:
+        path: '/usr/local/lib/python3.9/site-packages/simplyblock_core/env_var'
+        fieldnames: ['key', 'value']
+        delimiter: '='
+      register: sbcli_details
+
+    - name: Determine sbcli command
+      set_fact:
+        sbcli_base_command: >-
+          {{ sbcli_command_name | default(
+            (sbcli_details.list
+              | selectattr('key', 'equalto', 'SIMPLY_BLOCK_COMMAND_NAME')
+              | map(attribute='value')
+              | list
+              | first) | default('sbcli')) }}
+        sbcli: "{{ sbcli_base_command }}{{ ' -d' if (debug | default(False)) else ''}}"
+
+    - name: Override sbcli image
+      community.general.ini_file:
+        path: '/usr/local/lib/python3.9/site-packages/simplyblock_core/env_var'
+        option: 'SIMPLY_BLOCK_DOCKER_IMAGE'
+        value: "{{ sb_image }}"
+      when: sb_image is defined
+
+    - name: Override ultra image
+      community.general.ini_file:
+        path: '/usr/local/lib/python3.9/site-packages/simplyblock_core/env_var'
+        option: 'SIMPLY_BLOCK_SPDK_ULTRA_IMAGE'
+        value: "{{ ultra_image }}"
+      when: ultra_image is defined
+
+    - name: Clean previous install
+      command: "{{ sbcli }} sn deploy-cleaner"
+
+    - name: Configure hugepages on storage nodes
+      sysctl:
+        name: vm.nr_hugepages
+        value: "{{ nr_hugepages }}"
+        state: present
+        sysctl_set: true
+      when:
+        - "'storage_nodes' in group_names"
+        - nr_hugepages is defined
+
+    - name: Remove partitions on storage devices
+      command: "parted /dev/{{ item.0 }} rm {{ item.1 }}"
+      loop: "{{ storage_wipe_devices | default([]) | product(storage_wipe_partitions | default([1, 2])) | list }}"
+      when:
+        - "'storage_nodes' in group_names"
+        - wipe_storage_devices | default(false)
+      ignore_errors: true
+
+    - name: Configure storage node
+      command: >
+        {{ sbcli }} --dev -d storage-node configure
+        {% if max_lvol is defined %} --max-lvol {{ max_lvol }}{% endif %}
+        {% if max_size is defined %} --max-size {{ max_size }}{% endif %}
+        {% if nodes_per_socket is defined %} --nodes-per-socket {{ nodes_per_socket }}{% endif %}
+        {% if sockets_to_use is defined %} --sockets-to-use {{ sockets_to_use }}{% endif %}
+        {% if pci_allowed is defined %} --pci-allowed {{ pci_allowed }}{% endif %}
+        {% if pci_blocked is defined %} --pci-blocked {{ pci_blocked }}{% endif %}
+      when: "'storage_nodes' in group_names"
+
+    - name: Deploy storage node
+      command: "{{ sbcli }} sn deploy --ifname {{ management_nic }}"
+      when:
+        - "'storage_nodes' in group_names"
+        - not (k8s_snode | default(false))
+
+
+- hosts: management_nodes[0]
+  remote_user: root
+  any_errors_fatal: true
+  vars:
+    high_availability: "{{ (groups['storage_nodes'] | length) > 1 }}"
+    primary_management_ip: "{{ ansible_facts['ansible_' + management_nic]['ipv4']['address'] }}"
+
+  tasks:
+    - name: Create cluster
+      command: >
+        {{ sbcli }} --dev -d cluster create
+        --ha-type {{ 'ha' if high_availability else 'single' }}
+        {% if log_del_interval is defined %} --log-del-interval {{ log_del_interval }}{% endif %}
+        {% if metrics_retention_period is defined %} --metrics-retention-period {{ metrics_retention_period }}{% endif %}
+        {% if contact_point is defined %} --contact-point {{ contact_point }}{% endif %}
+        {% if grafana_endpoint is defined %} --grafana-endpoint {{ grafana_endpoint }}{% endif %}
+        {% if data_chunks_per_stripe is defined %} --data-chunks-per-stripe {{ data_chunks_per_stripe }}{% endif %}
+        {% if parity_chunks_per_stripe is defined %} --parity-chunks-per-stripe {{ parity_chunks_per_stripe }}{% endif %}
+        {% if distr_chunk_bs is defined %} --distr-chunk-bs {{ distr_chunk_bs }}{% endif %}
+        {% if cap_warn is defined %} --cap-warn {{ cap_warn }}{% endif %}
+        {% if cap_crit is defined %} --cap-crit {{ cap_crit }}{% endif %}
+        {% if prov_cap_warn is defined %} --prov-cap-warn {{ prov_cap_warn }}{% endif %}
+        {% if prov_cap_crit is defined %} --prov-cap-crit {{ prov_cap_crit }}{% endif %}
+        {% if ha_type is defined %} --ha-type {{ ha_type }}{% endif %}
+        {% if enable_node_affinity | default(False) %} --enable-node-affinity{% endif %}
+        {% if qpair_count is defined %} --qpair-count {{ qpair_count }}{% endif %}
+        {% if mode is defined %} --mode {{ mode }}{% endif %}
+        {% if mode | default('docker') == 'kubernetes' %}
+        --mgmt-ip {{ primary_management_ip }}
+        {% else %}
+        --ifname {{ management_nic }}
+        {% endif %}
+      register: cluster_creation
+
+    - name: Store Cluster ID
+      set_fact:
+        cluster_id: "{{ cluster_creation.stdout.splitlines()[-1] }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ ['localhost'] + groups['management_nodes'] + groups['storage_nodes'] }}"
+
+    - name: Add storage nodes
+      command: >
+        {{ sbcli }} --dev -d storage-node add-node
+        {% if max_snapshot is defined %} --max-snap {{ max_snapshot }}{% endif %}
+        {% if iobuf_small_bufsize is defined %} --iobuf_small_bufsize {{ iobuf_small_bufsize }}{% endif %}
+        {% if journal_partition is defined %} --journal-partition {{ journal_partition }}{% endif %}
+        {% if iobuf_large_bufsize is defined %} --iobuf_large_bufsize {{ iobuf_large_bufsize }}{% endif %}
+        {% if data_nics is defined %}
+        --data-nics {{ data_nics | join(',') if (data_nics is iterable and data_nics is not string) else data_nics }}
+        {% endif %}
+        {% if id_device_by_nqn is defined %} --id-device-by-nqn {{ id_device_by_nqn }}{% endif %}
+        {% if spdk_image is defined %} --spdk-image {{ spdk_image }}{% endif %}
+        {% if disable_ha_jm | default(False) %} --disable-ha-jm{% endif %}
+        {% if enable_test_device | default(False) %} --enable-test-device{% endif %}
+        {% if full_page_unmap | default(False) %} --full-page-unmap{% endif %}
+        {% if spdk_debug | default(False) %} --spdk-debug{% endif %}
+        {% if ha_jm_count is defined %} --ha-jm-count {{ ha_jm_count }}{% endif %}
+        {% if jm_percent is defined %} --jm-percent {{ jm_percent }}{% endif %}
+        {% if partition_size is defined %} --size-of-device {{ partition_size }}{% endif %}
+        {{ cluster_id }} {{ hostvars[item]['ansible_' + management_nic]['ipv4']['address'] }}:5000 {{ management_nic }}
+      loop: "{{ groups['storage_nodes'] }}"
+      when: not (k8s_snode | default(false))
+
+    - name: Activate cluster
+      command: "{{ sbcli }} cluster activate {{ cluster_id }}"
+
+    - name: Create storage pool
+      command: "{{ sbcli }} pool add {{ pool | default('testing1') }} {{ cluster_id }}"
+
+    - name: Query cluster secret
+      command: "{{ sbcli }} cluster get-secret {{ cluster_id }}"
+      register: cluster_details
+
+    - name: Parse cluster secret
+      set_fact:
+        cluster_secret: "{{ cluster_details.stdout.splitlines()[-1] }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ ['localhost'] + groups['management_nodes'] + groups['storage_nodes'] }}"
+
+    - name: Print cluster information
+      debug:
+        msg: "{{ cluster_id }} {{ cluster_secret }}"
+
+    - name: Write cluster information
+      copy:
+        content: |
+          CLUSTER_ID={{ cluster_id }}
+          CLUSTER_SECRET={{ cluster_secret }}
+        dest: cluster.sh
+      delegate_to: localhost
+
+
+- hosts: management_nodes[1:]
+  remote_user: root
+  any_errors_fatal: true
+
+  vars:
+    primary_mgmt: "{{ groups['management_nodes'][0] }}"
+    primary_management_ip: "{{ hostvars[primary_mgmt]['ansible_' + management_nic]['ipv4']['address'] }}"
+
+  tasks:
+    - name: Wait for primary cluster services
+      wait_for:
+        timeout: 180
+
+    - name: Add management node to cluster
+      command: >
+        {{ sbcli }} mgmt add {{ primary_management_ip }} {{ cluster_id }} {{ cluster_secret }}
+        {% if mode is defined %} --mode {{ mode }}{% endif %}
+        {% if mode | default('docker') == 'kubernetes' %}
+        --mgmt-ip {{ hostvars[inventory_hostname]['ansible_' + management_nic]['ipv4']['address'] }}
+        {% else %}
+        --ifname {{ management_nic }}
+        {% endif %}
+      delegate_to: "{{ primary_mgmt if (mode | default('docker')) == 'kubernetes' else inventory_hostname }}"
+      ignore_errors: true  # Management join may be retried manually if the service restarts.
+
+...

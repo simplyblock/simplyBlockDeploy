@@ -1,0 +1,21 @@
+---
+- hosts: localhost
+  gather_facts: no
+  remote_user: root
+  tasks:
+    - name: Set known host keys
+      known_hosts:
+        name: "{{ item }}"
+        key: "{{ item }} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID8FriTYrjakrvsjKp3RfuzZiNs0RBt+T4RvOB4jWZ/j"
+      loop: "{{ groups['all'] }}"
+
+- hosts: all
+  remote_user: root
+  tasks:
+    - name: Deploy authorized key
+      authorized_key:
+        user: root
+        key: "{{ lookup('file', public_key) }}"
+        state: present
+      when: public_key is defined
+...
