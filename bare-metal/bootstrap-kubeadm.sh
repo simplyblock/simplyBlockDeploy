@@ -33,11 +33,9 @@ done
 BASTION_IP="${BASTION_IP:?BASTION_IP is required}"
 mnodes="${K3S_MNODES:?K3S_MNODES is required (space-separated IPs)}"
 storage_private_ips="${STORAGE_PRIVATE_IPS:-}"
-sec_storage_private_ips="${SEC_STORAGE_PRIVATE_IPS:-}"
 
 IFS=' ' read -ra mnodes <<<"$mnodes"
 IFS=' ' read -ra storage_nodes <<<"${storage_private_ips}"
-IFS=' ' read -ra sec_storage_nodes <<<"${sec_storage_private_ips}"
 
 echo "mgmt nodes: ${mnodes[*]}"
 
@@ -59,11 +57,20 @@ ssh -i "$KEY" -o StrictHostKeyChecking=no \
 EOF
 }
 
+ssh_run() {
+  local ip="$1"
+  shift
+  ssh -i "$KEY" -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    "root@${ip}" "$@"
+}
+
 remote_exec() {
   local ip="$1"
   local script="$2"
   echo "==> SSH into $ip"
-  $(ssh_proxy_cmd "$ip") "$script"
+  #$(ssh_proxy_cmd "$ip") "$script"
+  ssh_run "$ip" "bash -lc '$script'"
 }
 
 cleanup_node() {
@@ -106,10 +113,6 @@ for node_ip in "${mnodes[@]}"; do
 done
 
 for node_ip in "${storage_nodes[@]}"; do
-  [[ -n "$node_ip" ]] && cleanup_node "$node_ip"
-done
-
-for node_ip in "${sec_storage_nodes[@]}"; do
   [[ -n "$node_ip" ]] && cleanup_node "$node_ip"
 done
 
@@ -197,9 +200,6 @@ if [[ "$K8S_SNODE" == "true" ]]; then
   for node_ip in "${storage_nodes[@]}"; do
     [[ -n "$node_ip" ]] && install_k8s_node_prereqs "$node_ip"
   done
-  for node_ip in "${sec_storage_nodes[@]}"; do
-    [[ -n "$node_ip" ]] && install_k8s_node_prereqs "$node_ip"
-  done
 fi
 
 # ---- Bootstrap control-plane on mnodes[0] ----
@@ -258,16 +258,6 @@ if [[ "$K8S_SNODE" == "true" ]]; then
       ${JOIN_CMD}
     "
   done
-
-  for node_ip in "${sec_storage_nodes[@]}"; do
-    [[ -n "$node_ip" ]] || continue
-    echo "Adding secondary storage node ${node_ip}.."
-    remote_exec "$node_ip" "
-      set -euo pipefail
-      echo '[INFO] Joining as worker...'
-      ${JOIN_CMD}
-    "
-  done
 fi
 
 label_by_ip() {
@@ -292,9 +282,6 @@ done
 if [[ "$K8S_SNODE" == "true" ]]; then
   for ip in "${storage_nodes[@]}"; do
     [[ -n "$ip" ]] && label_by_ip "$ip" "io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/region=default"
-  done
-  for ip in "${sec_storage_nodes[@]}"; do
-    [[ -n "$ip" ]] && label_by_ip "$ip" "io.simplyblock.node-type=simplyblock-storage-plane-reserve topology.kubernetes.io/region=default"
   done
 fi
 
