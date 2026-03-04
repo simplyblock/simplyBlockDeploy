@@ -45,7 +45,7 @@ echo "extra_node_ip=${mnodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
 # Kubernetes version to install (override by exporting K8S_VERSION)
 # Example: export K8S_VERSION="1.30.6"
 K8S_VERSION="${K8S_VERSION:-1.30.6}"
-POD_CIDR="${POD_CIDR:-192.168.0.0/16}"
+POD_CIDR="${POD_CIDR:-10.244.0.0/16}"
 SVC_CIDR="${SVC_CIDR:-10.96.0.0/12}"
 
 ssh_proxy_cmd() {
@@ -141,6 +141,7 @@ install_k8s_node_prereqs() {
     modprobe overlay || true
     modprobe nvme-tcp || true
     modprobe nbd || true
+    modprobe ipip || true
 
     cat >/etc/modules-load.d/k8s.conf <<EOF
 overlay
@@ -160,7 +161,7 @@ EOF
     # Optional: disable IPv6 (keep your behavior)
     sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
     sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
-    
+
     swapoff -a
 
     # Hugepages (keep your behavior; set to 0 by default here)
