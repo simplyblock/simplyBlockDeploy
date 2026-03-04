@@ -65,12 +65,24 @@ ssh_run() {
     "root@${ip}" "$@"
 }
 
+# remote_exec() {
+#   local ip="$1"
+#   local script="$2"
+#   echo "==> SSH into $ip"
+#   #$(ssh_proxy_cmd "$ip") "$script"
+#   ssh_run "$ip" "bash -lc '$script'"
+# }
+
 remote_exec() {
   local ip="$1"
   local script="$2"
   echo "==> SSH into $ip"
-  #$(ssh_proxy_cmd "$ip") "$script"
-  ssh_run "$ip" "bash -lc '$script'"
+  ssh -i "$KEY" -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    "root@${ip}" bash -s <<REMOTE_EOF
+set -euo pipefail
+${script}
+REMOTE_EOF
 }
 
 cleanup_node() {
@@ -148,6 +160,8 @@ EOF
     # Optional: disable IPv6 (keep your behavior)
     sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
     sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
+    
+    swapoff -a
 
     # Hugepages (keep your behavior; set to 0 by default here)
     total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
@@ -160,13 +174,20 @@ EOF
     # Disable nm-cloud-setup if it exists
     systemctl disable nm-cloud-setup.service nm-cloud-setup.timer 2>/dev/null || true
 
-    echo '[INFO] Installing containerd...'
-    yum install -y containerd
+    echo '[INFO] Installing containerd (Docker repo)...'
+
+    yum install -y yum-utils device-mapper-persistent-data lvm2
+
+    # Add Docker repo
+    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+    # Install containerd
+    yum install -y containerd.io
 
     mkdir -p /etc/containerd
     containerd config default >/etc/containerd/config.toml
 
-    # IMPORTANT for kubeadm clusters on systemd distros
+    # IMPORTANT: systemd cgroup driver
     sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
 
     systemctl enable --now containerd
