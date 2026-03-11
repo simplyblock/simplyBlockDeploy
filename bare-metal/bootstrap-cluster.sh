@@ -54,7 +54,10 @@ print_help() {
     echo "  --cleanup                            cleans up the cluster before deployment"
     echo "  --is-single-node                     Deploy as single-node cluster (optional)"
     echo "  --extra-cluster-args <value>         Additional arguments to pass to cluster create command (optional)"
+    echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node add-node command (optional)"
+    echo "                                       Example: --extra-sn-args \"--spdk-debug --enable-test-device\""
+    echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
     echo "  --help                               Print this help message"
     exit 0
 }
@@ -111,8 +114,8 @@ CLEAN_UP="false"
 PROXY_URL="http://34.1.171.127:5000"
 INSECURE_URL="34.1.171.127:5000"
 
-EXTRA_CLUSTER_ARGS=""
-EXTRA_SN_ARGS=""
+EXTRA_SN_ARGS=()
+EXTRA_CLUSTER_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -268,13 +271,13 @@ while [[ $# -gt 0 ]]; do
         IS_SINGLE_NODE="$2"
         shift
         ;;
-    --extra-cluster-args)
-        EXTRA_CLUSTER_ARGS="$2"
+    --extra-sn-args)
+        read -r -a EXTRA_SN_ARGS <<< "$2"
         shift
         ;;
 
-    --extra-sn-args)
-        EXTRA_SN_ARGS="$2"
+    --extra-cluster-args)
+        read -r -a EXTRA_CLUSTER_ARGS <<< "$2"
         shift
         ;;
     --help)
@@ -410,7 +413,10 @@ bootstrap_cluster() {
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
     [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
-    [[ -n "$EXTRA_CLUSTER_ARGS" ]] && command+=" $EXTRA_CLUSTER_ARGS"
+    # [[ -n "$EXTRA_CLUSTER_ARGS" ]] && command+=" $EXTRA_CLUSTER_ARGS"
+    for arg in "${EXTRA_CLUSTER_ARGS[@]}"; do
+        command+=" $arg"
+    done
 
     ssh_exec "$mgmt_ip" "$command"
 }
@@ -512,7 +518,10 @@ add_storage_nodes() {
     [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
     [[ -n "$JM_PERCENT" ]] && add_cmd+=" --jm-percent $JM_PERCENT"
     [[ -n "$PARTITION_SIZE" ]] && add_cmd+=" --size-of-device $PARTITION_SIZE"
-    [[ -n "$EXTRA_SN_ARGS" ]] && add_cmd+=" $EXTRA_SN_ARGS"
+    # [[ -n "$EXTRA_SN_ARGS" ]] && add_cmd+=" $EXTRA_SN_ARGS"
+    for arg in "${EXTRA_SN_ARGS[@]}"; do
+        add_cmd+=" $arg"
+    done
 
     ssh_exec "${mnodes[0]}" "
         for node in ${storage_private_ips}; do
