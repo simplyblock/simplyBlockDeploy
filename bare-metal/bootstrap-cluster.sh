@@ -359,10 +359,10 @@ install_sbcli_on_node() {
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
     if [ -n "${SIMPLY_BLOCK_DOCKER_IMAGE+x}" ]; then
-        ssh_exec "$node_ip" "PYVER=\$(python3 -c 'import sys; print(\"python{}.{}\".format(*sys.version_info[:2]))'); sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" /usr/local/lib/\${PYVER}/site-packages/simplyblock_core/env_var"
+        ssh_exec "$node_ip" "ENV_VAR_FILE=\$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null | head -1); sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" \"\${ENV_VAR_FILE}\""
     fi
     if [ -n "${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE+x}" ]; then
-        ssh_exec "$node_ip" "PYVER=\$(python3 -c 'import sys; print(\"python{}.{}\".format(*sys.version_info[:2]))'); sed -i \"s#^\(SIMPLY_BLOCK_SPDK_ULTRA_IMAGE=\).*#\1${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE}#\" /usr/local/lib/\${PYVER}/site-packages/simplyblock_core/env_var"
+        ssh_exec "$node_ip" "ENV_VAR_FILE=\$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null | head -1); sed -i \"s#^\(SIMPLY_BLOCK_SPDK_ULTRA_IMAGE=\).*#\1${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE}#\" \"\${ENV_VAR_FILE}\""
     fi
 
     # sbcli configure
@@ -492,7 +492,8 @@ cleanup_and_reboot() {
             pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
 
             rm -rf /usr/local/bin/sbc*
-            PYVER=\$(python3 -c 'import sys; print("python{}.{}".format(*sys.version_info[:2]))') && rm -rf /usr/local/lib/\${PYVER}/site-packages/simplyblock* || true
+            find /usr /root ~/.local -name "*.py" -path "*/simplyblock*" -delete 2>/dev/null || true
+            find /usr /root ~/.local -type d -name "simplyblock*" -exec rm -rf {} + 2>/dev/null || true
 
         "
     done
