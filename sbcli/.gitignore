@@ -1,0 +1,15 @@
+/.idea/
+*.pyc
+e2e/logs/*.log!
+.DS_Store
+*.log
+.python-version
+
+# Ignore generated sbcli files
+sbcli*
+build
+dist
+
+.ruff_cache
+.env
+.tox

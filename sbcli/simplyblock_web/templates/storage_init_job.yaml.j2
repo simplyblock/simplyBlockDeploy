@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ JOBNAME }}
+  namespace: {{ NAMESPACE }}
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: {{ HOSTNAME }}
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: simplyblock-storage-node-sa
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      volumes:
+        - name: host-proc
+          hostPath:
+            path: /proc
+        {% if TLS_CONNECT == "authenticated" %}
+        - name: tls
+          secret:
+            secretName: simplyblock-spdk-proxy-tls
+        {% endif %}
+      containers:
+        - name: init-setup
+          image: simplyblock/alpine-tools:3.21.3
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: host-proc
+              mountPath: /proc
+            {% if TLS_CONNECT == "authenticated" %}
+            - name: tls
+              mountPath: /etc/simplyblock/tls
+              readOnly: true
+            {% endif %}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              echo "--- Starting init setup ---"
+
+              HUGEPAGES_BEFORE=$(grep HugePages_Total /proc/meminfo | awk '{print $2}')
+              echo "[INFO] Hugepages before: $HUGEPAGES_BEFORE"
+
+              NODE_IP=$(ip route get 1.1.1.1 | grep -oE 'src [0-9.]+' | awk '{print $2}')
+              echo "Detected node IP: $NODE_IP"
+
+              echo "--- Checking OS ---"
+              OS_ID="$(cat /proc/version | awk '{print $3}' | awk -F'-' '{print $NF}')"
+
+              echo "--- Sending config to $NODE_IP ---"
+              if [ "$OS_ID" != "talos" ]; then
+                {% if TLS_CONNECT == "disabled" %}
+                {% set SCHEME = "http" %}
+                {% set CURL_TLS_FLAGS = "" %}
+                {% elif TLS_CONNECT == "anonymous" %}
+                {% set SCHEME = "https" %}
+                {% set CURL_TLS_FLAGS = "-k" %}
+                {% else %}
+                {% set SCHEME = "https" %}
+                {% set CURL_TLS_FLAGS = "-k --cert /etc/simplyblock/tls/tls.crt --key /etc/simplyblock/tls/tls.key" %}
+                {% endif %}
+                RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST {{ CURL_TLS_FLAGS }} {{ SCHEME }}://$NODE_IP:5000/snode/apply_config -H "Content-Type: application/json" -d '{}')
+                echo "HTTP status: $RESPONSE"
+                if [ "$RESPONSE" -lt 200 ] || [ "$RESPONSE" -ge 300 ]; then
+                  echo "Failed to apply config"
+                  exit 1
+                fi
+              fi
+
+              if [ "$OS_ID" != "talos" ]; then
+                HUGEPAGES_AFTER=$(grep HugePages_Total /proc/meminfo | awk '{print $2}')
+                echo "[INFO] Hugepages after: $HUGEPAGES_AFTER"
+
+                if [ "$HUGEPAGES_BEFORE" != "$HUGEPAGES_AFTER" ]; then
+                  echo "[INFO] Hugepages changed, restarting kubelet..."
+                  nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/sh -c '
+                    if command -v systemctl >/dev/null 2>&1; then
+                      systemctl restart kubelet && echo "Kubelet restarted" || echo "Kubelet restart failed"
+                    fi
+                  '
+                else
+                  echo "[INFO] Hugepages unchanged, skipping kubelet restart."
+                fi
+              else
+                echo "Talos detected - skipping nsenter and kubelet restart."
+                echo "Use '\''talosctl service kubelet restart -n $NODE_IP'\'' to restart the node kubelet"
+              fi
+
+              echo "--- Init setup complete ---"
+              

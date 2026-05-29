@@ -1,0 +1,1514 @@
+#!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
+
+import logging
+import sys
+import traceback
+
+from simplyblock_cli.clibase import CLIWrapperBase, range_type, size_type, list_type
+from simplyblock_core import utils, constants
+
+class CLIWrapper(CLIWrapperBase):
+
+    def __init__(self):
+        self.developer_mode = True if "--dev" in sys.argv else False
+        if self.developer_mode:
+            idx = sys.argv.index("--dev")
+            args = sys.argv[0:idx]
+            for i in range(idx + 1, len(sys.argv)):
+                args.append(sys.argv[i])
+            sys.argv = args
+
+        self.logger = utils.get_logger()
+        self.init_parser()
+        self.init_storage_node()
+        self.init_cluster()
+        self.init_volume()
+        self.init_control_plane()
+        self.init_storage_pool()
+        self.init_snapshot()
+        self.init_backup()
+        self.init_qos()
+        super().__init__()
+
+    def init_storage_node(self):
+        subparser = self.add_command('storage-node', 'Storage Node Commands', aliases=['sn',])
+        self.init_storage_node__deploy(subparser)
+        self.init_storage_node__configure(subparser)
+        self.init_storage_node__configure_upgrade(subparser)
+        self.init_storage_node__deploy_cleaner(subparser)
+        self.init_storage_node__clean_devices(subparser)
+        self.init_storage_node__add_node(subparser)
+        self.init_storage_node__delete(subparser)
+        self.init_storage_node__remove(subparser)
+        self.init_storage_node__list(subparser)
+        self.init_storage_node__get(subparser)
+        self.init_storage_node__restart(subparser)
+        self.init_storage_node__shutdown(subparser)
+        self.init_storage_node__suspend(subparser)
+        self.init_storage_node__resume(subparser)
+        self.init_storage_node__get_io_stats(subparser)
+        self.init_storage_node__get_capacity(subparser)
+        self.init_storage_node__list_devices(subparser)
+        if self.developer_mode:
+            self.init_storage_node__device_testing_mode(subparser)
+        self.init_storage_node__get_device(subparser)
+        self.init_storage_node__restart_device(subparser)
+        self.init_storage_node__add_device(subparser)
+        self.init_storage_node__remove_device(subparser)
+        self.init_storage_node__set_failed_device(subparser)
+        self.init_storage_node__get_capacity_device(subparser)
+        self.init_storage_node__get_io_stats_device(subparser)
+        self.init_storage_node__port_list(subparser)
+        self.init_storage_node__port_io_stats(subparser)
+        self.init_storage_node__check(subparser)
+        self.init_storage_node__check_device(subparser)
+        self.init_storage_node__info(subparser)
+        if self.developer_mode:
+            self.init_storage_node__info_spdk(subparser)
+        if self.developer_mode:
+            self.init_storage_node__remove_jm_device(subparser)
+        self.init_storage_node__restart_jm_device(subparser)
+        if self.developer_mode:
+            self.init_storage_node__send_cluster_map(subparser)
+        if self.developer_mode:
+            self.init_storage_node__get_cluster_map(subparser)
+        self.init_storage_node__make_primary(subparser)
+        if self.developer_mode:
+            self.init_storage_node__dump_lvstore(subparser)
+        if self.developer_mode:
+            self.init_storage_node__set(subparser)
+        self.init_storage_node__new_device_from_failed(subparser)
+        self.init_storage_node__list_snapshots(subparser)
+        self.init_storage_node__list_lvols(subparser)
+        self.init_storage_node__repair_lvstore(subparser)
+        if self.developer_mode:
+            self.init_storage_node__lvs_dump_tree(subparser)
+
+
+    def init_storage_node__deploy(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'deploy', 'Prepares a host to be used as a storage node.')
+        argument = subcommand.add_argument('--ifname', help='Management interface name, e.g. eth0.', type=str, dest='ifname')
+        argument = subcommand.add_argument('--isolate-cores', help='Isolates cores in kernel args for the provided CPU mask. Default: `false`.', default=False, dest='isolate_cores', action='store_true')
+
+    def init_storage_node__configure(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'configure', 'Prepare a configuration file to be used when adding the storage node.')
+        argument = subcommand.add_argument('--max-lvol', help='The max logical volume per storage node.', type=int, dest='max_lvol', required=True)
+        argument = subcommand.add_argument('--max-size', help='The maximum amount of Huge Pages to be set on the node.', type=str, dest='max_prov', required=False)
+        argument = subcommand.add_argument('--nodes-per-socket', help='The number of each node to be added per each socket. Default: `1`.', type=int, default=1, dest='nodes_per_socket')
+        argument = subcommand.add_argument('--sockets-to-use', help='The system socket to use when adding the storage nodes. Default: `0`.', type=str, default='0', dest='sockets_to_use')
+        argument = subcommand.add_argument('--cores-percentage', help='The percentage of cores to be used for spdk (0-99). Default: `0`.', type=range_type(0, 99), default=0, dest='cores_percentage')
+        argument = subcommand.add_argument('--pci-allowed', help='Comma separated list of PCI addresses of Nvme devices to use for storage devices.', type=str, default='', dest='pci_allowed', required=False)
+        argument = subcommand.add_argument('--pci-blocked', help='Comma separated list of PCI addresses of Nvme devices to not use for storage devices.', type=str, default='', dest='pci_blocked', required=False)
+        argument = subcommand.add_argument('--device-model', help='NVMe SSD model string, example: --model PM1628, --device-model and --size-range must be set together.', type=str, default='', dest='device_model', required=False)
+        argument = subcommand.add_argument('--size-range', help='NVMe SSD device size range separated by -, can be X(m,g,t) or bytes as integer, example: --size-range 50G-1T or --size-range 1232345-67823987, --device-model and --size-range must be set together.', type=str, default='', dest='size_range', required=False)
+        argument = subcommand.add_argument('--nvme-names', help='Comma separated list of nvme namespace names like nvme0n1,nvme1n1.', type=str, default='', dest='nvme_names', required=False)
+        argument = subcommand.add_argument('--force', help='Force format detected or passed nvme pci address to 4K and clean partitions.', dest='force', action='store_true')
+        argument = subcommand.add_argument('--calculate-hp-only', help='Calculate the minimum required huge pages, it depends on the following params: --cores-percentage, --sockets-to-use, --max-lvol, --nodes-per-socket, --number-of-devices.', dest='calculate_hp_only', action='store_true')
+        argument = subcommand.add_argument('--number-of-devices', help='Number of devices that will be used on this host. For calculating huge pages memory only.', type=int, dest='number_of_devices')
+
+    def init_storage_node__configure_upgrade(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'configure-upgrade', 'Upgrade the automated configuration file with new changes of cpu mask or storage devices.')
+
+    def init_storage_node__deploy_cleaner(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'deploy-cleaner', 'Cleans a previous simplyblock deploy (local run).')
+
+    def init_storage_node__clean_devices(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'clean-devices', 'Clean devices stored in /etc/simplyblock/sn_config_file (local run)')
+        argument = subcommand.add_argument('--config-path', help='The config path to read stored nvme devices from. Default: `/etc/simplyblock/sn_config_file`.', type=str, default='/etc/simplyblock/sn_config_file', dest='config_path', required=False)
+        argument = subcommand.add_argument('--format-4k', help='Force format nvme devices with 4K.', dest='format_4k', action='store_true')
+
+    def init_storage_node__add_node(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add-node', 'Adds a storage node by its IP address.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str)
+        subcommand.add_argument('node_addr', help='Address of storage node api to add, like <node-ip>:5000.', type=str)
+        subcommand.add_argument('ifname', help='The management interface name.', type=str)
+        argument = subcommand.add_argument('--journal-partition', help='**Deprecated since: 26.1** Replaced by: --enable-journal-device\n\n1: Auto-create small partitions for journal on nvme devices. 0: use a separate (the smallest) nvme device of the node for journal. The journal needs a maximum of 3 percent of total available raw disk space. Default: `1`.', type=int, dest='partitions', choices=[0,1,])
+        argument = subcommand.add_argument('--enable-journal-device', help='Enables the use of a separate (the smallest) NVMe device of the node for the journal. Otherwise, the journal uses a maximum of 3%% of total available raw disk space across all NVMe devices.', default=False, dest='enable_journal_device', action='store_true')
+        argument = subcommand.add_argument('--format-4k', help='Force format nvme devices with 4K.', dest='format_4k', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--jm-percent', help='Number in percent to use for JM from each device. Default: `3`.', type=int, default=3, dest='jm_percent')
+        argument = subcommand.add_argument('--data-nics', help='The storage network interface names. Currently, one interface is supported.', type=list_type(), dest='data_nics')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--size-of-device', help='The size of device per storage node.', type=str, dest='partition_size')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-image', help='The SPDK image URI.', type=str, dest='spdk_image')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-debug', help='Enable spdk debug logs.', dest='spdk_debug', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--iobuf_small_bufsize', help='Bdev_set_options param. Default: `0`.', type=int, default=0, dest='small_bufsize')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--iobuf_large_bufsize', help='Bdev_set_options param. Default: `0`.', type=int, default=0, dest='large_bufsize')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--enable-test-device', help='Enable creation of test device.', dest='enable_test_device', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--disable-ha-jm', help='Disable HA JM for distrib creation. Default: `true`.', dest='enable_ha_jm', action='store_false')
+        argument = subcommand.add_argument('--ha-jm-count', help='HA JM count. Defaults to 4 for FT=2 clusters, otherwise 3.', type=int, dest='ha_jm_count')
+        argument = subcommand.add_argument('--namespace', help='The Kubernetes namespace to deploy on.', type=str, dest='namespace')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--id-device-by-nqn', help='Use the device NQN instead of the serial number for identification. Default: `false`.', dest='id_device_by_nqn', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--max-snap', help='The max snapshot per storage node. Default: `5000`.', type=int, default=5000, dest='max_snap')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-proxy-image', help='The SPDK proxy image URI.', type=str, dest='spdk_proxy_image')
+
+    def init_storage_node__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Deletes a storage node object from the state database.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--force', help='Force delete storage node from DB. Ensure you know what you\'re doing.', dest='force_remove', action='store_true')
+
+    def init_storage_node__remove(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'remove', 'Removes a storage node from the cluster.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--force-remove', help='Force remove all logical volumes and snapshots.', dest='force_remove', action='store_true')
+
+    def init_storage_node__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists all storage nodes.')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+
+    def init_storage_node__get(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get', 'Gets a storage node\'s information.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__restart(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'restart', 'Restarts a storage node.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--max-lvol', help='The max logical volume per storage node. Default: `0`.', type=int, default=0, dest='max_lvol')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--max-snap', help='The max snapshot per storage node. Default: `5000`.', type=int, default=5000, dest='max_snap')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--max-size', help='The maximum amount of GB to be utilized on this storage node. Default: `0`.', type=str, default='0', dest='max_prov')
+        argument = subcommand.add_argument('--node-addr', '--node-ip', help='Restart Node on new node.', type=str, dest='node_ip')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-image', help='The SPDK image URI.', type=str, dest='spdk_image')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--reattach-volume', help='Reattach volume to new instance.', dest='reattach_volume', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-debug', help='Enable spdk debug logs.', dest='spdk_debug', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--iobuf_small_bufsize', help='Bdev_set_options param. Default: `0`.', type=int, default=0, dest='small_bufsize')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--iobuf_large_bufsize', help='Bdev_set_options param. Default: `0`.', type=int, default=0, dest='large_bufsize')
+        argument = subcommand.add_argument('--force', help='Force restart.', dest='force', action='store_true')
+        argument = subcommand.add_argument('--ssd-pcie', help='New Nvme PCIe address to add to the storage node. Can be more than one.', type=str, default='', dest='ssd_pcie', required=False, nargs='+')
+        argument = subcommand.add_argument('--force-lvol-recreate', help='Force logical volume recreation on node restart even if the logical volume bdev was not recovered. Default: `False`.', default=False, dest='force_lvol_recreate', action='store_true')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--spdk-proxy-image', help='The SPDK proxy image URI.', type=str, dest='spdk_proxy_image')
+
+    def init_storage_node__shutdown(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'shutdown', 'Initiates a storage node shutdown.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--force', help='Force node shutdown.', dest='force', action='store_true')
+
+    def init_storage_node__suspend(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'suspend', 'DEPRECATED: the suspension phase was removed from graceful shutdown (it caused writer conflicts on sec/tert lvstores). This command is now a no-op returning success. Use `sn shutdown`.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--force', help='Ignored (kept for backwards compatibility).', dest='force', action='store_true')
+
+    def init_storage_node__resume(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'resume', 'DEPRECATED: counterpart to `sn suspend`, also a no-op.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__get_io_stats(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-io-stats', 'Gets storage node IO statistics.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--history', help='List history records -one for every 15 minutes- for XX days and YY hours -up to 10 days in total-, format: XXdYYh.', type=str, dest='history')
+        argument = subcommand.add_argument('--records', help='The number of records. Default: `20`.', type=int, default=20, dest='records')
+
+    def init_storage_node__get_capacity(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-capacity', 'Gets a storage node\'s capacity statistics.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--history', help='List history records -one for every 15 minutes- for XX days and YY hours -up to 10 days in total-, format: XXdYYh.', type=str, dest='history')
+
+    def init_storage_node__list_devices(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list-devices', 'Lists storage devices.')
+        subcommand.add_argument('node_id', help='Storage node id', type=str).completer = self._completer_get_sn_list
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+
+    def init_storage_node__device_testing_mode(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'device-testing-mode', 'Sets a device to testing mode.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+        subcommand.add_argument('mode', help='The testing mode. Default: `full_pass_through`.', type=str, default='full_pass_through', choices=['full_pass_through','io_error_on_write','io_error_on_all','hotplug_removal','discard_io_all','io_error_on_unmap','io_error_on_read',])
+
+    def init_storage_node__get_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-device', 'Gets storage device by its id.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+
+    def init_storage_node__restart_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'restart-device', 'Restarts a storage device.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force restart.', dest='force', action='store_true')
+
+    def init_storage_node__add_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add-device', 'Adds a new storage device.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+
+    def init_storage_node__remove_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'remove-device', 'Logically removes a storage device.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force device remove.', dest='force', action='store_true')
+
+    def init_storage_node__set_failed_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set-failed-device', 'Sets storage device to failed state.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+
+    def init_storage_node__get_capacity_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-capacity-device', 'Gets a device\'s capacity.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+        argument = subcommand.add_argument('--history', help='List history records -one for every 15 minutes- for XX days and YY hours -up to 10 days in total-, format: XXdYYh.', type=str, dest='history')
+
+    def init_storage_node__get_io_stats_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-io-stats-device', 'Gets a device\'s IO statistics.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+        argument = subcommand.add_argument('--history', help='List history records -one for every 15 minutes- for XX days and YY hours -up to 10 days in total-, format: XXdYYh.', type=str, dest='history')
+        argument = subcommand.add_argument('--records', help='The number of records. Default: `20`.', type=int, default=20, dest='records')
+
+    def init_storage_node__port_list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'port-list', 'Gets the data interfaces list of a storage node.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__port_io_stats(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'port-io-stats', 'Gets the data interfaces\' IO stats.')
+        subcommand.add_argument('port_id', help='The data port id.', type=str)
+        argument = subcommand.add_argument('--history', help='List history records -one for every 15 minutes- for XX days and YY hours -up to 10 days in total, format: XXdYYh.', type=str, dest='history')
+
+    def init_storage_node__check(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'check', 'Checks the health status of a storage node.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__check_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'check-device', 'Checks the health status of a device.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+
+    def init_storage_node__info(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'info', 'Gets the node\'s information.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__info_spdk(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'info-spdk', 'Gets the SPDK memory information.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__remove_jm_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'remove-jm-device', 'Removes a journaling device.')
+        subcommand.add_argument('jm_device_id', help='The journaling device id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force device remove.', dest='force', action='store_true')
+
+    def init_storage_node__restart_jm_device(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'restart-jm-device', 'Restarts a journaling device.')
+        subcommand.add_argument('jm_device_id', help='The journaling device id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force device remove.', dest='force', action='store_true')
+        argument = subcommand.add_argument('--format', help='Format the Alceml device used for JM device.', dest='format', action='store_true')
+
+    def init_storage_node__send_cluster_map(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'send-cluster-map', 'Sends a new cluster map.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__get_cluster_map(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-cluster-map', 'Get the current cluster map.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__make_primary(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'make-primary', 'Forces to make the provided node id primary.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__dump_lvstore(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'dump-lvstore', 'Dump lvstore data.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str).completer = self._completer_get_sn_list
+
+    def init_storage_node__set(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set', 'Set storage node db value.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str)
+        subcommand.add_argument('attr_name', help='The new or existing attribute name.', type=str)
+        subcommand.add_argument('attr_value', help='The new attribute value.', type=str)
+
+    def init_storage_node__new_device_from_failed(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'new-device-from-failed', 'Adds a new device to from failed device information.')
+        subcommand.add_argument('device_id', help='The storage device id.', type=str)
+
+    def init_storage_node__list_snapshots(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list-snapshots', 'List snapshots on a storage node.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str)
+        argument = subcommand.add_argument('--json', help='Print json output.', dest='json', action='store_true')
+
+    def init_storage_node__list_lvols(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list-lvols', 'List logical volumes on a storage node.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str)
+        argument = subcommand.add_argument('--json', help='Print json output.', dest='json', action='store_true')
+
+    def init_storage_node__repair_lvstore(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'repair-lvstore', 'Try repair any inconsistencies in lvstore on a storage node.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str)
+        argument = subcommand.add_argument('--validate-only', help='Validate only, do not perform any repair actions.', dest='validate_only', action='store_true')
+        argument = subcommand.add_argument('--force-remove-inconsistent', help='Force remove any inconsistent logical volumes or snapshots.', dest='force_remove_inconsistent', action='store_true')
+        argument = subcommand.add_argument('--force_remove_wrong_ref', help='Force remove logical volumes or snapshots with wrong reference count.', dest='force_remove_wrong_ref', action='store_true')
+
+    def init_storage_node__lvs_dump_tree(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'lvs-dump-tree', 'Dump lvstore tree for debugging.')
+        subcommand.add_argument('node_id', help='The storage node id.', type=str)
+
+
+    def init_cluster(self):
+        subparser = self.add_command('cluster', 'Cluster Commands')
+        self.init_cluster__create(subparser)
+        self.init_cluster__add(subparser)
+        self.init_cluster__activate(subparser)
+        self.init_cluster__list(subparser)
+        self.init_cluster__status(subparser)
+        self.init_cluster__complete_expand(subparser)
+        self.init_cluster__show(subparser)
+        self.init_cluster__get(subparser)
+        if self.developer_mode:
+            self.init_cluster__suspend(subparser)
+        self.init_cluster__get_capacity(subparser)
+        self.init_cluster__get_io_stats(subparser)
+        self.init_cluster__get_logs(subparser)
+        self.init_cluster__get_secret(subparser)
+        self.init_cluster__update_secret(subparser)
+        self.init_cluster__update_fabric(subparser)
+        self.init_cluster__check(subparser)
+        self.init_cluster__update(subparser)
+        self.init_cluster__graceful_shutdown(subparser)
+        self.init_cluster__graceful_startup(subparser)
+        self.init_cluster__list_tasks(subparser)
+        self.init_cluster__cancel_task(subparser)
+        self.init_cluster__get_subtasks(subparser)
+        self.init_cluster__delete(subparser)
+        if self.developer_mode:
+            self.init_cluster__set(subparser)
+        self.init_cluster__set_shared_placement(subparser)
+        self.init_cluster__change_name(subparser)
+        self.init_cluster__add_replication(subparser)
+
+
+    def init_cluster__create(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'create', 'Creates a new cluster.')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--page_size', help='The size of a data page in bytes. Default: `2097152`.', type=int, default=2097152, dest='page_size')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--CLI_PASS', help='The password for CLI SSH connection.', type=str, dest='CLI_PASS')
+        argument = subcommand.add_argument('--cap-warn', help='The capacity warning level in percent. Default: `89`.', type=int, default=89, dest='cap_warn')
+        argument = subcommand.add_argument('--cap-crit', help='The capacity critical level in percent. Default: `99`.', type=int, default=99, dest='cap_crit')
+        argument = subcommand.add_argument('--prov-cap-warn', help='The capacity warning level in percent. Default: `250`.', type=int, default=250, dest='prov_cap_warn')
+        argument = subcommand.add_argument('--prov-cap-crit', help='The capacity critical level in percent. Default: `500`.', type=int, default=500, dest='prov_cap_crit')
+        argument = subcommand.add_argument('--ifname', help='Management interface name, e.g. eth0.', type=str, dest='ifname')
+        argument = subcommand.add_argument('--mgmt-ip', help='Management IP address to use for the node (e.g., 192.168.1.10).', type=str, dest='mgmt_ip')
+        argument = subcommand.add_argument('--tls-secret-name', help='Name of the Kubernetes TLS Secret to be used by the Ingress for HTTPS termination (e.g., my-tls-secret).', type=str, dest='tls_secret')
+        argument = subcommand.add_argument('--log-del-interval', help='The logging retention policy. Default: `3d`.', type=str, default='3d', dest='log_del_interval')
+        argument = subcommand.add_argument('--metrics-retention-period', help='Retention period for I/O statistics (Prometheus). Default: `7d`.', type=str, default='7d', dest='metrics_retention_period')
+        argument = subcommand.add_argument('--contact-point', help='The email or slack webhook url to be used for alerting.', type=str, default='', dest='contact_point')
+        argument = subcommand.add_argument('--grafana-endpoint', help='The endpoint url for Grafana.', type=str, default='', dest='grafana_endpoint')
+        argument = subcommand.add_argument('--data-chunks-per-stripe', help='The erasure coding schema parameter k (distributed raid). Default: `1`.', type=int, default=1, dest='distr_ndcs')
+        argument = subcommand.add_argument('--parity-chunks-per-stripe', help='The erasure coding schema parameter n (distributed raid). Default: `1`.', type=int, default=1, dest='distr_npcs')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--distr-bs', help='The (Dev) distrb bdev block size. Default: `4096`.', type=int, default=4096, dest='distr_bs')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--distr-chunk-bs', help='The (Dev) distrb bdev chunk block size. Default: `4096`.', type=int, default=4096, dest='distr_chunk_bs')
+        argument = subcommand.add_argument('--ha-type', help='Logical volume HA type (single, ha), default is cluster ha type. Default: `ha`.', type=str, default='ha', dest='ha_type', choices=['single','ha',])
+        argument = subcommand.add_argument('--is-single-node', help='For single-node clusters only. Default: `false`.', default=False, dest='is_single_node', action='store_true')
+        argument = subcommand.add_argument('--mode', help='The environment to deploy management services. Default: `docker`.', type=str, default='docker', dest='mode', choices=['docker','kubernetes',])
+        argument = subcommand.add_argument('--ingress-host-source', help='Ingress host source: \'hostip\' for node IP, \'loadbalancer\' for external LB, or \'dns\' for custom domain. Default: `hostip`.', type=str, default='hostip', dest='ingress_host_source', choices=['hostip','loadbalancer','dns',])
+        argument = subcommand.add_argument('--dns-name', help='Fully qualified DNS name to use as the Ingress host (required if --ingress-host-source=dns).', type=str, default='', dest='dns_name')
+        argument = subcommand.add_argument('--enable-node-affinity', help='Enable node affinity for storage nodes.', dest='enable_node_affinity', action='store_true')
+        argument = subcommand.add_argument('--fabric', help='The NVMe fabric to use (specify: `tcp`, `rdma`, `tcp,rdma`). Default: `tcp`.', type=str, default='tcp', dest='fabric', choices=['tcp','rdma','tcp,rdma',])
+        if self.developer_mode:
+            argument = subcommand.add_argument('--max-queue-size', help='The max size the queue will grow. Default: `128`.', type=int, default=128, dest='max_queue_size')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--inflight-io-threshold', help='The number of inflight IOs allowed before the IO queuing starts. Default: `4`.', type=int, default=4, dest='inflight_io_threshold')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--disable-monitoring', help='Disable monitoring stack, false by default. Default: `false`.', dest='disable_monitoring', action='store_true')
+        argument = subcommand.add_argument('--strict-node-anti-affinity', help='Enable strict node anti affinity for storage nodes. Never more than one chunk is placed on a node. This requires a minimum of _data-chunks-in-stripe + parity-chunks-in-stripe + 1_ nodes in the cluster.', dest='strict_node_anti_affinity', action='store_true')
+        argument = subcommand.add_argument('--name', '-n', help='Assigns a name to the newly created cluster.', type=str, dest='name')
+        argument = subcommand.add_argument('--qpair-count', help='The NVMe/TCP transport qpair count per logical volume. Default: `32`.', type=range_type(0, 128), default=32, dest='qpair_count')
+        argument = subcommand.add_argument('--client-qpair-count', help='The default NVMe/TCP transport qpair count per logical volume for client. Default: `3`.', type=range_type(0, 128), default=3, dest='client_qpair_count')
+        argument = subcommand.add_argument('--client-data-nic', help='Network interface name from client to use for logical volume connection.', type=str, dest='client_data_nic')
+        argument = subcommand.add_argument('--use-backup', help='The path to JSON file with S3/MinIO backup configuration.', type=str, dest='use_backup')
+        argument = subcommand.add_argument('--nvmf-base-port', help='Base port for all NVMe-oF listeners (lvol, hublvol, device). Default: `4420`.', type=int, default=4420, dest='nvmf_base_port')
+        argument = subcommand.add_argument('--rpc-base-port', help='The base port for SPDK JSON-RPC. Default: `8080`.', type=int, default=8080, dest='rpc_base_port')
+        argument = subcommand.add_argument('--snode-api-port', help='The SNodeAPI/firewall port (one per host IP). Default: `50001`.', type=int, default=50001, dest='snode_api_port')
+        argument = subcommand.add_argument('--hashicorp-vault-url', help='Hashicorp vault URL for storing encryption keys for this cluster', type=str, dest='hashicorp_vault_url')
+
+    def init_cluster__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Adds a new cluster.')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--page_size', help='The size of a data page in bytes. Default: `2097152`.', type=int, default=2097152, dest='page_size')
+        argument = subcommand.add_argument('--cap-warn', help='The capacity warning level in percent. Default: `89`.', type=int, default=89, dest='cap_warn')
+        argument = subcommand.add_argument('--cap-crit', help='The capacity critical level in percent. Default: `99`.', type=int, default=99, dest='cap_crit')
+        argument = subcommand.add_argument('--prov-cap-warn', help='The capacity warning level in percent. Default: `250`.', type=int, default=250, dest='prov_cap_warn')
+        argument = subcommand.add_argument('--prov-cap-crit', help='The capacity critical level in percent. Default: `500`.', type=int, default=500, dest='prov_cap_crit')
+        argument = subcommand.add_argument('--data-chunks-per-stripe', help='The erasure coding schema parameter k (distributed raid). Default: `1`.', type=int, default=1, dest='distr_ndcs')
+        argument = subcommand.add_argument('--parity-chunks-per-stripe', help='The erasure coding schema parameter n (distributed raid). Default: `1`.', type=int, default=1, dest='distr_npcs')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--distr-bs', help='The (Dev) distrb bdev block size. Default: `4096`.', type=int, default=4096, dest='distr_bs')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--distr-chunk-bs', help='The (Dev) distrb bdev chunk block size. Default: `4096`.', type=int, default=4096, dest='distr_chunk_bs')
+        argument = subcommand.add_argument('--ha-type', help='Logical volume HA type (single, ha), default is cluster single type. Default: `ha`.', type=str, default='ha', dest='ha_type', choices=['single','ha',])
+        argument = subcommand.add_argument('--enable-node-affinity', help='Enables node affinity for storage nodes.', dest='enable_node_affinity', action='store_true')
+        argument = subcommand.add_argument('--fabric', help='Fabric: tcp, rdma or both (specify: tcp, rdma). Default: `tcp`.', type=str, default='tcp', dest='fabric', choices=['tcp','rdma','tcp,rdma',])
+        argument = subcommand.add_argument('--is-single-node', help='For single-node clusters only. Default: `false`.', default=False, dest='is_single_node', action='store_true')
+        argument = subcommand.add_argument('--qpair-count', help='The NVMe/TCP transport qpair count per logical volume. Default: `32`.', type=range_type(0, 128), default=32, dest='qpair_count')
+        argument = subcommand.add_argument('--client-qpair-count', help='The default NVMe/TCP transport qpair count per logical volume for client. Default: `3`.', type=range_type(0, 128), default=3, dest='client_qpair_count')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--max-queue-size', help='The max size the queue will grow. Default: `128`.', type=int, default=128, dest='max_queue_size')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--inflight-io-threshold', help='The number of inflight IOs allowed before the IO queuing starts. Default: `4`.', type=int, default=4, dest='inflight_io_threshold')
+        argument = subcommand.add_argument('--strict-node-anti-affinity', help='Enable strict node anti affinity for storage nodes. Never more than one chunk is placed on a node. This requires a minimum of _data-chunks-in-stripe + parity-chunks-in-stripe + 1_ nodes in the cluster."', dest='strict_node_anti_affinity', action='store_true')
+        argument = subcommand.add_argument('--name', '-n', help='Assigns a name to the newly created cluster.', type=str, dest='name')
+        argument = subcommand.add_argument('--client-data-nic', help='Network interface name from client to use for logical volume connection.', type=str, dest='client_data_nic')
+        argument = subcommand.add_argument('--use-backup', help='The path to JSON file with S3/MinIO backup configuration.', type=str, dest='use_backup')
+        argument = subcommand.add_argument('--nvmf-base-port', help='Base port for all NVMe-oF listeners (lvol, hublvol, device). Default: `4420`.', type=int, default=4420, dest='nvmf_base_port')
+        argument = subcommand.add_argument('--rpc-base-port', help='The base port for SPDK JSON-RPC. Default: `8080`.', type=int, default=8080, dest='rpc_base_port')
+        argument = subcommand.add_argument('--snode-api-port', help='The SNodeAPI/firewall port (one per host IP). Default: `50001`.', type=int, default=50001, dest='snode_api_port')
+        argument = subcommand.add_argument('--hashicorp-vault-url', help='Hashicorp vault URL for storing encryption keys for this cluster', type=str, dest='hashicorp_vault_url')
+
+    def init_cluster__activate(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'activate', 'Activates a cluster.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--force', help='Force recreate distr and lv stores.', dest='force', action='store_true')
+        argument = subcommand.add_argument('--force-lvstore-create', help='Force recreate lv stores.', dest='force_lvstore_create', action='store_true').completer = self._completer_get_cluster_list
+
+    def init_cluster__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Shows the cluster list.')
+        argument = subcommand.add_argument('--json', help='Print json output.', dest='json', action='store_true')
+
+    def init_cluster__status(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'status', 'Shows a cluster\'s status.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__complete_expand(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'complete-expand', 'Create lvstore on newly added nodes to the cluster.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__show(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'show', 'Shows a cluster\'s statistics.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__get(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get', 'Gets a cluster\'s information.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__suspend(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'suspend', 'Put the cluster status to be suspended.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__get_capacity(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-capacity', 'Gets a cluster\'s capacity.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--json', help='Print json output.', dest='json', action='store_true')
+        argument = subcommand.add_argument('--history', help='(XXdYYh), list history records (one for every 15 minutes) for XX days and YY hours (up to 10 days in total).', type=str, dest='history')
+
+    def init_cluster__get_io_stats(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-io-stats', 'Gets a cluster\'s I/O statistics.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--records', help='The number of records. Default: `20`.', type=int, default=20, dest='records')
+        argument = subcommand.add_argument('--history', help='(XXdYYh), list history records (one for every 15 minutes) for XX days and YY hours (up to 10 days in total).', type=str, dest='history')
+
+    def init_cluster__get_logs(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-logs', 'Returns a cluster\'s status logs.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--json', help='Return JSON formatted logs.', dest='json', action='store_true')
+        argument = subcommand.add_argument('--limit', help='Show last number of logs, default 50. Default: `50`.', type=int, default=50, dest='limit')
+
+    def init_cluster__get_secret(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-secret', 'Gets a cluster\'s secret.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__update_secret(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'update-secret', 'Updates a cluster\'s secret.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        subcommand.add_argument('secret', help='The new 20 characters password.', type=str)
+
+    def init_cluster__update_fabric(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'update-fabric', 'Updates a cluster\'s fabric.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        subcommand.add_argument('fabric', help='Fabric: tcp, rdma or both (specify: tcp, rdma). Default: `tcp`.', type=str, default='tcp', choices=['tcp','rdma','tcp,rdma',])
+
+    def init_cluster__check(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'check', 'Checks a cluster\'s health.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__update(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'update', 'Updates a cluster to new version.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--cp-only', help='Update the control plane only. Default: `false`.', type=bool, default=False, dest='mgmt_only')
+        argument = subcommand.add_argument('--spdk-image', help='Restart the storage nodes using the provided image.', type=str, dest='spdk_image')
+        argument = subcommand.add_argument('--mgmt-image', help='Restart the management services using the provided image.', type=str, dest='mgmt_image')
+
+    def init_cluster__graceful_shutdown(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'graceful-shutdown', 'Initiates a graceful shutdown of a cluster\'s storage nodes.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__graceful_startup(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'graceful-startup', 'Initiates a graceful startup of a cluster\'s storage nodes.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--clear-data', help='Clear Alceml data.', dest='clear_data', action='store_true')
+        argument = subcommand.add_argument('--spdk-image', help='The SPDK image URI.', type=str, dest='spdk_image')
+
+    def init_cluster__list_tasks(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list-tasks', 'Lists tasks of a cluster.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--limit', help='Show last number of tasks, default 50. Default: `50`.', type=int, default=50, dest='limit')
+
+    def init_cluster__cancel_task(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'cancel-task', 'Cancels task by task id.')
+        subcommand.add_argument('task_id', help='The cluster task id.', type=str)
+
+    def init_cluster__get_subtasks(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-subtasks', 'Get rebalancing subtasks list.')
+        subcommand.add_argument('task_id', help='The cluster task id.', type=str)
+
+    def init_cluster__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Deletes a cluster.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+
+    def init_cluster__set(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set', 'Set cluster db value.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str)
+        subcommand.add_argument('attr_name', help='The new or existing attribute name.', type=str)
+        subcommand.add_argument('attr_value', help='The new attribute value.', type=str)
+
+    def init_cluster__set_shared_placement(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set-shared-placement', 'Enable cluster-wide per-chunk data placement-binding for distrib bdevs (forward-only upgrade; --disable is reserved for debug).')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--disable', help='Reverse transition (per-chunk -> per-page). Debug only; only safe on a balanced or empty bdev. Requires --force.', dest='disable', action='store_true')
+        argument = subcommand.add_argument('--force', help='Bypass the rebalancing / non-online-node guards. Required when --disable is passed.', dest='force', action='store_true')
+
+    def init_cluster__change_name(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'change-name', 'Assigns or changes a name to a cluster')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str).completer = self._completer_get_cluster_list
+        subcommand.add_argument('name', help='The new cluster name.', type=str)
+
+    def init_cluster__add_replication(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add-replication', 'Assigns the snapshot replication target cluster')
+        subcommand.add_argument('cluster_id', help='Cluster id', type=str).completer = self._completer_get_cluster_list
+        subcommand.add_argument('target_cluster_id', help='Target Cluster id', type=str).completer = self._completer_get_cluster_list
+        argument = subcommand.add_argument('--timeout', help='Snapshot replication network timeout', type=int, default=3600, dest='timeout')
+        argument = subcommand.add_argument('--target-pool', help='Target cluster pool ID or name', type=str, dest='target_pool')
+
+
+    def init_volume(self):
+        subparser = self.add_command('volume', 'Logical Volume Commands', aliases=['lvol',])
+        self.init_volume__add(subparser)
+        self.init_volume__qos_set(subparser)
+        self.init_volume__list(subparser)
+        if self.developer_mode:
+            self.init_volume__list_mem(subparser)
+        self.init_volume__get(subparser)
+        self.init_volume__delete(subparser)
+        self.init_volume__connect(subparser)
+        self.init_volume__resize(subparser)
+        self.init_volume__create_snapshot(subparser)
+        self.init_volume__clone(subparser)
+        if self.developer_mode:
+            self.init_volume__move(subparser)
+        self.init_volume__get_capacity(subparser)
+        self.init_volume__get_io_stats(subparser)
+        self.init_volume__check(subparser)
+        self.init_volume__inflate(subparser)
+        self.init_volume__replication_start(subparser)
+        self.init_volume__replication_stop(subparser)
+        self.init_volume__replication_status(subparser)
+        self.init_volume__replication_trigger(subparser)
+        self.init_volume__suspend(subparser)
+        self.init_volume__resume(subparser)
+        self.init_volume__clone_lvol(subparser)
+        if self.developer_mode:
+            self.init_volume__migrate(subparser)
+        if self.developer_mode:
+            self.init_volume__migrate_list(subparser)
+        if self.developer_mode:
+            self.init_volume__migrate_cancel(subparser)
+
+
+    def init_volume__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Adds a new logical volume.')
+        subcommand.add_argument('name', help='The new logical volume name.', type=str)
+        subcommand.add_argument('size', help='Logical volume size: 10M, 10G, 10(bytes).', type=size_type())
+        subcommand.add_argument('pool', help='The storage pool id or name.', type=str)
+        argument = subcommand.add_argument('--snapshot', '-s', help='Make logical volume with snapshot capability. Default: `false`.', default=False, dest='snapshot', action='store_true')
+        argument = subcommand.add_argument('--max-size', help='The logical volume max size. Default: `1000T`.', type=size_type(), default='1000T', dest='max_size')
+        argument = subcommand.add_argument('--host-id', help='The primary storage node id or hostname.', type=str, dest='host_id')
+        argument = subcommand.add_argument('--encrypt', help='Use inline data encryption and decryption on the logical volume.', dest='encrypt', action='store_true')
+        argument = subcommand.add_argument('--crypto-key1', help='**Deprecated since: 26.2** Do not use this parameter: This has been replaced by internal or external KMS support. See https://docs.simplyblock.io/latest/usage/baremetal/encrypting/\n\nThe hex value of key1 to be used for logical volume encryption.', type=str, dest='crypto_key1')
+        argument = subcommand.add_argument('--crypto-key2', help='**Deprecated since: 26.2** Do not use this parameter: This has been replaced by internal or external KMS support. See https://docs.simplyblock.io/latest/usage/baremetal/encrypting/\n\nThe hex value of key2 to be used for logical volume encryption.', type=str, dest='crypto_key2')
+        argument = subcommand.add_argument('--max-rw-iops', help='Maximum Read Write IO Per Second.', type=int, dest='max_rw_iops')
+        argument = subcommand.add_argument('--max-rw-mbytes', help='Maximum Read Write Megabytes Per Second.', type=int, dest='max_rw_mbytes')
+        argument = subcommand.add_argument('--max-r-mbytes', help='Maximum Read Megabytes Per Second.', type=int, dest='max_r_mbytes')
+        argument = subcommand.add_argument('--max-w-mbytes', help='Maximum Write Megabytes Per Second.', type=int, dest='max_w_mbytes')
+        argument = subcommand.add_argument('--max-namespace-per-subsys', help='The maximum Namespace per subsystem. Default: `32`.', type=int, default=32, dest='max_namespace_per_subsys')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--distr-vuid', help='The (Dev) set vuid manually.', type=int, dest='distr_vuid')
+        argument = subcommand.add_argument('--ha-type', help='Logical volume HA type (single, ha), default is cluster HA type. Default: `default`.', type=str, default='default', dest='ha_type', choices=['single','default','ha',])
+        argument = subcommand.add_argument('--fabric', help='The transport fabric type (tcp or rdma). The cluster must support the chosen fabric. Default: `tcp`.', type=str, default='tcp', dest='fabric', choices=['tcp','rdma','tcp,rdma',])
+        argument = subcommand.add_argument('--lvol-priority-class', help='The logical volume priority class. Default: `0`.', type=int, default=0, dest='lvol_priority_class')
+        argument = subcommand.add_argument('--namespaced', help='Adds this LVol as a namespace on any available subsystem, if not found then create a new subsystem. Default: `false`.', type=bool, default=False, dest='namespaced')
+        if self.developer_mode:
+            argument = subcommand.add_argument('--uid', help='Set logical volume id.', type=str, dest='uid')
+        argument = subcommand.add_argument('--pvc-name', '--pvc_name', help='Set logical volume PVC name for k8s clients', type=str, dest='pvc_name')
+        argument = subcommand.add_argument('--data-chunks-per-stripe', help='The erasure coding schema parameter k (distributed raid). Default: `0`.', type=int, default=0, dest='ndcs')
+        argument = subcommand.add_argument('--parity-chunks-per-stripe', help='The erasure coding schema parameter n (distributed raid). Default: `0`.', type=int, default=0, dest='npcs')
+        argument = subcommand.add_argument('--replicate', help='Replicate LVol snapshot', dest='replicate', action='store_true')
+
+    def init_volume__qos_set(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'qos-set', 'Changes QoS settings for an active logical volume.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        argument = subcommand.add_argument('--max-rw-iops', help='Maximum Read Write IO Per Second.', type=int, dest='max_rw_iops')
+        argument = subcommand.add_argument('--max-rw-mbytes', help='Maximum Read Write Megabytes Per Second.', type=int, dest='max_rw_mbytes')
+        argument = subcommand.add_argument('--max-r-mbytes', help='Maximum Read Megabytes Per Second.', type=int, dest='max_r_mbytes')
+        argument = subcommand.add_argument('--max-w-mbytes', help='Maximum Write Megabytes Per Second.', type=int, dest='max_w_mbytes')
+
+    def init_volume__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists logical volumes.')
+        argument = subcommand.add_argument('--cluster-id', help='List logical volumes in particular cluster.', type=str, dest='cluster_id')
+        argument = subcommand.add_argument('--pool', help='List logical volumes in particular pool id or name.', type=str, dest='pool')
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+        argument = subcommand.add_argument('--all', help='List soft deleted logical volumes.', dest='all', action='store_true')
+
+    def init_volume__list_mem(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list-mem', 'Gets the size and max_size of a logical volume.')
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+        argument = subcommand.add_argument('--csv', help='Print outputs in csv format.', dest='csv', action='store_true')
+
+    def init_volume__get(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get', 'Gets the logical volume details.')
+        subcommand.add_argument('volume_id', help='The logical volume id or name.', type=str)
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+
+    def init_volume__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Deletes a logical volume.')
+        subcommand.add_argument('volume_id', help='The logical volumes id or ids.', type=str, nargs='+')
+        argument = subcommand.add_argument('--force', help='Force delete logical volume from the cluster.', dest='force', action='store_true')
+
+    def init_volume__connect(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'connect', 'Gets the logical volume\'s NVMe/TCP connection string(s).')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        argument = subcommand.add_argument('--ctrl-loss-tmo', help='The control loss timeout for this volume.', type=int, dest='ctrl_loss_tmo')
+        argument = subcommand.add_argument('--host-nqn', help='Host NQN for DH-HMAC-CHAP authentication (required when volume has allowed hosts with secrets).', type=str, dest='host_nqn')
+
+    def init_volume__resize(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'resize', 'Resizes a logical volume.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('size', help='New logical volume size size: 10M, 10G, 10(bytes).', type=size_type())
+
+    def init_volume__create_snapshot(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'create-snapshot', 'Creates a snapshot from a logical volume.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('name', help='The snapshot name.', type=str)
+        argument = subcommand.add_argument('--backup', help='Also create an S3 backup of this snapshot.', dest='backup', action='store_true')
+
+    def init_volume__clone(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'clone', 'Provisions a logical volumes from an existing snapshot.')
+        subcommand.add_argument('snapshot_id', help='The snapshot id.', type=str)
+        subcommand.add_argument('clone_name', help='The clone name.', type=str)
+        argument = subcommand.add_argument('--resize', help='New logical volume size: 10M, 10G, 10(bytes). Can only increase. Default: `0`.', type=size_type(), default='0', dest='resize')
+        argument = subcommand.add_argument('--namespaced', help='Adds this LVol as a namespace on any available subsystem, if not found then create a new subsystem. Default: `true`.', type=bool, default=True, dest='namespaced')
+
+    def init_volume__move(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'move', 'Moves a full copy of the logical volume between nodes.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('node_id', help='The destination node id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force logical volume delete from source node.', dest='force', action='store_true')
+
+    def init_volume__get_capacity(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-capacity', 'Gets a logical volume\'s capacity.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        argument = subcommand.add_argument('--history', help='(XXdYYh), list history records (one for every 15 minutes) for XX days and YY hours (up to 10 days in total).', type=str, dest='history')
+
+    def init_volume__get_io_stats(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-io-stats', 'Gets a logical volume\'s I/O statistics.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        argument = subcommand.add_argument('--history', help='(XXdYYh), list history records (one for every 15 minutes) for XX days and YY hours (up to 10 days in total).', type=str, dest='history')
+        argument = subcommand.add_argument('--records', help='The number of records. Default: `20`.', type=int, default=20, dest='records')
+
+    def init_volume__check(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'check', 'Checks a logical volume\'s health.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+
+    def init_volume__inflate(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'inflate', 'Inflate a logical volume.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+
+    def init_volume__replication_start(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'replication-start', 'Start snapshot replication taken from lvol')
+        subcommand.add_argument('lvol_id', help='Logical volume id', type=str)
+        argument = subcommand.add_argument('--replication-cluster-id', help='Cluster ID of the replication target cluster', type=str, dest='replication_cluster_id')
+
+    def init_volume__replication_stop(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'replication-stop', 'Stop snapshot replication taken from lvol')
+        subcommand.add_argument('lvol_id', help='Logical volume id', type=str)
+
+    def init_volume__replication_status(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'replication-status', 'Lists replication status')
+        subcommand.add_argument('cluster_id', help='Cluster UUID', type=str)
+
+    def init_volume__replication_trigger(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'replication-trigger', 'Start replication for lvol')
+        subcommand.add_argument('lvol_id', help='Logical volume id', type=str)
+
+    def init_volume__suspend(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'suspend', 'Suspend lvol subsystems')
+        subcommand.add_argument('lvol_id', help='Logical volume id', type=str)
+
+    def init_volume__resume(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'resume', 'Resume lvol subsystems')
+        subcommand.add_argument('lvol_id', help='Logical volume id', type=str)
+
+    def init_volume__clone_lvol(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'clone-lvol', 'Create logical volume clone by taking a snapshot and then cloning it.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('clone_name', help='The new logical volume clone name.', type=str)
+
+    def init_volume__migrate(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'migrate', 'Migrate a logical volume to a different storage node.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('target_node_id', help='The target storage node id.', type=str)
+        argument = subcommand.add_argument('--max-retries', help='Maximum retry attempts before aborting. Default: `10`.', type=int, default=10, dest='max_retries')
+        argument = subcommand.add_argument('--deadline', help='Migration deadline in seconds (0 = no deadline. Default: `14400`.', type=int, default=14400, dest='deadline_seconds')
+
+    def init_volume__migrate_list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'migrate-list', 'List volume migrations.')
+        argument = subcommand.add_argument('--cluster-id', help='Filter by cluster id.', type=str, dest='cluster_id')
+        argument = subcommand.add_argument('--json', help='Print output in json format.', dest='json', action='store_true')
+
+    def init_volume__migrate_cancel(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'migrate-cancel', 'Cancel an active volume migration.')
+        subcommand.add_argument('migration_id', help='The migration id.', type=str)
+
+
+    def init_control_plane(self):
+        subparser = self.add_command('control-plane', 'Control Plane Commands', aliases=['cp','mgmt',])
+        self.init_control_plane__add(subparser)
+        self.init_control_plane__list(subparser)
+        self.init_control_plane__remove(subparser)
+
+
+    def init_control_plane__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Adds a control plane to the cluster (local run).')
+        subcommand.add_argument('cluster_ip', help='The cluster IP address.', type=str)
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str)
+        subcommand.add_argument('cluster_secret', help='The cluster secret.', type=str)
+        argument = subcommand.add_argument('--ifname', help='The management interface name.', type=str, dest='ifname')
+        argument = subcommand.add_argument('--mgmt-ip', help='Management IP address to use for the node (e.g., 192.168.1.10).', type=str, dest='mgmt_ip')
+        argument = subcommand.add_argument('--mode', help='The environment to deploy management services. Default: `docker`.', type=str, default='docker', dest='mode', choices=['docker','kubernetes',])
+
+    def init_control_plane__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists all control plane nodes.')
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+
+    def init_control_plane__remove(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'remove', 'Removes a control plane node.')
+        subcommand.add_argument('node_id', help='The control plane node id.', type=str)
+
+
+    def init_storage_pool(self):
+        subparser = self.add_command('storage-pool', 'Storage Pool Commands', aliases=['pool',])
+        self.init_storage_pool__add(subparser)
+        self.init_storage_pool__set(subparser)
+        self.init_storage_pool__list(subparser)
+        self.init_storage_pool__get(subparser)
+        self.init_storage_pool__delete(subparser)
+        self.init_storage_pool__enable(subparser)
+        self.init_storage_pool__disable(subparser)
+        self.init_storage_pool__get_capacity(subparser)
+        self.init_storage_pool__get_io_stats(subparser)
+        self.init_storage_pool__add_host(subparser)
+        self.init_storage_pool__remove_host(subparser)
+        self.init_storage_pool__get_master_lvols(subparser)
+
+
+    def init_storage_pool__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Adds a new storage pool.')
+        subcommand.add_argument('name', help='The new pool name.', type=str)
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str)
+        argument = subcommand.add_argument('--pool-max', help='Pool maximum size: 20M, 20G, 0. Default: `0`.', type=size_type(), default='0', dest='pool_max')
+        argument = subcommand.add_argument('--lvol-max', help='Logical volume maximum size: 20M, 20G, 0. Default: `0`.', type=size_type(), default='0', dest='lvol_max')
+        argument = subcommand.add_argument('--max-rw-iops', help='Maximum Read Write IO Per Second.', type=int, dest='max_rw_iops')
+        argument = subcommand.add_argument('--max-rw-mbytes', help='Maximum Read Write Megabytes Per Second.', type=int, dest='max_rw_mbytes')
+        argument = subcommand.add_argument('--max-r-mbytes', help='Maximum Read Megabytes Per Second.', type=int, dest='max_r_mbytes')
+        argument = subcommand.add_argument('--max-w-mbytes', help='Maximum Write Megabytes Per Second.', type=int, dest='max_w_mbytes')
+        argument = subcommand.add_argument('--qos-host', help='The node id for QoS pool.', type=str, dest='qos_host', required=False)
+        argument = subcommand.add_argument('--dhchap', help='Enable DH-HMAC-CHAP authentication for all volumes in the pool.', default=False, dest='dhchap', action='store_true')
+
+    def init_storage_pool__set(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set', 'Sets a storage pool\'s attributes.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+        argument = subcommand.add_argument('--pool-max', help='Pool maximum size: 20M, 20G.', type=size_type(), dest='pool_max')
+        argument = subcommand.add_argument('--lvol-max', help='Logical volume maximum size: 20M, 20G.', type=size_type(), dest='lvol_max')
+        argument = subcommand.add_argument('--max-rw-iops', help='Maximum Read Write IO Per Second.', type=int, dest='max_rw_iops')
+        argument = subcommand.add_argument('--max-rw-mbytes', help='Maximum Read Write Megabytes Per Second.', type=int, dest='max_rw_mbytes')
+        argument = subcommand.add_argument('--max-r-mbytes', help='Maximum Read Megabytes Per Second.', type=int, dest='max_r_mbytes')
+        argument = subcommand.add_argument('--max-w-mbytes', help='Maximum Write Megabytes Per Second.', type=int, dest='max_w_mbytes')
+
+    def init_storage_pool__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists all storage pools.')
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+    def init_storage_pool__get(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get', 'Gets a storage pool\'s details.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+        argument = subcommand.add_argument('--json', help='Print outputs in json format.', dest='json', action='store_true')
+
+    def init_storage_pool__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Deletes a storage pool.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+
+    def init_storage_pool__enable(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'enable', 'Set a storage pool\'s status to Active.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+
+    def init_storage_pool__disable(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'disable', 'Sets a storage pool\'s status to Inactive.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+
+    def init_storage_pool__get_capacity(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-capacity', 'Gets a storage pool\'s capacity.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+
+    def init_storage_pool__get_io_stats(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-io-stats', 'Gets a storage pool\'s I/O statistics.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+        argument = subcommand.add_argument('--history', help='(XXdYYh), list history records (one for every 15 minutes) for XX days and YY hours (up to 10 days in total).', type=str, dest='history')
+        argument = subcommand.add_argument('--records', help='The number of records. Default: `20`.', type=int, default=20, dest='records')
+
+    def init_storage_pool__add_host(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add-host', 'Add an allowed host NQN to a storage pool.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+        subcommand.add_argument('host_nqn', help='The host NQN to allow access.', type=str)
+
+    def init_storage_pool__remove_host(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'remove-host', 'Remove an allowed host NQN from a storage pool.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+        subcommand.add_argument('host_nqn', help='The host NQN to remove.', type=str)
+
+    def init_storage_pool__get_master_lvols(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get-master-lvols', 'Return a list of master lvols (not namespaced lvol) from a storage pool.')
+        subcommand.add_argument('pool_id', help='The storage pool id.', type=str)
+
+
+    def init_snapshot(self):
+        subparser = self.add_command('snapshot', 'Snapshot Commands')
+        self.init_snapshot__add(subparser)
+        self.init_snapshot__list(subparser)
+        self.init_snapshot__delete(subparser)
+        self.init_snapshot__check(subparser)
+        self.init_snapshot__clone(subparser)
+        self.init_snapshot__replication_status(subparser)
+        self.init_snapshot__delete_replication_only(subparser)
+        self.init_snapshot__get(subparser)
+        if self.developer_mode:
+            self.init_snapshot__set(subparser)
+        self.init_snapshot__backup(subparser)
+
+
+    def init_snapshot__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Creates a new snapshot.')
+        subcommand.add_argument('volume_id', help='The logical volume id.', type=str)
+        subcommand.add_argument('name', help='The new snapshot name.', type=str)
+        argument = subcommand.add_argument('--backup', help='Also create an S3 backup of this snapshot.', dest='backup', action='store_true')
+
+    def init_snapshot__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists all snapshots.')
+        argument = subcommand.add_argument('--all', help='List soft deleted snapshots.', dest='all', action='store_true')
+        argument = subcommand.add_argument('--cluster-id', help='Filter snapshots by cluster UUID', type=str, dest='cluster_id', required=False)
+        argument = subcommand.add_argument('--with-details', help='List snapshots with replicate and chaining details', dest='with_details', action='store_true')
+        argument = subcommand.add_argument('--pool', help='List snapshots in particular pool id or name.', type=str, dest='pool')
+
+    def init_snapshot__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Deletes a snapshot.')
+        subcommand.add_argument('snapshot_id', help='The snapshot id.', type=str)
+        argument = subcommand.add_argument('--force', help='Force remove.', dest='force', action='store_true')
+
+    def init_snapshot__check(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'check', 'Check a snapshot health')
+        subcommand.add_argument('snapshot_id', help='Snapshot id', type=str)
+
+    def init_snapshot__clone(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'clone', 'Provisions a new logical volume from an existing snapshot.')
+        subcommand.add_argument('snapshot_id', help='The snapshot id.', type=str)
+        subcommand.add_argument('lvol_name', help='The logical volume name.', type=str)
+        argument = subcommand.add_argument('--resize', help='New logical volume size: 10M, 10G, 10(bytes). Can only increase. Default: `0`.', type=size_type(), default='0', dest='resize')
+        argument = subcommand.add_argument('--namespaced', help='Adds this LVol as a namespace on any available subsystem, if not found then create a new subsystem. Default: `false`.', type=bool, default=True, dest='namespaced')
+
+    def init_snapshot__replication_status(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'replication-status', 'Lists snapshots replication status')
+        subcommand.add_argument('cluster_id', help='Cluster UUID', type=str)
+
+    def init_snapshot__delete_replication_only(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete-replication-only', 'Delete replicated version of a snapshot')
+        subcommand.add_argument('snapshot_id', help='Snapshot UUID', type=str)
+
+    def init_snapshot__get(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'get', 'Gets a snapshot information')
+        subcommand.add_argument('snapshot_id', help='Snapshot UUID', type=str)
+
+    def init_snapshot__set(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'set', 'set snapshot db value')
+        subcommand.add_argument('snapshot_id', help='snapshot id', type=str)
+        subcommand.add_argument('attr_name', help='attr_name', type=str)
+        subcommand.add_argument('attr_value', help='attr_value', type=str)
+
+    def init_snapshot__backup(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'backup', 'Create an S3 backup of an existing snapshot.')
+        subcommand.add_argument('snapshot_id', help='The snapshot id.', type=str)
+
+
+    def init_backup(self):
+        subparser = self.add_command('backup', 'Backup Commands')
+        self.init_backup__list(subparser)
+        self.init_backup__delete(subparser)
+        self.init_backup__restore(subparser)
+        self.init_backup__export(subparser)
+        self.init_backup__import(subparser)
+        self.init_backup__policy_add(subparser)
+        self.init_backup__policy_remove(subparser)
+        self.init_backup__policy_list(subparser)
+        self.init_backup__policy_attach(subparser)
+        self.init_backup__policy_detach(subparser)
+        self.init_backup__source_list(subparser)
+        self.init_backup__source_switch(subparser)
+
+
+    def init_backup__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'List all backups.')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+    def init_backup__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Delete all backups for a logical volume.')
+        subcommand.add_argument('lvol_id', help='The logical volume id.', type=str)
+
+    def init_backup__restore(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'restore', 'Restore a backup to a new logical volume.')
+        subcommand.add_argument('backup_id', help='The volume backup id.', type=str)
+        argument = subcommand.add_argument('--lvol', help='The new logical volume name.', type=str, dest='lvol_name', required=True)
+        argument = subcommand.add_argument('--pool', help='The target pool name or id.', type=str, dest='pool', required=True)
+        argument = subcommand.add_argument('--node', help='The target storage node id.', type=str, dest='node')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+    def init_backup__export(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'export', 'Export backup metadata to a JSON file for cross-cluster restore.')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+        argument = subcommand.add_argument('--lvol', help='Filter exports to a specific logical volume name.', type=str, dest='lvol_name')
+        argument = subcommand.add_argument('-o', '--output', help='The output file path.', type=str, dest='output')
+
+    def init_backup__import(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'import', 'Import backup metadata from a JSON file.')
+        subcommand.add_argument('metadata_file', help='The path to JSON metadata file.', type=str)
+        argument = subcommand.add_argument('--cluster-id', help='The target cluster to import into (required for cross-cluster restore).', type=str, dest='cluster_id')
+
+    def init_backup__policy_add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'policy-add', 'Create a new backup policy.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str)
+        subcommand.add_argument('name', help='The policy name.', type=str)
+        argument = subcommand.add_argument('--versions', help='The maximum number of backup versions.', type=int, dest='versions')
+        argument = subcommand.add_argument('--age', help='Maximum backup age (e.g. 2d, 12h, 1w).', type=str, dest='age')
+        argument = subcommand.add_argument('--schedule', help='Auto-backup schedule as space-separated tiers: "15m,4 60m,11 24h,7" (interval,keep_count per tier).', type=str, dest='schedule')
+
+    def init_backup__policy_remove(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'policy-remove', 'Remove a backup policy.')
+        subcommand.add_argument('policy_id', help='The backup policy id.', type=str)
+
+    def init_backup__policy_list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'policy-list', 'List all backup policies.')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+    def init_backup__policy_attach(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'policy-attach', 'Attach a backup policy to a storage pool or logical volume.')
+        subcommand.add_argument('policy_id', help='The backup policy id.', type=str)
+        subcommand.add_argument('target_type', help='The target type.', type=str, choices=['pool','lvol',])
+        subcommand.add_argument('target_id', help='The target id (storage pool or logical volume id).', type=str)
+
+    def init_backup__policy_detach(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'policy-detach', 'Detach a backup policy from a storage pool or logical volume.')
+        subcommand.add_argument('policy_id', help='The backup policy id.', type=str)
+        subcommand.add_argument('target_type', help='The target type.', type=str, choices=['pool','lvol',])
+        subcommand.add_argument('target_id', help='The target id (storage pool or logical volume id).', type=str)
+
+    def init_backup__source_list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'source-list', 'List backup sources (local and imported clusters).')
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+    def init_backup__source_switch(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'source-switch', 'Switch the active S3 backup source to a different cluster. Use \'local\' or the local cluster id to switch back.')
+        subcommand.add_argument('source_cluster_id', help='The source cluster id or \'local\'.', type=str)
+        argument = subcommand.add_argument('--cluster-id', help='The cluster id.', type=str, dest='cluster_id')
+
+
+    def init_qos(self):
+        subparser = self.add_command('qos', 'QoS Commands')
+        self.init_qos__add(subparser)
+        self.init_qos__list(subparser)
+        self.init_qos__delete(subparser)
+
+
+    def init_qos__add(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'add', 'Creates a new QoS class')
+        subcommand.add_argument('name', help='QoS class name', type=str)
+        subcommand.add_argument('weight', help='QoS class weight', type=int)
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str, default='')
+
+    def init_qos__list(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'list', 'Lists all qos classes.')
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str, default='')
+        argument = subcommand.add_argument('--json', help='Print json output.', dest='json', action='store_true')
+
+    def init_qos__delete(self, subparser):
+        subcommand = self.add_sub_command(subparser, 'delete', 'Delete a class.')
+        subcommand.add_argument('name', help='QoS class name', type=str)
+        subcommand.add_argument('cluster_id', help='The cluster id.', type=str, default='')
+
+
+    def run(self):
+        args = self.parser.parse_args()
+        if args.debug:
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
+
+        if args.version:
+            print(f"simplyblock version: {constants.SIMPLY_BLOCK_VERSION}")
+            return True
+
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
+        ret = False
+        args_dict = args.__dict__
+
+        try:
+            if args.command in ['storage-node', 'sn']:
+                sub_command = args_dict['storage-node']
+                if sub_command in ['deploy']:
+                    ret = self.storage_node__deploy(sub_command, args)
+                elif sub_command in ['configure']:
+                    ret = self.storage_node__configure(sub_command, args)
+                elif sub_command in ['configure-upgrade']:
+                    ret = self.storage_node__configure_upgrade(sub_command, args)
+                elif sub_command in ['deploy-cleaner']:
+                    ret = self.storage_node__deploy_cleaner(sub_command, args)
+                elif sub_command in ['clean-devices']:
+                    ret = self.storage_node__clean_devices(sub_command, args)
+                elif sub_command in ['add-node']:
+                    if not self.developer_mode:
+                        args.jm_percent = 3
+                        args.partition_size = None
+                        args.spdk_image = None
+                        args.spdk_debug = None
+                        args.small_bufsize = 0
+                        args.large_bufsize = 0
+                        args.enable_test_device = None
+                        args.enable_ha_jm = True
+                        args.id_device_by_nqn = False
+                        args.max_snap = 5000
+                        args.spdk_proxy_image = None
+                    if getattr(args, 'partitions', None) is not None:
+                        args = self.migrate_journal_partition(args)
+                    ret = self.storage_node__add_node(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.storage_node__delete(sub_command, args)
+                elif sub_command in ['remove']:
+                    ret = self.storage_node__remove(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.storage_node__list(sub_command, args)
+                elif sub_command in ['get']:
+                    ret = self.storage_node__get(sub_command, args)
+                elif sub_command in ['restart']:
+                    if not self.developer_mode:
+                        args.max_snap = 5000
+                        args.max_prov = '0'
+                        args.spdk_image = None
+                        args.reattach_volume = None
+                        args.spdk_debug = None
+                        args.small_bufsize = 0
+                        args.large_bufsize = 0
+                        args.spdk_proxy_image = None
+                    ret = self.storage_node__restart(sub_command, args)
+                elif sub_command in ['shutdown']:
+                    ret = self.storage_node__shutdown(sub_command, args)
+                elif sub_command in ['suspend']:
+                    ret = self.storage_node__suspend(sub_command, args)
+                elif sub_command in ['resume']:
+                    ret = self.storage_node__resume(sub_command, args)
+                elif sub_command in ['get-io-stats']:
+                    ret = self.storage_node__get_io_stats(sub_command, args)
+                elif sub_command in ['get-capacity']:
+                    ret = self.storage_node__get_capacity(sub_command, args)
+                elif sub_command in ['list-devices']:
+                    ret = self.storage_node__list_devices(sub_command, args)
+                elif sub_command in ['device-testing-mode']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__device_testing_mode(sub_command, args)
+                elif sub_command in ['get-device']:
+                    ret = self.storage_node__get_device(sub_command, args)
+                elif sub_command in ['restart-device']:
+                    ret = self.storage_node__restart_device(sub_command, args)
+                elif sub_command in ['add-device']:
+                    ret = self.storage_node__add_device(sub_command, args)
+                elif sub_command in ['remove-device']:
+                    ret = self.storage_node__remove_device(sub_command, args)
+                elif sub_command in ['set-failed-device']:
+                    ret = self.storage_node__set_failed_device(sub_command, args)
+                elif sub_command in ['get-capacity-device']:
+                    ret = self.storage_node__get_capacity_device(sub_command, args)
+                elif sub_command in ['get-io-stats-device']:
+                    ret = self.storage_node__get_io_stats_device(sub_command, args)
+                elif sub_command in ['port-list']:
+                    ret = self.storage_node__port_list(sub_command, args)
+                elif sub_command in ['port-io-stats']:
+                    ret = self.storage_node__port_io_stats(sub_command, args)
+                elif sub_command in ['check']:
+                    ret = self.storage_node__check(sub_command, args)
+                elif sub_command in ['check-device']:
+                    ret = self.storage_node__check_device(sub_command, args)
+                elif sub_command in ['info']:
+                    ret = self.storage_node__info(sub_command, args)
+                elif sub_command in ['info-spdk']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__info_spdk(sub_command, args)
+                elif sub_command in ['remove-jm-device']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__remove_jm_device(sub_command, args)
+                elif sub_command in ['restart-jm-device']:
+                    ret = self.storage_node__restart_jm_device(sub_command, args)
+                elif sub_command in ['send-cluster-map']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__send_cluster_map(sub_command, args)
+                elif sub_command in ['get-cluster-map']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__get_cluster_map(sub_command, args)
+                elif sub_command in ['make-primary']:
+                    ret = self.storage_node__make_primary(sub_command, args)
+                elif sub_command in ['dump-lvstore']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__dump_lvstore(sub_command, args)
+                elif sub_command in ['set']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__set(sub_command, args)
+                elif sub_command in ['new-device-from-failed']:
+                    ret = self.storage_node__new_device_from_failed(sub_command, args)
+                elif sub_command in ['list-snapshots']:
+                    ret = self.storage_node__list_snapshots(sub_command, args)
+                elif sub_command in ['list-lvols']:
+                    ret = self.storage_node__list_lvols(sub_command, args)
+                elif sub_command in ['repair-lvstore']:
+                    ret = self.storage_node__repair_lvstore(sub_command, args)
+                elif sub_command in ['lvs-dump-tree']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.storage_node__lvs_dump_tree(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['cluster']:
+                sub_command = args_dict['cluster']
+                if sub_command in ['create']:
+                    if not self.developer_mode:
+                        args.page_size = 2097152
+                        args.CLI_PASS = None
+                        args.distr_bs = 4096
+                        args.distr_chunk_bs = 4096
+                        args.max_queue_size = 128
+                        args.inflight_io_threshold = 4
+                        args.disable_monitoring = False
+                    ret = self.cluster__create(sub_command, args)
+                elif sub_command in ['add']:
+                    if not self.developer_mode:
+                        args.page_size = 2097152
+                        args.distr_bs = 4096
+                        args.distr_chunk_bs = 4096
+                        args.max_queue_size = 128
+                        args.inflight_io_threshold = 4
+                    ret = self.cluster__add(sub_command, args)
+                elif sub_command in ['activate']:
+                    ret = self.cluster__activate(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.cluster__list(sub_command, args)
+                elif sub_command in ['status']:
+                    ret = self.cluster__status(sub_command, args)
+                elif sub_command in ['complete-expand']:
+                    ret = self.cluster__complete_expand(sub_command, args)
+                elif sub_command in ['show']:
+                    ret = self.cluster__show(sub_command, args)
+                elif sub_command in ['get']:
+                    ret = self.cluster__get(sub_command, args)
+                elif sub_command in ['suspend']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.cluster__suspend(sub_command, args)
+                elif sub_command in ['get-capacity']:
+                    ret = self.cluster__get_capacity(sub_command, args)
+                elif sub_command in ['get-io-stats']:
+                    ret = self.cluster__get_io_stats(sub_command, args)
+                elif sub_command in ['get-logs']:
+                    ret = self.cluster__get_logs(sub_command, args)
+                elif sub_command in ['get-secret']:
+                    ret = self.cluster__get_secret(sub_command, args)
+                elif sub_command in ['update-secret']:
+                    ret = self.cluster__update_secret(sub_command, args)
+                elif sub_command in ['update-fabric']:
+                    ret = self.cluster__update_fabric(sub_command, args)
+                elif sub_command in ['check']:
+                    ret = self.cluster__check(sub_command, args)
+                elif sub_command in ['update']:
+                    ret = self.cluster__update(sub_command, args)
+                elif sub_command in ['graceful-shutdown']:
+                    ret = self.cluster__graceful_shutdown(sub_command, args)
+                elif sub_command in ['graceful-startup']:
+                    ret = self.cluster__graceful_startup(sub_command, args)
+                elif sub_command in ['list-tasks']:
+                    ret = self.cluster__list_tasks(sub_command, args)
+                elif sub_command in ['cancel-task']:
+                    ret = self.cluster__cancel_task(sub_command, args)
+                elif sub_command in ['get-subtasks']:
+                    ret = self.cluster__get_subtasks(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.cluster__delete(sub_command, args)
+                elif sub_command in ['set']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.cluster__set(sub_command, args)
+                elif sub_command in ['set-shared-placement']:
+                    ret = self.cluster__set_shared_placement(sub_command, args)
+                elif sub_command in ['change-name']:
+                    ret = self.cluster__change_name(sub_command, args)
+                elif sub_command in ['add-replication']:
+                    ret = self.cluster__add_replication(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['volume', 'lvol']:
+                sub_command = args_dict['volume']
+                if sub_command in ['add']:
+                    if not self.developer_mode:
+                        args.distr_vuid = None
+                        args.uid = None
+                    if getattr(args, 'crypto_key1', None) is not None:
+                        raise ValueError("Deprecated parameter '--crypto-key1' cannot be used: This has been replaced by internal or external KMS support. See https://docs.simplyblock.io/latest/usage/baremetal/encrypting/")
+                    if getattr(args, 'crypto_key2', None) is not None:
+                        raise ValueError("Deprecated parameter '--crypto-key2' cannot be used: This has been replaced by internal or external KMS support. See https://docs.simplyblock.io/latest/usage/baremetal/encrypting/")
+                    ret = self.volume__add(sub_command, args)
+                elif sub_command in ['qos-set']:
+                    ret = self.volume__qos_set(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.volume__list(sub_command, args)
+                elif sub_command in ['list-mem']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.volume__list_mem(sub_command, args)
+                elif sub_command in ['get']:
+                    ret = self.volume__get(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.volume__delete(sub_command, args)
+                elif sub_command in ['connect']:
+                    ret = self.volume__connect(sub_command, args)
+                elif sub_command in ['resize']:
+                    ret = self.volume__resize(sub_command, args)
+                elif sub_command in ['create-snapshot']:
+                    ret = self.volume__create_snapshot(sub_command, args)
+                elif sub_command in ['clone']:
+                    ret = self.volume__clone(sub_command, args)
+                elif sub_command in ['move']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.volume__move(sub_command, args)
+                elif sub_command in ['get-capacity']:
+                    ret = self.volume__get_capacity(sub_command, args)
+                elif sub_command in ['get-io-stats']:
+                    ret = self.volume__get_io_stats(sub_command, args)
+                elif sub_command in ['check']:
+                    ret = self.volume__check(sub_command, args)
+                elif sub_command in ['inflate']:
+                    ret = self.volume__inflate(sub_command, args)
+                elif sub_command in ['replication-start']:
+                    ret = self.volume__replication_start(sub_command, args)
+                elif sub_command in ['replication-stop']:
+                    ret = self.volume__replication_stop(sub_command, args)
+                elif sub_command in ['replication-status']:
+                    ret = self.volume__replication_status(sub_command, args)
+                elif sub_command in ['replication-trigger']:
+                    ret = self.volume__replication_trigger(sub_command, args)
+                elif sub_command in ['suspend']:
+                    ret = self.volume__suspend(sub_command, args)
+                elif sub_command in ['resume']:
+                    ret = self.volume__resume(sub_command, args)
+                elif sub_command in ['clone-lvol']:
+                    ret = self.volume__clone_lvol(sub_command, args)
+                elif sub_command in ['migrate']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.volume__migrate(sub_command, args)
+                elif sub_command in ['migrate-list']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.volume__migrate_list(sub_command, args)
+                elif sub_command in ['migrate-cancel']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.volume__migrate_cancel(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['control-plane', 'cp', 'mgmt']:
+                sub_command = args_dict['control-plane']
+                if sub_command in ['add']:
+                    ret = self.control_plane__add(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.control_plane__list(sub_command, args)
+                elif sub_command in ['remove']:
+                    ret = self.control_plane__remove(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['storage-pool', 'pool']:
+                sub_command = args_dict['storage-pool']
+                if sub_command in ['add']:
+                    ret = self.storage_pool__add(sub_command, args)
+                elif sub_command in ['set']:
+                    ret = self.storage_pool__set(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.storage_pool__list(sub_command, args)
+                elif sub_command in ['get']:
+                    ret = self.storage_pool__get(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.storage_pool__delete(sub_command, args)
+                elif sub_command in ['enable']:
+                    ret = self.storage_pool__enable(sub_command, args)
+                elif sub_command in ['disable']:
+                    ret = self.storage_pool__disable(sub_command, args)
+                elif sub_command in ['get-capacity']:
+                    ret = self.storage_pool__get_capacity(sub_command, args)
+                elif sub_command in ['get-io-stats']:
+                    ret = self.storage_pool__get_io_stats(sub_command, args)
+                elif sub_command in ['add-host']:
+                    ret = self.storage_pool__add_host(sub_command, args)
+                elif sub_command in ['remove-host']:
+                    ret = self.storage_pool__remove_host(sub_command, args)
+                elif sub_command in ['get-master-lvols']:
+                    ret = self.storage_pool__get_master_lvols(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['snapshot']:
+                sub_command = args_dict['snapshot']
+                if sub_command in ['add']:
+                    ret = self.snapshot__add(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.snapshot__list(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.snapshot__delete(sub_command, args)
+                elif sub_command in ['check']:
+                    ret = self.snapshot__check(sub_command, args)
+                elif sub_command in ['clone']:
+                    ret = self.snapshot__clone(sub_command, args)
+                elif sub_command in ['replication-status']:
+                    ret = self.snapshot__replication_status(sub_command, args)
+                elif sub_command in ['delete-replication-only']:
+                    ret = self.snapshot__delete_replication_only(sub_command, args)
+                elif sub_command in ['get']:
+                    ret = self.snapshot__get(sub_command, args)
+                elif sub_command in ['set']:
+                    if not self.developer_mode:
+                        print("This command is private.")
+                        ret = False
+                    else:
+                        ret = self.snapshot__set(sub_command, args)
+                elif sub_command in ['backup']:
+                    ret = self.snapshot__backup(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['backup']:
+                sub_command = args_dict['backup']
+                if sub_command in ['list']:
+                    ret = self.backup__list(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.backup__delete(sub_command, args)
+                elif sub_command in ['restore']:
+                    ret = self.backup__restore(sub_command, args)
+                elif sub_command in ['export']:
+                    ret = self.backup__export(sub_command, args)
+                elif sub_command in ['import']:
+                    ret = self.backup__import(sub_command, args)
+                elif sub_command in ['policy-add']:
+                    ret = self.backup__policy_add(sub_command, args)
+                elif sub_command in ['policy-remove']:
+                    ret = self.backup__policy_remove(sub_command, args)
+                elif sub_command in ['policy-list']:
+                    ret = self.backup__policy_list(sub_command, args)
+                elif sub_command in ['policy-attach']:
+                    ret = self.backup__policy_attach(sub_command, args)
+                elif sub_command in ['policy-detach']:
+                    ret = self.backup__policy_detach(sub_command, args)
+                elif sub_command in ['source-list']:
+                    ret = self.backup__source_list(sub_command, args)
+                elif sub_command in ['source-switch']:
+                    ret = self.backup__source_switch(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            elif args.command in ['qos']:
+                sub_command = args_dict['qos']
+                if sub_command in ['add']:
+                    ret = self.qos__add(sub_command, args)
+                elif sub_command in ['list']:
+                    ret = self.qos__list(sub_command, args)
+                elif sub_command in ['delete']:
+                    ret = self.qos__delete(sub_command, args)
+                else:
+                    self.parser.print_help()
+
+            else:
+                self.parser.print_help()
+
+        except Exception as exc:
+            print('Operation failed: ', exc)
+            if args.debug:
+                traceback.print_exception(None, exc, exc.__traceback__)
+            exit(1)
+
+        if not ret:
+            exit(1)
+
+        print(ret)
+
+
+def main():
+    utils.init_sentry_sdk()
+    cli = CLIWrapper()
+    cli.run()

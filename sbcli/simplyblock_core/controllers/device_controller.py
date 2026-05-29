@@ -1,0 +1,1165 @@
+import time
+import logging
+import uuid
+
+from simplyblock_core import distr_controller, utils, storage_node_ops
+from simplyblock_core.controllers import device_events, tasks_controller
+from simplyblock_core.db_controller import DBController
+from simplyblock_core.models.nvme_device import NVMeDevice, JMDevice
+from simplyblock_core.models.storage_node import StorageNode
+from simplyblock_core.prom_client import PromClient
+
+# Debounce window for the per-device flap counter: two countable
+# online→not-online transitions within this many seconds are treated as
+# one error storm and only advance the counter once. Anything that lasts
+# longer than the typical SPDK timeout/reset cycle is sufficient — 10 s
+# comfortably exceeds the 4 s timeout_us + reset round-trip.
+DEVICE_FLAP_DEBOUNCE_SEC = 10.0
+
+logger = logging.getLogger()
+
+
+def get_storage_node_by_jm_device(db_controller: DBController, id) -> StorageNode:
+    try:
+        return next(
+            node
+            for node in db_controller.get_storage_nodes()
+            if node.jm_device.get_id() == id
+        )
+    except StopIteration:
+        raise KeyError(f'No storage node with JM device {id}')
+
+
+# Maximum number of `online → not-online` transitions caused by a local IO
+# error report from the device's home node before the device is force-failed.
+# Counter is per-device and resets only on explicit device restart.
+DEVICE_FLAP_LIMIT = 2
+
+# Allowed values for the `cause` argument of device_set_state.
+#
+# CAUSE_OTHER (default): operator-driven actions (`sn remove_device`) and
+# node-driven cascades (shutdown, restart task, health_controller pulling
+# devices when their node went offline, etc.). Does not count toward the
+# flap budget; cannot exit STATUS_FAILED.
+#
+# CAUSE_LOCAL_FAILURE: the device's home node SPDK spontaneously reported
+# an unsolicited per-device failure event — IO error (error_write,
+# error_read, error_unmap, error_write_cannot_allocate) OR a REMOVE /
+# error_open event. SPDK fires SPDK_BDEV_EVENT_REMOVE identically for
+# PCIe surprise-removal, controller destruct after timeout-driven reset
+# failures, and AER namespace-removed; we don't try to tell those apart.
+# Any unsolicited transition out of online reported by the home node is a
+# failure event for the flap counter. The opt-in is gated in
+# main_distr_event_collector by `event_node == device_node`.
+#
+# CAUSE_DEVICE_RESTART: explicit operator restart (`sn restart_device` /
+# `sn reset_device`). One of the two allowed exits from STATUS_FAILED;
+# clears flap_count when bringing the device back online.
+#
+# CAUSE_FAILURE_MIGRATION: failure data migration completed. The other
+# allowed exit from STATUS_FAILED (→ STATUS_FAILED_AND_MIGRATED).
+CAUSE_OTHER = "other"
+CAUSE_LOCAL_FAILURE = "local_failure"
+CAUSE_DEVICE_RESTART = "device_restart"
+CAUSE_FAILURE_MIGRATION = "failure_migration"
+
+
+def device_set_state(device_id, state, cause=CAUSE_OTHER):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+    except KeyError:
+        logger.error("device not found")
+        return False
+
+    try:
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError:
+        logger.exception("node not found")
+        return False
+
+    device = None
+    for dev in snode.nvme_devices:
+        if dev.get_id() == device_id:
+            device = dev
+            break
+
+    if not device:
+        logger.error("device not found")
+        return False
+
+    # Failed is a terminal state. The only allowed exits are:
+    #   STATUS_FAILED → STATUS_FAILED_AND_MIGRATED  (failure data migration)
+    #   STATUS_FAILED → STATUS_ONLINE               (explicit device restart)
+    # Any other transition out of failed is rejected so that automatic
+    # recovery paths (device_monitor, storage_node_monitor, distrib events)
+    # can't pull a known-bad device back into rotation.
+    if device.status == NVMeDevice.STATUS_FAILED:
+        if state == NVMeDevice.STATUS_FAILED_AND_MIGRATED:
+            if cause != CAUSE_FAILURE_MIGRATION:
+                logger.error(
+                    f"Device {device_id} is failed; transition to "
+                    f"failed_and_migrated requires failure migration "
+                    f"(cause={cause})"
+                )
+                return False
+        elif state == NVMeDevice.STATUS_ONLINE:
+            if cause != CAUSE_DEVICE_RESTART:
+                logger.error(
+                    f"Device {device_id} is failed; only an explicit device "
+                    f"restart can bring it back online (cause={cause})"
+                )
+                return False
+        elif state != NVMeDevice.STATUS_FAILED:
+            logger.error(
+                f"Device {device_id} is failed; rejecting transition to "
+                f"{state} (cause={cause})"
+            )
+            return False
+
+    # Per-device flap counter. Increment ONLY when the device's home node
+    # spontaneously reported an unsolicited failure event against its own
+    # device — IO error or REMOVE/error_open. Anything else (remote-node
+    # observations, node cascades, operator-driven CLI commands, restarts)
+    # uses a different `cause` and is not counted. Belt-and-braces: also
+    # require the home node to currently be online; if the parent node is
+    # already in some non-online state then we are in a node-cascade window
+    # by definition and any device transition is collateral.
+    force_fail = False
+    countable = (
+        device.status == NVMeDevice.STATUS_ONLINE
+        and state not in (
+            NVMeDevice.STATUS_ONLINE,
+            NVMeDevice.STATUS_FAILED,
+            NVMeDevice.STATUS_FAILED_AND_MIGRATED,
+        )
+        and cause == CAUSE_LOCAL_FAILURE
+        and snode.status == StorageNode.STATUS_ONLINE
+    )
+    if countable:
+        # Debounce: error storms fire many error events in quick succession
+        # against a single underlying device problem. We only advance the
+        # counter for transitions that are at least DEVICE_FLAP_DEBOUNCE_SEC
+        # apart, so a single hung-device incident (potentially hundreds of
+        # error_write events) only burns one slot of the budget.
+        now = time.time()
+        if device.last_flap_tsc and (now - device.last_flap_tsc) < DEVICE_FLAP_DEBOUNCE_SEC:
+            logger.info(
+                f"Device {device_id} flap dedup: "
+                f"only {now - device.last_flap_tsc:.1f}s since last flap "
+                f"(< {DEVICE_FLAP_DEBOUNCE_SEC}s window); not counting"
+            )
+        else:
+            next_count = device.flap_count + 1
+            device.last_flap_tsc = now
+            if next_count > DEVICE_FLAP_LIMIT:
+                logger.warning(
+                    f"Device {device_id} exceeded flap limit "
+                    f"({next_count} > {DEVICE_FLAP_LIMIT}); forcing to failed "
+                    f"instead of {state}. Use device-restart to recover."
+                )
+                state = NVMeDevice.STATUS_FAILED
+                force_fail = True
+            else:
+                device.flap_count = next_count
+                logger.info(
+                    f"Device {device_id} flap_count={device.flap_count}/"
+                    f"{DEVICE_FLAP_LIMIT} (online→{state})"
+                )
+
+    if state == NVMeDevice.STATUS_ONLINE:
+        device.retries_exhausted = False
+        if cause == CAUSE_DEVICE_RESTART:
+            # Explicit operator-initiated restart is the only path that
+            # forgives prior flapping. Both the counter and the debounce
+            # timestamp are wiped — the device gets a fresh budget.
+            if device.flap_count != 0:
+                logger.info(
+                    f"Device {device_id} flap_count reset on device-restart"
+                )
+            device.flap_count = 0
+            device.last_flap_tsc = 0.0
+
+    if state == NVMeDevice.STATUS_REMOVED:
+        device.deleted = True
+
+    if state == NVMeDevice.STATUS_READONLY and device.status == NVMeDevice.STATUS_UNAVAILABLE:
+        return False
+
+    if device.status != state:
+        device.previous_status = device.status
+        device.status = state
+        snode.write_to_db(db_controller.kv_store)
+        device_events.device_status_change(device, device.status, device.previous_status)
+
+    if state == NVMeDevice.STATUS_ONLINE:
+        logger.info("Make other nodes connect to the node devices")
+        snodes = db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id)
+        for node in snodes:
+            if node.get_id() == snode.get_id() or node.status != StorageNode.STATUS_ONLINE:
+                continue
+            remote_devices = storage_node_ops._connect_to_remote_devs(node)
+            node = db_controller.get_storage_node_by_id(node.get_id())
+            node.remote_devices = remote_devices
+            node.write_to_db()
+
+    distr_controller.send_dev_status_event(device, device.status)
+
+    if force_fail:
+        # Mirror the post-failed bookkeeping that device_set_failed() does:
+        # remove this device's storage_id from peer cluster maps and queue a
+        # failure-migration task. Wrapped in try/except so a partial cluster
+        # outage doesn't keep the device stuck mid-failure.
+        try:
+            for node in db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id):
+                if node.status == StorageNode.STATUS_ONLINE:
+                    node.rpc_client().distr_replace_id_in_map_prob(
+                        device.cluster_device_order, -1)
+            tasks_controller.add_device_failed_mig_task(device_id)
+        except Exception:
+            logger.exception(
+                f"Post-failed bookkeeping for {device_id} hit an error")
+
+    return True
+
+
+def device_set_io_error(device_id, is_error):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    for dev in snode.nvme_devices:
+        if dev.get_id() == device_id:
+            device = dev
+            break
+
+    if device.io_error == is_error:
+        return True
+
+    device.io_error = is_error
+    snode.write_to_db(db_controller.kv_store)
+    return True
+
+
+def device_set_unavailable(device_id, cause=CAUSE_OTHER):
+    return device_set_state(device_id, NVMeDevice.STATUS_UNAVAILABLE, cause=cause)
+
+
+def device_set_read_only(device_id, cause=CAUSE_OTHER):
+    return device_set_state(device_id, NVMeDevice.STATUS_READONLY, cause=cause)
+
+
+def device_set_online(device_id, cause=CAUSE_OTHER):
+    ret = device_set_state(device_id, NVMeDevice.STATUS_ONLINE, cause=cause)
+    if ret:
+        logger.info("Adding task to device data migration")
+        dev = DBController().get_storage_device_by_id(device_id)
+        task_id = tasks_controller.add_device_mig_task_for_node(dev.node_id)
+        if task_id:
+            logger.info(f"Task id: {task_id}")
+    return ret
+
+
+def get_alceml_name(alceml_id):
+    return f"alceml_{alceml_id}"
+
+
+def _def_create_device_stack(device_obj, snode, force=False, clear_data=False):
+    db_controller = DBController()
+
+    rpc_client = snode.rpc_client(timeout=600)
+
+    bdev_names = []
+    for dev in rpc_client.get_bdevs():
+        bdev_names.append(dev['name'])
+
+    nvme_bdev = device_obj.nvme_bdev
+    if snode.enable_test_device:
+        test_name = f"{device_obj.nvme_bdev}_test"
+        if test_name not in bdev_names:
+            # create testing bdev
+            ret = rpc_client.bdev_passtest_create(test_name, device_obj.nvme_bdev)
+            if not ret:
+                logger.error(f"Failed to create bdev: {test_name}")
+                if not force:
+                    return False
+        else:
+            logger.info(f"bdev already exists {test_name}")
+        device_obj.testing_bdev = test_name
+        nvme_bdev = test_name
+
+    alceml_id = device_obj.get_id()
+    alceml_name = get_alceml_name(alceml_id)
+
+    cluster = db_controller.get_cluster_by_id(snode.cluster_id)
+    if alceml_name not in bdev_names:
+        ret = snode.create_alceml(
+            alceml_name, nvme_bdev, alceml_id,
+            pba_init_mode=3 if clear_data else 2,
+            write_protection=cluster.distr_ndcs > 1,
+            pba_page_size=cluster.page_size_in_blocks,
+            full_page_unmap=cluster.full_page_unmap
+        )
+
+        if not ret:
+            logger.error(f"Failed to create alceml bdev: {alceml_name}")
+            if not force:
+                return False
+    else:
+        logger.info(f"bdev already exists {alceml_name}")
+
+    # add pass through
+    pt_name = f"{alceml_name}_PT"
+    if pt_name not in bdev_names:
+        ret = rpc_client.bdev_PT_NoExcl_create(pt_name, alceml_name)
+        if not ret:
+            logger.error(f"Failed to create pt noexcl bdev: {pt_name}")
+            if not force:
+                return False
+    else:
+        logger.info(f"bdev already exists {pt_name}")
+
+    subsystem_nqn = snode.subsystem + ":dev:" + alceml_id
+    namespace_found = False
+    subsys_found = False
+    ret = rpc_client.subsystem_list(subsystem_nqn)
+    if ret :
+        subsys_found = True
+        if ret[0]["namespaces"]:
+            for ns in ret[0]["namespaces"]:
+                if ns['name'] == pt_name:
+                    namespace_found = True
+                    break
+
+    if not subsys_found:
+        logger.info("Creating subsystem %s", subsystem_nqn)
+        ret = rpc_client.subsystem_create(subsystem_nqn, 'sbcli-cn', alceml_id)
+        for iface in snode.data_nics:
+            if iface.ip4_address:
+                ret = rpc_client.listeners_create(subsystem_nqn, iface.trtype, iface.ip4_address, snode.nvmf_port)
+                device_obj.nvmf_ip = iface.ip4_address
+                break
+    else:
+        logger.info(f"subsystem already exists {subsys_found}")
+
+    if not namespace_found:
+        logger.info(f"Adding {pt_name} to the subsystem")
+        ret = rpc_client.nvmf_subsystem_add_ns(subsystem_nqn, pt_name)
+    else:
+        logger.info(f"bdev already added to subsys {pt_name}")
+
+    device_obj.alceml_bdev = alceml_name
+    device_obj.alceml_name = alceml_name
+    device_obj.pt_bdev = pt_name
+    device_obj.nvmf_nqn = subsystem_nqn
+    device_obj.nvmf_port = snode.nvmf_port
+    return True
+
+
+def restart_device(device_id, force=False):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+    except KeyError:
+        logger.error("device not found")
+        return False
+
+    # restart_device is one of the two allowed exits from STATUS_FAILED
+    # (the other being failure migration via device_set_failed_and_migrated).
+    if dev.status not in (NVMeDevice.STATUS_REMOVED, NVMeDevice.STATUS_FAILED):
+        logger.error(
+            f"Device must be in removed or failed status, current: {dev.status}"
+        )
+        if not force:
+            return False
+
+    snode = db_controller.get_storage_node_by_id(dev.node_id)
+    if not snode:
+        logger.error("node not found")
+        return False
+
+    device_obj = None
+    for dev in snode.nvme_devices:
+        if dev.get_id() == device_id:
+            device_obj = dev
+            break
+
+    if not device_obj:
+        logger.error("device not found")
+        return False
+
+    task_id = tasks_controller.get_active_dev_restart_task(snode.cluster_id, device_id)
+    if task_id:
+        logger.error(f"Restart task found: {task_id}, can not restart device")
+        if force is False:
+            return False
+
+    logger.info(f"Restarting device {device_id}")
+    device_set_retries_exhausted(device_id, True)
+    device_set_unavailable(device_id, cause=CAUSE_DEVICE_RESTART)
+
+    if not snode.rpc_client().bdev_nvme_controller_list(device_obj.nvme_controller):
+        try:
+            ret = snode.client(timeout=30, retry=1).bind_device_to_spdk(device_obj.pcie_address)
+            logger.debug(ret)
+            snode.rpc_client().bdev_nvme_controller_attach(device_obj.nvme_controller, device_obj.pcie_address)
+            snode.rpc_client().bdev_examine(f"{device_obj.nvme_controller}n1")
+            snode.rpc_client().bdev_wait_for_examine()
+        except Exception as e:
+            logger.error(e)
+            return False
+
+    ret = _def_create_device_stack(device_obj, snode, force=force)
+
+    if not ret:
+        logger.error("Failed to create device stack")
+        if not force:
+            return False
+
+    logger.info("Setting device io_error to False")
+    device_set_io_error(device_id, False)
+    logger.info("Setting device online")
+    device_set_online(device_id, cause=CAUSE_DEVICE_RESTART)
+    device_events.device_restarted(device_obj)
+
+    if snode.jm_device:
+        if not snode.jm_device.raid_bdev:
+            if snode.jm_device.status == JMDevice.STATUS_UNAVAILABLE:
+                set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_ONLINE)
+        else:
+            # looking for jm partition
+            rpc_client = snode.rpc_client()
+            jm_dev_part = f"{dev.nvme_bdev[:-1]}1"
+            ret = rpc_client.get_bdevs(jm_dev_part)
+            if ret:
+                logger.info(f"JM part found: {jm_dev_part}")
+                if snode.jm_device.status in [JMDevice.STATUS_UNAVAILABLE, JMDevice.STATUS_REMOVED]:
+                    if snode.rpc_client().get_bdevs(snode.jm_device.raid_bdev):
+                        logger.info("Raid found, setting jm device online")
+                        ret = snode.rpc_client().bdev_raid_get_bdevs()
+                        has_bdev = any(
+                            bdev["name"] == jm_dev_part
+                            for raid in ret
+                            for bdev in raid.get("base_bdevs_list", [])
+                        )
+                        if not has_bdev:
+                            logger.info(f"Adding to raid: {jm_dev_part}")
+                            snode.rpc_client().bdev_raid_add_base_bdev(snode.jm_device.raid_bdev, jm_dev_part)
+                        set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_ONLINE)
+                    else:
+                        logger.info("Raid not found, restarting jm device")
+                        restart_jm_device(snode.jm_device.get_id(), force=True)
+
+    return "Done"
+
+
+def set_device_testing_mode(device_id, mode):
+    db_controller = DBController()
+    try:
+        device = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(device.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    if not snode.enable_test_device:
+        logger.error("Test device is disabled on this storage node")
+        return False
+
+    logger.info(f"Set device:{device_id} Test mode:{mode}")
+    rpc_client = snode.rpc_client()
+
+    ret = rpc_client.bdev_passtest_mode(device.testing_bdev, mode)
+    return ret
+
+
+# def set_jm_device_testing_mode(device_id, mode):
+#     db_controller = DBController()
+#     snode = db_controller.get_storage_by_jm_id(device_id)
+#     if not snode:
+#         logger.error("node not found")
+#         return False
+#     jm_device = snode.jm_device
+#
+#     if not snode.enable_test_device:
+#         logger.error("Test device is disabled on this storage node")
+#         return False
+#
+#     logger.info(f"Set device:{device_id} Test mode:{mode}")
+#     # creating RPCClient instance
+#     rpc_client = RPCClient(
+#         snode.mgmt_ip, snode.rpc_port,
+#         snode.rpc_username, snode.rpc_password)
+#
+#     ret = rpc_client.bdev_passtest_mode(jm_device.testing_bdev, mode)
+#     return ret
+
+
+def device_remove(device_id, force=True, cause=CAUSE_OTHER):
+    """
+    Remove a device. Two distinct callers:
+      * operator CLI (`sn remove_device`) — passes default cause=CAUSE_OTHER,
+        does NOT count toward the per-device flap budget.
+      * main_distr_event_collector reacting to a REMOVE/error_open event from
+        the device's home node — passes cause=CAUSE_LOCAL_FAILURE so the
+        catastrophic-failure path counts toward the budget exactly like
+        error_write/error_read do.
+
+    From the bdev event itself we cannot tell PCIe surprise-removal,
+    controller-fatal-status-after-failed-reset, and AER-driven namespace
+    removal apart — they all arrive as SPDK_BDEV_EVENT_REMOVE. That's fine
+    for the flap counter: any unsolicited REMOVE on a previously-online
+    device is a per-device failure event, indistinguishable in intent from
+    a write/read error storm that destructed the controller.
+    """
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    device = None
+    for dev in snode.nvme_devices:
+        if dev.get_id() == device_id:
+            device = dev
+            break
+
+    if not device:
+        logger.error("device not found")
+        return False
+
+    if device.status in [NVMeDevice.STATUS_REMOVED, NVMeDevice.STATUS_FAILED, NVMeDevice.STATUS_FAILED_AND_MIGRATED,
+                         NVMeDevice.STATUS_NEW]:
+        logger.error(f"Unsupported device status: {device.status}")
+        if force is False:
+            return False
+
+    task_id = tasks_controller.get_active_dev_restart_task(snode.cluster_id, device_id)
+    if task_id:
+        logger.error(f"Restart task found: {task_id}, can not remove device")
+        if force is False:
+            return False
+
+    logger.info("Setting device unavailable")
+    # The unavailable→removed walk inside this function is internal
+    # bookkeeping. Pass the caller's cause through so a SPDK-event-driven
+    # remove counts toward the flap budget, while an operator-initiated
+    # `sn remove_device` does not.
+    device_set_unavailable(device_id, cause=cause)
+
+    logger.info("Disconnecting device from all nodes")
+    distr_controller.disconnect_device(device)
+
+    logger.info("Removing device fabric")
+    rpc_client = snode.rpc_client()
+    node_bdev = {}
+    ret = rpc_client.get_bdevs()
+    if ret:
+        for b in ret:
+            node_bdev[b['name']] = b
+            for al in b['aliases']:
+                node_bdev[al] = b
+
+    if rpc_client.subsystem_list(device.nvmf_nqn):
+        logger.info("Removing device subsystem")
+        ret = rpc_client.subsystem_delete(device.nvmf_nqn)
+        if not ret:
+            logger.error(f"Failed to remove subsystem: {device.nvmf_nqn}")
+            if not force:
+                return False
+
+    if f"{device.alceml_bdev}_PT" in node_bdev or force:
+        logger.info("Removing device PT")
+        ret = rpc_client.bdev_PT_NoExcl_delete(f"{device.alceml_bdev}_PT")
+        if not ret:
+            logger.error(f"Failed to remove bdev: {device.alceml_bdev}_PT")
+            if not force:
+                return False
+
+    if device.alceml_bdev in node_bdev or force:
+        ret = rpc_client.bdev_alceml_delete(device.alceml_bdev)
+        if not ret:
+            logger.error(f"Failed to remove bdev: {device.alceml_bdev}")
+            if not force:
+                return False
+
+    if device.qos_bdev in node_bdev or force:
+        ret = rpc_client.qos_vbdev_delete(device.qos_bdev)
+        if not ret:
+            logger.error(f"Failed to remove bdev: {device.qos_bdev}")
+            if not force:
+                return False
+
+    if snode.enable_test_device and device.testing_bdev in node_bdev or force:
+        ret = rpc_client.bdev_passtest_delete(device.testing_bdev)
+        if not ret:
+            logger.error(f"Failed to remove bdev: {device.testing_bdev}")
+            if not force:
+                return False
+
+    # Final unavailable→removed transition. Cause is no longer relevant for
+    # the flap counter (online→unavailable above already counted it if this
+    # was a SPDK-event-driven remove), but we pass it through for symmetry.
+    device_set_state(device_id, NVMeDevice.STATUS_REMOVED, cause=cause)
+
+    if not snode.jm_device.raid_bdev:
+        remove_jm_device(snode.jm_device.get_id())
+    else:
+        nvme_controller = device.nvme_controller
+        dev_to_remove = None
+        for part in snode.jm_device.jm_nvme_bdev_list:
+            if part.startswith(nvme_controller):
+                dev_to_remove = part
+                break
+
+        if dev_to_remove:
+            raid_found = False
+            for raid_info in rpc_client.bdev_raid_get_bdevs():
+                if raid_info["name"] == snode.jm_device.raid_bdev:
+                    raid_found = True
+                    base_bdevs = raid_info.get("base_bdevs_list", [])
+                    if any(bdev["name"] == dev_to_remove for bdev in base_bdevs):
+                        remove_from_jm_device(snode.jm_device.get_id(), dev_to_remove)
+            if not raid_found:
+                set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_UNAVAILABLE)
+
+    return True
+
+
+def remove_from_jm_device(device_id, jm_bdev):
+    db_controller = DBController()
+
+    try:
+        snode = get_storage_node_by_jm_device(db_controller, device_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    if snode.status == StorageNode.STATUS_ONLINE:
+        rpc_client = snode.rpc_client()
+
+        if snode.jm_device.raid_bdev:
+            logger.info("device part of raid1: only remove from raid")
+            try:
+                has_any = False
+                for raid_info in rpc_client.bdev_raid_get_bdevs():
+                    if raid_info["name"] == snode.jm_device.raid_bdev:
+                        base_bdevs = raid_info.get("base_bdevs_list", [])
+                        if any(bdev["name"] and bdev["name"] != jm_bdev for bdev in base_bdevs):
+                            has_any = True
+                if has_any:
+                    rpc_client.bdev_raid_remove_base_bdev(jm_bdev)
+                    return True
+                else:
+                    set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_UNAVAILABLE)
+
+            except KeyError as e:
+                logger.error(e)
+                return False
+
+    return True
+
+
+def get_device(device_id):
+    db_controller = DBController()
+    try:
+        device = db_controller.get_storage_device_by_id(device_id)
+    except KeyError:
+        logger.error("device not found")
+        return False
+
+    out = [device.get_clean_dict()]
+    return utils.print_table(out)
+
+
+def get_device_capacity(device_id, history, records_count=20, parse_sizes=True):
+    db_controller = DBController()
+    try:
+        device = db_controller.get_storage_device_by_id(device_id)
+    except KeyError:
+        logger.error("device not found")
+        return False
+
+    if history:
+        records_number = utils.parse_history_param(history)
+        if not records_number:
+            return False
+    else:
+        records_number = records_count
+
+    # records = db_controller.get_device_capacity(device, records_number)
+    cap_stats_keys = [
+        "date",
+        "size_total",
+        "size_used",
+        "size_free",
+        "size_util",
+    ]
+    prom_client = PromClient(device.cluster_id)
+    records = prom_client.get_device_metrics(device_id, cap_stats_keys, history)
+    records_list = utils.process_records(records, records_count, keys=cap_stats_keys)
+
+    if not parse_sizes:
+        return records_list
+
+    out = []
+    for record in records_list:
+        logger.debug(record)
+        out.append({
+            "Date": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(record['date'])),
+            "Absolut": utils.humanbytes(record['size_total']),
+            "Used": utils.humanbytes(record['size_used']),
+            "Free": utils.humanbytes(record['size_free']),
+            "Util %": f"{record['size_util']}%",
+        })
+    return out
+
+
+def get_device_iostats(device_id, history, records_count=20, parse_sizes=True):
+    db_controller = DBController()
+    try:
+        device = db_controller.get_storage_device_by_id(device_id)
+    except KeyError:
+        logger.error("device not found")
+        return False
+
+    io_stats_keys = [
+        "date",
+        "read_bytes",
+        "read_bytes_ps",
+        "read_io_ps",
+        "read_io",
+        "read_latency_ps",
+        "write_bytes",
+        "write_bytes_ps",
+        "write_io",
+        "write_io_ps",
+        "write_latency_ps",
+    ]
+    prom_client = PromClient(device.cluster_id)
+    records = prom_client.get_device_metrics(device_id, io_stats_keys, history)
+    # combine records
+    new_records = utils.process_records(records, records_count, keys=io_stats_keys)
+
+    if not parse_sizes:
+        return new_records
+
+    out = []
+    for record in new_records:
+        out.append({
+            "Date": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(record['date'])),
+            "Read speed": utils.humanbytes(record['read_bytes_ps']),
+            "Read IOPS": record["read_io_ps"],
+            "Read lat": record["read_latency_ps"],
+            "Write speed": utils.humanbytes(record["write_bytes_ps"]),
+            "Write IOPS": record["write_io_ps"],
+            "Write lat": record["write_latency_ps"],
+        })
+    return out
+
+
+def reset_storage_device(dev_id):
+    db_controller = DBController()
+    try:
+        device = db_controller.get_storage_device_by_id(dev_id)
+        snode = db_controller.get_storage_node_by_id(device.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    # reset_storage_device is one of the two allowed exits from STATUS_FAILED
+    # (the other being failure migration). FAILED_AND_MIGRATED stays terminal —
+    # the device's data has moved elsewhere, the operator must add a fresh
+    # device, not reset this one.
+    if device.status in [NVMeDevice.STATUS_REMOVED, NVMeDevice.STATUS_FAILED_AND_MIGRATED]:
+        logger.error(f"Unsupported device status: {device.status}")
+        return False
+
+    task_id = tasks_controller.get_active_dev_restart_task(snode.cluster_id, dev_id)
+    if task_id:
+        logger.error(f"Restart task found: {task_id}, can not reset device")
+        return False
+
+    logger.info("Setting devices to unavailable")
+    device_set_unavailable(dev_id, cause=CAUSE_DEVICE_RESTART)
+    # devs = []
+    # for dev in snode.nvme_devices:
+    #     if dev.get_id() == device.get_id():
+    #         continue
+    #     if dev.status == NVMeDevice.STATUS_ONLINE and dev.physical_label == device.physical_label:
+    #         devs.append(dev)
+    #         device_set_unavailable(dev.get_id())
+
+    logger.info("Resetting device")
+    rpc_client = snode.rpc_client()
+
+    controller_name = device.nvme_controller
+    response = rpc_client.reset_device(controller_name)
+    if not response:
+        logger.error(f"Failed to reset NVMe BDev {controller_name}")
+        return False
+    time.sleep(3)
+
+    # set io_error flag False
+    device_set_io_error(dev_id, False)
+    device_set_retries_exhausted(dev_id, False)
+    # set device to online
+    device_set_online(dev_id, cause=CAUSE_DEVICE_RESTART)
+    device_events.device_reset(device)
+    return True
+
+
+def device_set_retries_exhausted(device_id, retries_exhausted):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    if dev.retries_exhausted == retries_exhausted:
+        return True
+
+    dev.retries_exhausted = retries_exhausted
+    snode.write_to_db(db_controller.kv_store)
+    return True
+
+
+def device_set_failed(device_id):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    if dev.status != NVMeDevice.STATUS_REMOVED:
+        logger.error(f"Device must be in removed status, current status: {dev.status}")
+        return False
+
+    task_id = tasks_controller.get_active_dev_restart_task(snode.cluster_id, device_id)
+    if task_id:
+        logger.error(f"Restart task found: {task_id}, can not fail device")
+        return False
+
+    ret = device_set_state(device_id, NVMeDevice.STATUS_FAILED)
+    if not ret:
+        logger.warning("Failed to set device state to failed")
+    for node in db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id):
+        if node.status == StorageNode.STATUS_ONLINE:
+            rpc_client = node.rpc_client()
+            rpc_client.distr_replace_id_in_map_prob(dev.cluster_device_order, -1)
+
+    tasks_controller.add_device_failed_mig_task(device_id)
+    return True
+
+
+def add_device(device_id, add_migration_task=True):
+    db_controller = DBController()
+    try:
+        dev = db_controller.get_storage_device_by_id(device_id)
+        snode = db_controller.get_storage_node_by_id(dev.node_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    if dev.status != NVMeDevice.STATUS_NEW:
+        logger.error("Device must be in new state")
+        return False
+
+    device_obj = None
+    for dev in snode.nvme_devices:
+        if dev.get_id() == device_id:
+            device_obj = dev
+            break
+
+    if not device_obj:
+        logger.error("device not found")
+        return False
+
+    logger.info(f"Adding device {device_id}")
+    ret = _def_create_device_stack(device_obj, snode, force=True, clear_data=True)
+    if not ret:
+        logger.error("Failed to create device stack")
+        return False
+    dev_order = storage_node_ops.get_next_cluster_device_order(db_controller, snode.cluster_id)
+    device_obj.cluster_device_order = dev_order
+    logger.info("Setting device online")
+    device_obj.status = NVMeDevice.STATUS_ONLINE
+    snode.write_to_db(db_controller.kv_store)
+    device_events.device_create(device_obj)
+
+    logger.info("Make other nodes connect to the node devices")
+    snodes = db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id)
+    for node in snodes:
+        if node.get_id() == snode.get_id() or node.status != StorageNode.STATUS_ONLINE:
+            continue
+        node.remote_devices = storage_node_ops._connect_to_remote_devs(node, force_connect_restarting_nodes=True)
+        node.write_to_db()
+
+    snodes = db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id)
+    for node in snodes:
+        if node.status in [StorageNode.STATUS_ONLINE, StorageNode.STATUS_DOWN]:
+            distr_controller.send_cluster_map_add_device(device_obj, node)
+    if add_migration_task:
+        tasks_controller.add_new_device_mig_task(device_id)
+    return device_id
+
+
+def device_set_failed_and_migrated(device_id):
+    db_controller = DBController()
+    device_set_state(
+        device_id, NVMeDevice.STATUS_FAILED_AND_MIGRATED,
+        cause=CAUSE_FAILURE_MIGRATION,
+    )
+    dev = db_controller.get_storage_device_by_id(device_id)
+    for node in db_controller.get_storage_nodes_by_cluster_id(dev.cluster_id):
+        if node.status == StorageNode.STATUS_ONLINE:
+            rpc_client = node.rpc_client()
+            rpc_client.distr_replace_id_in_map_prob(dev.cluster_device_order, -1)
+    return True
+
+
+def set_jm_device_state(device_id, state):
+    db_controller = DBController()
+
+    try:
+        snode = get_storage_node_by_jm_device(db_controller, device_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    jm_device = snode.jm_device
+
+    if jm_device.status != state:
+        jm_device.status = state
+        snode.write_to_db(db_controller.kv_store)
+
+    if snode.enable_ha_jm and state == NVMeDevice.STATUS_ONLINE:
+        # rpc_client = RPCClient(snode.mgmt_ip, snode.rpc_port, snode.rpc_username, snode.rpc_password, timeout=5)
+        # jm_bdev = f"jm_{snode.get_id()}"
+        # subsystem_nqn = snode.subsystem + ":dev:" + jm_bdev
+        #
+        # for iface in snode.data_nics:
+        #     if iface.ip4_address:
+        #         ret = rpc_client.nvmf_subsystem_listener_set_ana_state(
+        #             subsystem_nqn, iface.ip4_address, "4420", True)
+        #         break
+
+        # make other nodes connect to the new devices
+        snodes = db_controller.get_storage_nodes_by_cluster_id(snode.cluster_id)
+        for node_index, node in enumerate(snodes):
+            if node.status != StorageNode.STATUS_ONLINE:
+                continue
+            logger.info(f"Connecting to node: {node.get_id()}")
+            node.remote_jm_devices = storage_node_ops._connect_to_remote_jm_devs(node)
+            node.write_to_db(db_controller.kv_store)
+            logger.info(f"connected to devices count: {len(node.remote_jm_devices)}")
+
+    return True
+
+
+def remove_jm_device(device_id, force=False):
+    db_controller = DBController()
+
+    try:
+        snode = get_storage_node_by_jm_device(db_controller, device_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_UNAVAILABLE)
+
+    if snode.status == StorageNode.STATUS_ONLINE:
+        rpc_client = snode.rpc_client()
+        # delete jm stack
+        if snode.enable_ha_jm:
+            ret = rpc_client.subsystem_delete(snode.jm_device.nvmf_nqn)
+            if not ret:
+                logger.error("device not found")
+
+        if snode.jm_device.pt_bdev:
+            ret = rpc_client.bdev_PT_NoExcl_delete(snode.jm_device.pt_bdev)
+
+        if snode.enable_ha_jm:
+            ret = rpc_client.bdev_jm_delete(snode.jm_device.jm_bdev, safe_removal=True)
+        else:
+            ret = rpc_client.bdev_jm_delete(snode.jm_device.jm_bdev, safe_removal=False)
+
+        ret = rpc_client.bdev_alceml_delete(snode.jm_device.alceml_bdev)
+
+        # if snode.jm_device.testing_bdev:
+        #     ret = rpc_client.bdev_passtest_delete(snode.jm_device.testing_bdev)
+
+        # if len(snode.jm_device.jm_nvme_bdev_list) == 2:
+        ret = rpc_client.bdev_raid_delete(snode.jm_device.raid_bdev)
+
+    set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_REMOVED)
+    return True
+
+
+def restart_jm_device(device_id, force=False, format_alceml=False):
+    db_controller = DBController()
+
+    try:
+        snode = get_storage_node_by_jm_device(db_controller, device_id)
+    except KeyError as e:
+        logger.error(e)
+        return False
+
+    jm_device = snode.jm_device
+
+    if jm_device.status == JMDevice.STATUS_ONLINE:
+        logger.warning("device is online")
+        if not force:
+            return False
+
+    # add to jm raid
+    if snode.jm_device:
+        rpc_client = snode.rpc_client()
+        if snode.jm_device.raid_bdev:
+            bdevs_names = [d['name'] for d in rpc_client.get_bdevs()]
+            jm_nvme_bdevs = []
+            for dev in snode.nvme_devices:
+                if dev.status not in [NVMeDevice.STATUS_ONLINE, NVMeDevice.STATUS_NEW]:
+                    continue
+                dev_part = f"{dev.nvme_bdev[:-2]}p1"
+                if dev_part in bdevs_names:
+                    if dev_part not in jm_nvme_bdevs:
+                        jm_nvme_bdevs.append(dev_part)
+
+            if len(jm_nvme_bdevs) > 0:
+                new_jm = storage_node_ops._create_jm_stack_on_raid(
+                    rpc_client, jm_nvme_bdevs, snode, after_restart=not format_alceml)
+                if not new_jm:
+                    logger.error("failed to create jm stack")
+                    return False
+
+                else:
+                    snode = db_controller.get_storage_node_by_id(snode.get_id())
+                    snode.jm_device = new_jm
+                    snode.write_to_db(db_controller.kv_store)
+                    set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_ONLINE)
+        else:
+            nvme_bdev = jm_device.nvme_bdev
+            # if snode.enable_test_device:
+            #     ret = rpc_client.bdev_passtest_create(jm_device.testing_bdev, jm_device.nvme_bdev)
+            #     if not ret:
+            #         logger.error(f"Failed to create passtest bdev {jm_device.testing_bdev}")
+            #         # return False
+            #     nvme_bdev = jm_device.testing_bdev
+            #
+            cluster = db_controller.get_cluster_by_id(snode.cluster_id)
+            ret = snode.create_alceml(
+                jm_device.alceml_bdev, nvme_bdev, jm_device.get_id(),
+                pba_init_mode=1,
+                pba_page_size=cluster.page_size_in_blocks,
+                full_page_unmap=cluster.full_page_unmap
+            )
+
+            if not ret:
+                logger.error(f"Failed to create alceml bdev: {jm_device.alceml_bdev}")
+                if not force:
+                    return False
+
+            jm_bdev = f"jm_{snode.get_id()}"
+            ret = rpc_client.bdev_jm_create(jm_bdev, jm_device.alceml_bdev, jm_cpu_mask=snode.jm_cpu_mask)
+            if not ret:
+                logger.error(f"Failed to create {jm_bdev}")
+                if not force:
+                    return False
+
+            if snode.enable_ha_jm:
+                # add pass through
+                pt_name = f"{jm_bdev}_PT"
+                ret = rpc_client.bdev_PT_NoExcl_create(pt_name, jm_bdev)
+                if not ret:
+                    logger.error(f"Failed to create pt noexcl bdev: {pt_name}")
+                    if not force:
+                        return False
+
+                subsystem_nqn = snode.subsystem + ":dev:" + jm_bdev
+                logger.info("creating subsystem %s", subsystem_nqn)
+                ret = rpc_client.subsystem_create(subsystem_nqn, 'sbcli-cn', jm_bdev)
+                if not ret:
+                    logger.warning(f"Failed to create subsystem: {subsystem_nqn}")
+                for iface in snode.data_nics:
+                    if iface.ip4_address:
+                        logger.info("adding listener for %s on IP %s" % (subsystem_nqn, iface.ip4_address))
+                        ret = rpc_client.listeners_create(subsystem_nqn, iface.trtype, iface.ip4_address, snode.nvmf_port)
+                        if not ret:
+                            logger.warning(f"Failed to create listener for {subsystem_nqn} on IP {iface.ip4_address}")
+                        break
+                logger.info(f"add {pt_name} to subsystem")
+                ret = rpc_client.nvmf_subsystem_add_ns(subsystem_nqn, pt_name)
+                if not ret:
+                    logger.error(f"Failed to add: {pt_name} to the subsystem: {subsystem_nqn}")
+                    if not force:
+                        return False
+
+                set_jm_device_state(snode.jm_device.get_id(), JMDevice.STATUS_ONLINE)
+
+    return True
+
+
+def new_device_from_failed(device_id):
+    db_controller = DBController()
+    device = None
+    device_node = None
+    for node in db_controller.get_storage_nodes():
+        for dev in node.nvme_devices:
+            if dev.get_id() == device_id:
+                device = dev
+                device_node = node
+                break
+
+    if not device:
+        logger.info(f"Device not found: {device_id}")
+        return False
+
+    if not device_node:
+        logger.info("node not found")
+        return False
+
+    if device.status != NVMeDevice.STATUS_FAILED_AND_MIGRATED:
+        logger.error(f"Device status: {device.status} but expected status is {NVMeDevice.STATUS_FAILED_AND_MIGRATED}")
+        return False
+
+    if device.serial_number.endswith("_failed"):
+        logger.error("Device is already added back from failed")
+        return False
+
+    if not device_node.rpc_client().bdev_nvme_controller_list(device.nvme_controller):
+        try:
+            ret = device_node.client(timeout=30, retry=1).bind_device_to_spdk(device.pcie_address)
+            logger.debug(ret)
+            device_node.rpc_client().bdev_nvme_controller_attach(device.nvme_controller, device.pcie_address)
+        except Exception as e:
+            logger.error(e)
+            return False
+
+    if not device_node.rpc_client().bdev_nvme_controller_list(device.nvme_controller):
+        logger.error(f"Failed to find device nvme controller {device.nvme_controller}")
+        return False
+
+    new_device = NVMeDevice(device.to_dict())
+    new_device.uuid = str(uuid.uuid4())
+    new_device.status = NVMeDevice.STATUS_NEW
+    new_device.cluster_device_order = -1
+    new_device.deleted = False
+    new_device.io_error = False
+    new_device.retries_exhausted = False
+    device_node.nvme_devices.append(new_device)
+
+    device.serial_number = f"{device.serial_number}_failed"
+    device_node.write_to_db(db_controller.kv_store)
+    logger.info(f"New device created from failed device: {device_id}, new device id: {new_device.get_id()}")
+    return new_device.get_id()
