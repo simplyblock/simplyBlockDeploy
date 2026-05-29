@@ -1,0 +1,33 @@
+FROM alpine/helm:latest
+
+ARG TARGETARCH
+ARG HELM_CHARTS_TAG=""
+
+RUN apk add --no-cache git curl tar gcompat bash bash-completion
+
+# kubectl
+RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
+    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
+      -o /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl
+
+# oc (OpenShift CLI)
+RUN if [ "$TARGETARCH" = "arm64" ]; then OC_ARCH="aarch64"; else OC_ARCH="x86_64"; fi && \
+    curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/${OC_ARCH}/clients/ocp/stable/openshift-client-linux.tar.gz" | \
+      tar -xz -C /usr/local/bin oc && \
+    chmod +x /usr/local/bin/oc
+
+# talosctl
+RUN curl -fsSL "https://github.com/siderolabs/talos/releases/latest/download/talosctl-linux-${TARGETARCH}" \
+      -o /usr/local/bin/talosctl && \
+    chmod +x /usr/local/bin/talosctl
+
+RUN if [ -n "$HELM_CHARTS_TAG" ]; then \
+      git clone --branch "$HELM_CHARTS_TAG" --depth 1 \
+        https://github.com/simplyblock/helm-charts /opt/helm-charts; \
+    fi
+
+# kubectl and oc autocomplete
+RUN echo 'source <(kubectl completion bash)' >> /etc/profile.d/completions.sh && \
+    echo 'source <(oc completion bash)' >> /etc/profile.d/completions.sh && \
+    echo 'source /etc/profile.d/completions.sh' >> /root/.bashrc

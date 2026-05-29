@@ -1,0 +1,321 @@
+import logging
+import os
+SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+
+
+def get_config_var(name, default=None):
+    """
+    OS environment variable is checked first, if not found, check the env_var file.
+    """
+    if not name:
+        return False
+    if os.getenv(name):
+        return os.getenv(name)
+    else:
+        with open(f"{SCRIPT_PATH}/env_var", "r", encoding="utf-8") as fh:
+            for line in fh.readlines():
+                if line.startswith(name):
+                    return line.split("=", 1)[1].strip()
+    return default
+
+
+KiB=1024
+MiB=1024*1024
+GiB=1024*1024*1024
+
+KVD_DB_VERSION = 730
+KVD_DB_FILE_PATH = os.getenv('FDB_CLUSTER_FILE', '/etc/foundationdb/fdb.cluster')
+KVD_DB_TIMEOUT_MS = 10000
+SPK_DIR = '/home/ec2-user/spdk'
+LOG_LEVEL = logging.INFO
+LOG_WEB_LEVEL = logging.DEBUG
+LOG_WEB_DEBUG = True if LOG_WEB_LEVEL == logging.DEBUG else False
+
+INSTALL_DIR = os.path.dirname(os.path.realpath(__file__))
+
+NODE_MONITOR_INTERVAL_SEC = 3
+DEVICE_MONITOR_INTERVAL_SEC = 5
+STAT_COLLECTOR_INTERVAL_SEC = 60*5  # 5 minutes
+LVOL_STAT_COLLECTOR_INTERVAL_SEC = 5
+LVOL_MONITOR_INTERVAL_SEC = 30
+DEV_MONITOR_INTERVAL_SEC = 10
+DEV_STAT_COLLECTOR_INTERVAL_SEC = 5
+PROT_STAT_COLLECTOR_INTERVAL_SEC = 2
+SPDK_STAT_COLLECTOR_INTERVAL_SEC = 30
+DISTR_EVENT_COLLECTOR_INTERVAL_SEC = 2
+DISTR_EVENT_COLLECTOR_NUM_OF_EVENTS = 10
+CAP_MONITOR_INTERVAL_SEC = 10
+SSD_VENDOR_WHITE_LIST = ["1d0f:cd01", "1d0f:cd00"]
+CACHED_LVOL_STAT_COLLECTOR_INTERVAL_SEC = 5
+DEV_DISCOVERY_INTERVAL_SEC = 60
+
+PMEM_DIR = '/tmp/pmem'
+
+NVME_PROGRAM_FAIL_COUNT = 50
+NVME_ERASE_FAIL_COUNT = 50
+NVME_CRC_ERROR_COUNT = 50
+DEVICE_OVERLOAD_STDEV_VALUE = 50
+DEVICE_OVERLOAD_CAPACITY_THRESHOLD = 50
+
+CLUSTER_NQN = "nqn.2023-02.io.simplyblock"
+
+weights = {
+    "lvol": 100,
+    # "cpu": 10,
+    # "r_io": 10,
+    # "w_io": 10,
+    # "r_b": 10,
+    # "w_b": 10
+}
+
+
+HEALTH_CHECK_INTERVAL_SEC = 30
+# Faster cadence used by the per-node health-check loop when a node is NOT
+# STATUS_ONLINE.  Accelerates observation of recovery transitions without
+# adding polling cost to healthy nodes.
+HEALTH_CHECK_FAST_INTERVAL_SEC = 5
+
+GRAYLOG_CHECK_INTERVAL_SEC = 60
+
+FDB_CHECK_INTERVAL_SEC = 60
+
+TASK_EXEC_INTERVAL_SEC = 10
+TASK_EXEC_RETRY_COUNT = 8
+# Shorter interval + lower ceiling for node/device restart tasks.  Restart
+# tasks are time-critical (cluster is degraded until the node is back) and
+# each retry does useful work (ping + api check + kill + restart), so we
+# don't want an exponential 10→20→40→80 backoff to dominate the recovery
+# window.  See incident 2026-04-20: 83 s end-to-end recovery, ~60 s of which
+# was TASK_EXEC_INTERVAL doubling between redundant retries.
+RESTART_TASK_EXEC_INTERVAL_SEC = 3
+# Cap exponential backoff at 1 h. Peer-side recovery (lvstore replay
+# across a slow remote-NVMe link, JC reconnect against a peer coming
+# back from host_reboot, or simply mutual-exclusion contention while a
+# different peer is mid-restart) can legitimately take longer than
+# minutes. With max_retry=11 the doubling sequence (3,6,12,24,48,96,
+# 192,384,768,1536,3072→capped) reaches the cap on the 10th attempt,
+# giving a total budget in the hours range — the right scale for
+# transient peer-recovery waits without giving up prematurely.
+RESTART_TASK_EXEC_INTERVAL_MAX_SEC = 3600
+
+SIMPLY_BLOCK_SPDK_CORE_IMAGE = "simplyblock/spdk-core:v24.05-tag-latest"
+SIMPLY_BLOCK_DOCKER_IMAGE = get_config_var(
+        "SIMPLY_BLOCK_DOCKER_IMAGE","simplyblock/simplyblock:main")
+SIMPLY_BLOCK_CLI_NAME = get_config_var(
+        "SIMPLY_BLOCK_COMMAND_NAME", "sbcli")
+SIMPLY_BLOCK_SPDK_ULTRA_IMAGE = get_config_var(
+        "SIMPLY_BLOCK_SPDK_ULTRA_IMAGE", "public.ecr.aws/simply-block/ultra:main-latest")
+SIMPLY_BLOCK_VERSION = get_config_var("SIMPLY_BLOCK_VERSION", "1")
+
+GELF_PORT = 12202
+
+MIN_HUGE_PAGE_MEMORY_FOR_LVOL = 209715200
+MIN_SYS_MEMORY_FOR_LVOL = 524288000
+EXTRA_SMALL_POOL_COUNT = 30000
+EXTRA_LARGE_POOL_COUNT = 10240
+EXTRA_HUGE_PAGE_MEMORY = 3221225472
+EXTRA_SYS_MEMORY = 0.10
+
+INSTANCE_STORAGE_DATA = {
+        'i4i.large': {'number_of_devices': 1, 'size_per_device_gb': 468},
+        'i4i.xlarge': {'number_of_devices': 1, 'size_per_device_gb': 937},
+        'i4i.2xlarge': {'number_of_devices': 1, 'size_per_device_gb': 1875},
+        'i4i.4xlarge': {'number_of_devices': 1, 'size_per_device_gb': 3750},
+        'i4i.8xlarge': {'number_of_devices': 2, 'size_per_device_gb': 3750},
+        'i4i.12xlarge': {'number_of_devices': 3, 'size_per_device_gb': 3750},
+        'i4i.16xlarge': {'number_of_devices': 4, 'size_per_device_gb': 3750},
+        'i4i.24xlarge': {'number_of_devices': 6, 'size_per_device_gb': 3750},
+        'i4i.32xlarge': {'number_of_devices': 8, 'size_per_device_gb': 3750},
+
+        'i4i.metal': {'number_of_devices': 8, 'size_per_device_gb': 3750},
+        'i3en.large': {'number_of_devices': 1, 'size_per_device_gb': 1250},
+        'i3en.xlarge': {'number_of_devices': 1, 'size_per_device_gb': 2500},
+        'i3en.2xlarge': {'number_of_devices': 2, 'size_per_device_gb': 2500},
+        'i3en.3xlarge': {'number_of_devices': 1, 'size_per_device_gb': 7500},
+        'i3en.6xlarge': {'number_of_devices': 2, 'size_per_device_gb': 7500},
+        'i3en.12xlarge': {'number_of_devices': 4, 'size_per_device_gb': 7500},
+        'i3en.24xlarge': {'number_of_devices': 8, 'size_per_device_gb': 7500},
+        'i3en.metal': {'number_of_devices': 8, 'size_per_device_gb': 7500},
+
+        'm6id.large': {'number_of_devices': 1, 'size_per_device_gb': 116},
+        'm6id.xlarge': {'number_of_devices': 1, 'size_per_device_gb': 237},
+        'm6id.2xlarge': {'number_of_devices': 1, 'size_per_device_gb': 474},
+        'm6id.4xlarge': {'number_of_devices': 1, 'size_per_device_gb': 950},
+        'm6id.8xlarge': {'number_of_devices': 1, 'size_per_device_gb': 1900},
+    }
+
+MAX_SNAP_COUNT = 100
+
+SPDK_PROXY_MULTI_THREADING_ENABLED=True
+SPDK_PROXY_TIMEOUT=60*5
+LVOL_NVME_CONNECT_RECONNECT_DELAY=2
+LVOL_NVME_CONNECT_CTRL_LOSS_TMO=60*60
+LVOL_NVME_CONNECT_FAST_IO_FAIL_TO=1
+LVOL_NVME_CONNECT_NR_IO_QUEUES=3
+LVOL_NVME_KEEP_ALIVE_TO=4
+LVOL_NVME_KEEP_ALIVE_TO_TCP=4
+QPAIR_COUNT=32
+CLIENT_QPAIR_COUNT=3
+# 8 s, not 4 s. 4 s false-positives during a peer-reset reactor stall:
+# when a peer dies, bdev_nvme's per-controller reset state machines run on
+# the same SPDK reactor thread that polls JM/heartbeat qpairs to other
+# peers, and the reactor can spend ~4 s in that bookkeeping. With a 4 s
+# timeout, in-flight heartbeats to *healthy* peers age past the threshold
+# during that stall, timeout_cb fires on every controller in lock-step,
+# and the JC marks N JM slots blocked simultaneously — dropping
+# n_safe_jms below the FT threshold and triggering a JCERR / DISTRIBD
+# write fail (observed 2026-04-30 14:14:22 on a dual-outage soak step,
+# stall measured at 4.144 s). 8 s absorbs the worst observed stall and
+# still fast-fails wedged targets ~10× faster than the previous abort-
+# hang path (multi-minute, the 2026-04-27 incident that motivated the
+# action_on_timeout=reset switch — that switch stays; only the threshold
+# reverts).
+NVME_TIMEOUT_US=8000000
+NVMF_MAX_SUBSYSTEMS=50000
+KATO=5000
+# transport_ack_timeout exponent: server tears down a client qpair if it
+# stays silent for ~2^ACK_TO ms. ACK_TO=11 (~2 s) is shorter than the LVS
+# tertiary rejoin freeze window (≈ 4 s today) — the server kills healthy
+# qpairs on the alive primary mid-freeze and clients see a multi-second
+# stall on reissue. Bumped to 12 (~4 s) so the freeze fits inside the
+# budget. Long-term, the freeze itself is being shortened (single-path
+# hublvol attach + deferred failover); this stays as belt-and-braces so
+# a stragglier rejoin doesn't immediately re-trip the bug.
+ACK_TO=11
+# bdev_retry_count must be non-zero for SPDK bdev_nvme to retry an aborted
+# IO on the alternate path of an NVMe-oF multipath bdev (per the SPDK
+# multipath docs). Multipath is in play whenever a node consumes a hublvol
+# bdev that has both a primary-target and a secondary-target listener
+# (i.e. any FTT≥1 cluster), independent of how many local NICs the node has.
+# So we set the retries unconditionally rather than gating on data_nics.
+# Worst-case retry budget: (1+BDEV_RETRY) * (1+TRANSPORT_RETRY) = 3*2 = 6
+# transport submissions per failing IO before EIO bubbles to the caller.
+BDEV_RETRY=2
+TRANSPORT_RETRY=1
+CTRL_LOSS_TO=1
+FAST_FAIL_TO=0
+RECONNECT_DELAY_CLUSTER=1
+LVOL_CLUSTER_RATIO=1
+
+
+SENTRY_SDK_DNS = "https://745047b017ac424b4173550e19910fb7@o4508953941311488.ingest.de.sentry.io/4508996361584720"
+ONE_KB = 1024
+TEMP_CORES_FILE = "/etc/simplyblock/tmp_cores_config"
+PROMETHEUS_MULTIPROC_DIR = "/etc/simplyblock/metrics"
+
+LINUX_DRV_MASS_STORAGE_ID = 1
+LINUX_DRV_MASS_STORAGE_NVME_TYPE_ID = 8
+
+
+
+NODES_CONFIG_FILE = "/etc/simplyblock/sn_config_file"
+SYSTEM_INFO_FILE = "/etc/simplyblock/system_info"
+
+LVO_MAX_NAMESPACES_PER_SUBSYS=32
+
+CR_GROUP = "storage.simplyblock.io"
+CR_VERSION  = "v1alpha1"
+
+GRAFANA_K8S_ENDPOINT = "http://simplyblock-grafana:3000"
+GRAYLOG_K8S_ENDPOINT = "http://simplyblock-graylog:9000"
+OS_K8S_ENDPOINT = "http://opensearch-cluster-master:9200"
+
+WEBAPI_K8S_ENDPOINT = "http://simplyblock-webappapi:5000/api/v2"
+
+K8S_NAMESPACE = os.getenv('K8S_NAMESPACE', 'simplyblock')
+OS_STATEFULSET_NAME = "simplyblock-opensearch"
+MONGODB_STATEFULSET_NAME = "simplyblock-mongo"
+GRAYLOG_STATEFULSET_NAME = "simplyblock-graylog"
+PROMETHEUS_STATEFULSET_NAME = os.getenv('PROMETHEUS_URL', "simplyblock-prometheus")
+PROMETHEUS_STATEFULSET_PORT = os.getenv('PROMETHEUS_PORT', "9090")
+FDB_SERVICE_NAME = "simplyblock-fdb-cluster"
+FDB_CONFIG_NAME = "simplyblock-fdb-cluster-config"
+ADMIN_DEPLOY_NAME = "simplyblock-admin-control"
+
+os_env_patch = [
+    {"name": "OPENSEARCH_JAVA_OPTS", "value": "-Xms1g -Xmx1g"},
+    {"name": "bootstrap.memory_lock", "value": "false"},
+    {"name": "action.auto_create_index", "value": "false"},
+    {"name": "plugins.security.ssl.http.enabled", "value": "false"},
+    {"name": "plugins.security.disabled", "value": "true"},
+    {"name": "discovery.type", "value": ""},
+    {"name": "discovery.seed_hosts", "value": ",".join([
+        "simplyblock-opensearch-0.opensearch-cluster-master-headless",
+        "simplyblock-opensearch-1.opensearch-cluster-master-headless",
+        "simplyblock-opensearch-2.opensearch-cluster-master-headless"
+    ])},
+    {"name": "cluster.initial_master_nodes", "value": ",".join([
+        "simplyblock-opensearch-0",
+        "simplyblock-opensearch-1",
+        "simplyblock-opensearch-2"
+    ])}
+]
+
+os_patch = {
+    "spec": {
+        "replicas": 3,
+        "template": {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "opensearch",
+                        "env": os_env_patch
+                    }
+                ]
+            }
+        }
+    }
+}
+
+mongodb_patch = {
+    "spec": {
+        "members": 3,
+    }
+}
+
+prometheus_patch = {
+    "spec": {
+        "replicas": 3,
+    }
+}
+
+qos_class_meta_and_migration_weight_percent = 25
+
+MIG_PARALLEL_JOBS = 64
+MIG_JOB_SIZE = 64
+
+# Live volume migration constants
+LVOL_MIG_MAX_RETRIES = 5          # max retry attempts before aborting
+LVOL_MIG_DEADLINE_SEC = 360  # default 4-hour deadline (0 = no deadline)
+LVOL_MIG_MAX_INTERMEDIATE_SNAPS = 3  # max recursive "shrink" snapshot rounds
+
+# NVMe-oF TLS / DH-HMAC-CHAP security
+VALID_DHCHAP_DIGESTS = ["sha256", "sha384", "sha512"]
+VALID_DHCHAP_DHGROUPS = ["null", "ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144", "ffdhe8192"]
+
+# Fixed pool-level DHCHAP settings: all main digests and weakest DH group only
+DHCHAP_DIGESTS = ["sha256", "sha384", "sha512"]
+DHCHAP_DHGROUP = "ffdhe2048"
+
+# Default port ranges (configurable per-cluster via Cluster model fields)
+NVMF_BASE_PORT = 4420         # Base port for ALL NVMe-oF listeners (lvol, hublvol, device)
+RPC_BASE_PORT = 8080          # Base port for SPDK JSON-RPC
+SNODE_API_PORT = 50001        # SNodeAPI/firewall port base — allocated per SPDK node, not per host
+
+# Legacy constants kept for backward compatibility with env override
+LVOL_NVMF_PORT_ENV = os.getenv("LVOL_NVMF_PORT_START", "")
+if LVOL_NVMF_PORT_ENV:
+    NVMF_BASE_PORT = int(LVOL_NVMF_PORT_ENV)
+
+# Backward compatibility aliases
+RPC_PORT_RANGE_START = RPC_BASE_PORT
+FW_PORT_START = SNODE_API_PORT
+LVOL_NVMF_PORT_START = NVMF_BASE_PORT
+NODE_NVMF_PORT_START = NVMF_BASE_PORT
+NODE_HUBLVOL_PORT_START = NVMF_BASE_PORT
+
+# S3 Backup constants
+BACKUP_POLL_INTERVAL_SEC = 5
+BACKUP_MAX_RETRIES = 10
+BACKUP_MERGE_SERVICE_INTERVAL_SEC = 60
+BACKUP_S3_METADATA_BUCKET = "simplyblock-backup-metadata"
