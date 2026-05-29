@@ -14,6 +14,16 @@ The components are:
 
 Together they form the **Simplyblock Control Plane** — a Kubernetes-native, distributed NVMe-over-Fabrics block storage system.
 
+## Syncing Upstream Changes
+
+To pull the latest `main` from all three upstream repos into this monorepo, run from the repo root while on the `main` branch with a clean working tree:
+
+```bash
+./update-upstreams.sh
+```
+
+Each component is tracked as a `git subtree --squash`. The script runs `git subtree pull` for each and fails fast if any component has a merge conflict, leaving the repo in a state where you can resolve conflicts and complete the merge manually.
+
 ## Commands
 
 ### sbcli (Python)
