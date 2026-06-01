@@ -27,7 +27,7 @@ FAILED=()
 for entry in "${COMPONENTS[@]}"; do
     read -r prefix remote branch <<< "$entry"
     echo "==> Pulling $remote/$branch into $prefix/"
-    if git subtree pull --prefix="$prefix" "$remote" "$branch" --squash -m "chore: update $prefix from upstream $remote/$branch"; then
+    if git subtree pull --prefix="$prefix" "$remote" "$branch" --squash -m "Chore: update $prefix from upstream $remote/$branch"; then
         echo "    ok"
     else
         echo "    FAILED — resolve conflicts, then re-run or complete the merge manually" >&2
