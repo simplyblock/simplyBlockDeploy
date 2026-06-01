@@ -5,9 +5,10 @@
 set -euo pipefail
 
 COMPONENTS=(
-    "sbcli      sbcli      main"
-    "operator   operator   main"
+    "sbcli       sbcli       main"
+    "operator    operator    main"
     "helm-charts helm-charts main"
+    "csi         csi         master"
 )
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)

@@ -11,12 +11,13 @@ The components are:
 - **`sbcli/`** — Python control plane core, web API, and `sbctl` CLI
 - **`operator/`** — Kubernetes operator (Go/kubebuilder)
 - **`helm-charts/`** — Helm charts for deployment
+- **`csi/`** — Kubernetes CSI driver (Go) for NVMe-over-TCP storage provisioning
 
 Together they form the **Simplyblock Control Plane** — a Kubernetes-native, distributed NVMe-over-Fabrics block storage system.
 
 ## Syncing Upstream Changes
 
-To pull the latest `main` from all three upstream repos into this monorepo, run from the repo root while on the `main` branch with a clean working tree:
+To pull the latest `main` from all four upstream repos into this monorepo, run from the repo root while on the `main` branch with a clean working tree:
 
 ```bash
 ./update-upstreams.sh
@@ -84,6 +85,23 @@ helm dependency update charts/simplyblock-operator
 helm-charts/scripts/sync-from-manager.sh
 ```
 
+### csi (Go)
+
+```bash
+cd csi
+
+make spdkcsi       # Build the CSI driver binary to _out/
+make image         # Build multi-arch Docker image (amd64 + arm64)
+make test          # Run go mod verify + unit tests
+make unit-test     # Run unit tests only (with race detector and coverage)
+make e2e-test      # Run e2e tests (requires a running cluster; uses Ginkgo)
+make sanity-test   # Run CSI spec compliance tests
+make lint          # Run golangci-lint
+make clean         # Remove build artifacts and test cache
+```
+
+Key build variables: `CSI_IMAGE_REGISTRY` (default: `simplyblock`), `CSI_IMAGE_TAG` (default: `latest`), `GOARCH`.
+
 ## Architecture
 
 ### Data Flow
@@ -94,6 +112,10 @@ sbctl CLI  →  Web API (FastAPI v2 / Flask v1)  →  Core Logic  →  Foundatio
                                                   Storage Nodes (via RPC/gRPC)
                                                         ↕
                                                Kubernetes Operator (Go)
+                                                        ↕
+                                          CSI Driver (Controller + Node pods)
+                                                        ↕
+                                             Kubernetes PersistentVolumes
 ```
 
 ### sbcli Component Structure
@@ -117,6 +139,30 @@ The operator manages 8 CRDs defined in `api/v1alpha1/`:
 
 Controllers in `internal/controller/` reconcile these resources. The operator communicates with the control plane via `internal/webapi/`.
 
+### CSI Component Structure
+
+The CSI driver (`csi.simplyblock.io`) runs as two distinct Kubernetes workloads:
+
+- **Controller** (StatefulSet) — handles volume lifecycle via the CSI Controller API: create/delete volumes, snapshots, clones, and expansion. Runs with sidecar containers (external-provisioner, snapshotter, attacher, resizer).
+- **Node** (DaemonSet, one pod per node) — handles attach/mount via the CSI Node API: stages NVMe-TCP connections and publishes volumes into pods.
+
+Key packages under `pkg/`:
+
+- **`spdk/`** — Simplyblock-specific CSI implementation:
+  - `controllerserver.go` — volume/snapshot lifecycle (CreateVolume, DeleteVolume, CreateSnapshot, ControllerExpandVolume, etc.)
+  - `nodeserver.go` — per-node NVMe attach/mount (NodeStageVolume, NodePublishVolume, topology discovery)
+  - `identityserver.go` — CSI plugin identity/capabilities
+  - `driver.go` — driver initialisation and capability registration
+- **`util/`** — shared utilities:
+  - `jsonrpc.go` — JSON-RPC client for communicating with the sbcli control plane API
+  - `initiator.go` — NVMe-TCP initiator (connecting/managing NVMe devices on the host)
+  - `nvmf.go` — NVMe-over-Fabrics discovery
+  - `guardian.go` — volume protection and cleanup logic
+  - `idlocker.go` — per-volume locking to serialise concurrent operations
+- **`csi-common/`** — base gRPC server and default CSI handler stubs
+
+Deployment manifests live in `deploy/kubernetes/`; the Helm chart is in `charts/spdk-csi/`. The driver communicates with the sbcli control plane via JSON-RPC (Bearer token auth for v2 endpoints). Multi-cluster topology (zone/region → storage cluster mapping) is configured via a ConfigMap; see `docs/multi-cluster-support.md`.
+
 ### Local Development
 
 FoundationDB is required for the Python control plane. The `docker-compose-dev.yml` spins up FDB and the control plane together. For running tests that touch FDB locally (outside Docker), you need the `libfdb_c` client library installed matching version 7.3.x.
@@ -135,3 +181,4 @@ All Python code must use **exception-based error handling**. When modifying exis
 - `sbcli/pyproject.toml` — ruff, mypy, and pytest configuration. `simplyblock_cli/cli.py` is excluded from ruff. `tests/perf/` is excluded from default pytest discovery.
 - `operator/.golangci.yml` — golangci-lint rules for the operator
 - `operator/PROJECT` — kubebuilder project manifest listing all CRD definitions
+- `csi/scripts/golangci.yml` — golangci-lint rules for the CSI driver (the root-level `csi/.golangci.yml` is a stub that defers to this file)

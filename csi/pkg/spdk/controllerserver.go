@@ -1,0 +1,1109 @@
+/*
+Copyright (c) Arm Limited and Contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package spdk
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/klog"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	csicommon "github.com/spdk/spdk-csi/pkg/csi-common"
+	"github.com/spdk/spdk-csi/pkg/util"
+)
+
+// var errVolumeInCreation = status.Error(codes.Internal, "volume in creation")
+const (
+	CSIStorageBaseKey      = "csi.storage.k8s.io/pvc"
+	CSIStorageNameKey      = CSIStorageBaseKey + "/name"
+	CSIStorageNamespaceKey = CSIStorageBaseKey + "/namespace"
+
+	annotationNvmfModelID = "simplyblock.io/nvmf-model-id"
+	annotationLvolID      = "simplyblock.io/lvol-id"
+	annotationHostID      = "simplyblock.io/host-id"
+	annotationQoSRWIOPS   = "simplyblock.io/qos-rw-iops"
+	annotationQoSRWMBps   = "simplyblock.io/qos-rw-mbps"
+	annotationQoSRMBps    = "simplyblock.io/qos-r-mbps"
+	annotationQoSWMBps    = "simplyblock.io/qos-w-mbps"
+
+	// Deprecated annotation keys — still supported for backward compatibility.
+	deprecatedAnnotationNvmfModelID = "simplybk/nvmf-model-id"
+	deprecatedAnnotationLvolID      = "simplybk/lvol-id"
+	deprecatedAnnotationHostID      = "simplybk/host-id"
+	deprecatedAnnotationQoSRWIOPS   = "simplybk/qos-rw-iops"
+	deprecatedAnnotationQoSRWMBps   = "simplybk/qos-rw-mbytes"
+	deprecatedAnnotationQoSRMBps    = "simplybk/qos-r-mbytes"
+	deprecatedAnnotationQoSWMBps    = "simplybk/qos-w-mbytes"
+
+	paramClusterID          = "cluster_id"
+	paramZoneClusterMap     = "zone_cluster_map"
+	paramRegionClusterMap   = "region_cluster_map"
+	topologyKeyZoneStable   = "topology.kubernetes.io/zone"
+	topologyKeyZoneBeta     = "failure-domain.beta.kubernetes.io/zone"
+	topologyKeyRegionStable = "topology.kubernetes.io/region"
+)
+
+type controllerServer struct {
+	*csicommon.DefaultControllerServer
+	volumeLocks *util.VolumeLocks
+}
+
+type spdkVolume struct {
+	clusterID string
+	lvolID    string
+	poolName  string
+}
+
+type spdkSnapshot struct {
+	clusterID  string
+	poolID     string
+	snapshotID string
+}
+
+type clusterSelection struct {
+	clusterID string
+	topology  map[string]string
+}
+
+func (cs *controllerServer) resolveClusterSelection(req *csi.CreateVolumeRequest) (*clusterSelection, error) {
+	params := req.GetParameters()
+	if params == nil {
+		return nil, fmt.Errorf("missing parameters in CreateVolumeRequest")
+	}
+
+	if id, ok := params[paramClusterID]; ok {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			return &clusterSelection{clusterID: id}, nil
+		}
+	}
+
+	var (
+		zoneMap   map[string]string
+		regionMap map[string]string
+		err       error
+	)
+
+	if raw, ok := params[paramZoneClusterMap]; ok {
+		zoneMap, err = parseStringMap(raw, paramZoneClusterMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if raw, ok := params[paramRegionClusterMap]; ok {
+		regionMap, err = parseStringMap(raw, paramRegionClusterMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(zoneMap) == 0 && len(regionMap) == 0 {
+		return nil, fmt.Errorf("no %s or %s provided and %s not set",
+			paramZoneClusterMap, paramRegionClusterMap, paramClusterID)
+	}
+
+	topoReq := req.GetAccessibilityRequirements()
+	if topoReq == nil {
+		return nil, fmt.Errorf("topology requirements are required when using %s", paramZoneClusterMap)
+	}
+
+	tryList := func(list []*csi.Topology) *clusterSelection {
+		for _, topo := range list {
+			if sel := matchTopologyWithZoneMap(topo, zoneMap); sel != nil {
+				return sel
+			}
+			if sel := matchTopologyWithRegionMap(topo, regionMap); sel != nil {
+				return sel
+			}
+		}
+		return nil
+	}
+
+	if sel := tryList(topoReq.GetPreferred()); sel != nil {
+		return sel, nil
+	}
+	if sel := tryList(topoReq.GetRequisite()); sel != nil {
+		return sel, nil
+	}
+
+	return nil, fmt.Errorf("no cluster mapping found for topology requirements")
+}
+
+func parseStringMap(raw, paramName string) (map[string]string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, fmt.Errorf("%s parameter is empty", paramName)
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return nil, fmt.Errorf("failed to parse %s parameter: %w", paramName, err)
+	}
+
+	normalized := make(map[string]string, len(parsed))
+	for key, value := range parsed {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		normalized[key] = value
+	}
+
+	if len(normalized) == 0 {
+		return nil, fmt.Errorf("%s parameter did not contain any mappings", paramName)
+	}
+	return normalized, nil
+}
+
+func matchTopologyWithRegionMap(topo *csi.Topology, regionMap map[string]string) *clusterSelection {
+	if topo == nil {
+		return nil
+	}
+
+	region := regionFromTopology(topo)
+	if region == "" {
+		return nil
+	}
+
+	clusterID, ok := regionMap[region]
+	if !ok {
+		return nil
+	}
+
+	clusterID = strings.TrimSpace(clusterID)
+	if clusterID == "" {
+		return nil
+	}
+
+	return &clusterSelection{
+		clusterID: clusterID,
+		topology:  map[string]string{topologyKeyRegionStable: region},
+	}
+}
+
+func matchTopologyWithZoneMap(topo *csi.Topology, zoneMap map[string]string) *clusterSelection {
+	if topo == nil {
+		return nil
+	}
+
+	zone := zoneFromTopology(topo)
+	if zone == "" {
+		return nil
+	}
+
+	clusterID, ok := zoneMap[zone]
+	if !ok {
+		return nil
+	}
+
+	clusterID = strings.TrimSpace(clusterID)
+	if clusterID == "" {
+		return nil
+	}
+
+	return &clusterSelection{
+		clusterID: clusterID,
+		topology:  copyTopologySegments(topo.GetSegments()),
+	}
+}
+
+func zoneFromTopology(topo *csi.Topology) string {
+	if topo == nil {
+		return ""
+	}
+	return zoneFromSegments(topo.GetSegments())
+}
+
+func zoneFromSegments(segments map[string]string) string {
+	if segments == nil {
+		return ""
+	}
+	if zone, ok := segments[topologyKeyZoneStable]; ok && zone != "" {
+		return zone
+	}
+	if zone, ok := segments[topologyKeyZoneBeta]; ok && zone != "" {
+		return zone
+	}
+	return ""
+}
+
+func regionFromSegments(segments map[string]string) string {
+	if segments == nil {
+		return ""
+	}
+	if r, ok := segments[topologyKeyRegionStable]; ok && r != "" {
+		return r
+	}
+	return ""
+}
+
+func regionFromTopology(topo *csi.Topology) string {
+	if topo == nil {
+		return ""
+	}
+	return regionFromSegments(topo.GetSegments())
+}
+
+func copyTopologySegments(segments map[string]string) map[string]string {
+	if len(segments) == 0 {
+		return nil
+	}
+
+	copied := make(map[string]string, len(segments))
+	for k, v := range segments {
+		copied[k] = v
+	}
+	return copied
+}
+
+// CreateVolume creates a new volume in the SimplyBlock storage system.
+func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	volumeID := req.GetName()
+	unlock := cs.volumeLocks.Lock(volumeID)
+	defer unlock()
+
+	selection, err := cs.resolveClusterSelection(req)
+	if err != nil {
+		klog.Errorf("failed to resolve cluster selection for volume %s: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	poolName := req.GetParameters()["pool_name"]
+	sbClient, err := util.NewsimplyBlockClient(selection.clusterID, poolName)
+	if err != nil {
+		return nil, err
+	}
+
+	csiVolume, err := cs.createVolume(ctx, req, sbClient)
+	if err != nil {
+		klog.Errorf("failed to create volume, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	volumeInfo, err := cs.publishVolume(csiVolume.GetVolumeId(), sbClient)
+	if err != nil {
+		klog.Errorf("failed to publish volume, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// copy volume info. node needs these info to contact target(ip, port, nqn, ...)
+	if csiVolume.VolumeContext == nil {
+		csiVolume.VolumeContext = volumeInfo
+	} else {
+		for k, v := range volumeInfo {
+			csiVolume.VolumeContext[k] = v
+		}
+	}
+
+	if csiVolume.VolumeContext == nil {
+		csiVolume.VolumeContext = map[string]string{}
+	}
+	csiVolume.VolumeContext[paramClusterID] = selection.clusterID
+
+	if volType, ok := req.GetParameters()["type"]; ok {
+		csiVolume.VolumeContext["targetType"] = volType
+	}
+
+	if selection.topology != nil {
+		csiVolume.AccessibleTopology = []*csi.Topology{{Segments: copyTopologySegments(selection.topology)}}
+
+		if zone := zoneFromSegments(selection.topology); zone != "" {
+			csiVolume.VolumeContext[topologyKeyZoneStable] = zone
+		}
+		if region := regionFromSegments(selection.topology); region != "" {
+			csiVolume.VolumeContext[topologyKeyRegionStable] = region
+		}
+	}
+
+	return &csi.CreateVolumeResponse{Volume: csiVolume}, nil
+}
+
+func (cs *controllerServer) DeleteVolume(_ context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	volumeID := req.GetVolumeId()
+	unlock := cs.volumeLocks.Lock(volumeID)
+	defer unlock()
+	// no harm if volume already unpublished
+	err := cs.unpublishVolume(volumeID)
+	switch {
+	case errors.Is(err, util.ErrVolumeUnpublished):
+		// unpublished but not deleted in last request?
+		klog.Warningf("volume not published: %s", volumeID)
+	case errors.Is(err, util.ErrVolumeDeleted):
+		// deleted in previous request?
+		klog.Warningf("volume already deleted: %s", volumeID)
+	case err != nil:
+		klog.Errorf("failed to unpublish volume, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// no harm if volume already deleted
+	err = cs.deleteVolume(volumeID)
+	if errors.Is(err, util.ErrJSONNoSuchDevice) {
+		// deleted in previous request?
+		klog.Warningf("volume not exists: %s", volumeID)
+	} else if err != nil {
+		klog.Errorf("failed to delete volume, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &csi.DeleteVolumeResponse{}, nil
+}
+
+func (cs *controllerServer) ValidateVolumeCapabilities(_ context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+	// make sure we support all requested caps
+	for _, cap := range req.GetVolumeCapabilities() {
+		supported := false
+		for _, accessMode := range cs.Driver.GetVolumeCapabilityAccessModes() {
+			if cap.GetAccessMode().GetMode() == accessMode.GetMode() {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			return &csi.ValidateVolumeCapabilitiesResponse{Message: ""}, nil
+		}
+	}
+	return &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeCapabilities: req.GetVolumeCapabilities(),
+		},
+	}, nil
+}
+
+func (cs *controllerServer) CreateSnapshot(_ context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+	volumeID := req.GetSourceVolumeId()
+	klog.Infof("CreateSnapshot : volumeID=%s", volumeID)
+	unlock := cs.volumeLocks.Lock(volumeID)
+	defer unlock()
+
+	snapshotName := req.GetName()
+	klog.Infof("CreateSnapshot : snapshotName=%s", snapshotName)
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		klog.Errorf("failed to get spdk volume, volumeID: %s err: %v", volumeID, err)
+		return nil, err
+	}
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		klog.Errorf("failed to create spdk client: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	snapshotID, err := sbclient.CreateSnapshot(spdkVol.lvolID, snapshotName)
+	klog.Infof("CreateSnapshot : snapshotID=%s", snapshotID)
+	if err != nil {
+		klog.Errorf("failed to create snapshot, volumeID: %s snapshotName: %s err: %v", volumeID, snapshotName, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	volSize, err := sbclient.GetVolumeSize(spdkVol.lvolID)
+	klog.Infof("CreateSnapshot : volSize=%s", volSize)
+	if err != nil {
+		klog.Errorf("failed to get volume info, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	size, err := strconv.ParseInt(volSize, 10, 64)
+	if err != nil {
+		klog.Errorf("failed to parse volume size, size: %s err: %v", volSize, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	creationTime := timestamppb.Now()
+	snapshotData := csi.Snapshot{
+		SizeBytes:      size,
+		SnapshotId:     snapshotID,
+		SourceVolumeId: spdkVol.lvolID,
+		CreationTime:   creationTime,
+		ReadyToUse:     true,
+	}
+
+	return &csi.CreateSnapshotResponse{
+		Snapshot: &snapshotData,
+	}, nil
+}
+
+func (cs *controllerServer) DeleteSnapshot(_ context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+	csiSnapshotID := req.GetSnapshotId()
+	sbSnapshot, err := getSnapshot(csiSnapshotID)
+	if err != nil {
+		klog.Errorf("failed to get spdk snapshot, snapshotID: %s err: %v", csiSnapshotID, err)
+		return nil, err
+	}
+	sbclient, err := util.NewsimplyBlockClient(sbSnapshot.clusterID, sbSnapshot.poolID)
+	if err != nil {
+		klog.Errorf("failed to create spdk client: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	unlock := cs.volumeLocks.Lock(csiSnapshotID)
+	defer unlock()
+
+	klog.Infof("Deleting Snapshot : csiSnapshotID=%s sbSnapshotID=%s", csiSnapshotID, sbSnapshot.snapshotID)
+
+	err = sbclient.DeleteSnapshot(sbSnapshot.snapshotID)
+	if err != nil {
+		klog.Errorf("failed to delete snapshot, snapshotID: %s err: %v", csiSnapshotID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &csi.DeleteSnapshotResponse{}, nil
+}
+
+func getIntParameter(params map[string]string, key string, defaultValue int) (int, error) {
+	if valueStr, exists := params[key]; exists {
+		value, err := strconv.Atoi(valueStr)
+		if err != nil {
+			return 0, fmt.Errorf("error converting %s: %w", key, err)
+		}
+		return value, nil
+	}
+	return defaultValue, nil
+}
+
+func getBoolParameter(params map[string]string, key string) bool {
+	valueStr, exists := params[key]
+	return exists && (valueStr == "true" || valueStr == "True")
+}
+
+func prepareCreateVolumeReq(ctx context.Context, req *csi.CreateVolumeRequest, capacityBytes int64) (*util.CreateLVolData, error) {
+	params := req.GetParameters()
+
+	distrNdcs, err := getIntParameter(params, "distr_ndcs", 1)
+	if err != nil {
+		return nil, err
+	}
+	distrNpcs, err := getIntParameter(params, "distr_npcs", 1)
+	if err != nil {
+		return nil, err
+	}
+
+	priorClass, err := getIntParameter(params, "lvol_priority_class", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	maxNamespace, err := getIntParameter(params, "max_namespace_per_subsys", 1)
+	if err != nil {
+		return nil, err
+	}
+
+	compression := getBoolParameter(params, "compression")
+	encryption := getBoolParameter(params, "encryption")
+	replicate := getBoolParameter(params, "replicate")
+
+	pvcName, pvcNameSelected := params[CSIStorageNameKey]
+	pvcNamespace, pvcNamespaceSelected := params[CSIStorageNamespaceKey]
+
+	var pvcFullName string
+	if pvcNameSelected && pvcNamespaceSelected {
+		pvcFullName = fmt.Sprintf("%s/%s", pvcNamespace, pvcName)
+	} else {
+		pvcFullName = pvcName
+	}
+
+	hostID, err := getHostIDAnnotation(ctx, pvcName, pvcNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	lvolID, err := getLvolIDAnnotation(ctx, pvcName, pvcNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// QoS from StorageClass, overridable per-PVC via annotations.
+	maxRWIOPS := params["qos_rw_iops"]
+	maxRWmBytes := params["qos_rw_mbytes"]
+	maxRmBytes := params["qos_r_mbytes"]
+	maxWmBytes := params["qos_w_mbytes"]
+	if pvcNameSelected && pvcNamespaceSelected {
+		qos, qosErr := getQoSAnnotations(ctx, pvcName, pvcNamespace)
+		if qosErr != nil {
+			return nil, qosErr
+		}
+		if qos.RWIOPS != "" {
+			maxRWIOPS = qos.RWIOPS
+		}
+		if qos.RWMBps != "" {
+			maxRWmBytes = qos.RWMBps
+		}
+		if qos.RMBps != "" {
+			maxRmBytes = qos.RMBps
+		}
+		if qos.WMBps != "" {
+			maxWmBytes = qos.WMBps
+		}
+	}
+
+	createVolReq := util.CreateLVolData{
+		LvolName:     req.GetName(),
+		Size:         strconv.FormatInt(capacityBytes, 10),
+		LvsName:      params["pool_name"],
+		Fabric:       params["fabric"],
+		MaxRWIOPS:    maxRWIOPS,
+		MaxRWmBytes:  maxRWmBytes,
+		MaxRmBytes:   maxRmBytes,
+		MaxWmBytes:   maxWmBytes,
+		MaxSize:      params["max_size"],
+		MaxNamespace: maxNamespace,
+		PriorClass:   priorClass,
+		Compression:  compression,
+		Encryption:   encryption,
+		Replicate:    replicate,
+		DistNdcs:     distrNdcs,
+		DistNpcs:     distrNpcs,
+		HostID:       hostID,
+		LvolID:       lvolID,
+		Namespaced:   maxNamespace > 1,
+		PvcName:      pvcFullName,
+	}
+	return &createVolReq, nil
+}
+
+func (cs *controllerServer) getExistingVolume(name, poolName string, sbclient *util.NodeNVMf, vol *csi.Volume) (*csi.Volume, error) {
+	volume, err := sbclient.GetVolume(name, poolName)
+	if err == nil {
+		vol.VolumeId = fmt.Sprintf("%s:%s:%s", sbclient.Client.ClusterID, sbclient.Client.PoolID, volume.UUID)
+		klog.V(5).Info("volume already exists", vol.GetVolumeId())
+		return vol, nil
+	}
+	return nil, err
+}
+
+func (cs *controllerServer) createVolume(ctx context.Context, req *csi.CreateVolumeRequest, sbclient *util.NodeNVMf) (*csi.Volume, error) {
+	size := req.GetCapacityRange().GetRequiredBytes()
+	if size == 0 {
+		klog.Warningln("invalid volume size, resize to 1G")
+		size = 1024 * 1024 * 1024
+	}
+
+	capacityBytes := util.AlignToGiBBytes(size)
+	vol := csi.Volume{
+		CapacityBytes: capacityBytes,
+		VolumeContext: req.GetParameters(),
+		ContentSource: req.GetVolumeContentSource(),
+	}
+
+	klog.V(5).Info("provisioning volume from SDK node..")
+	poolName := req.GetParameters()["pool_name"]
+	existingVolume, err := cs.getExistingVolume(req.GetName(), poolName, sbclient, &vol)
+	if err == nil {
+		return existingVolume, nil
+	}
+
+	if req.GetVolumeContentSource() != nil {
+		clonedVolume, clonedErr := cs.handleVolumeContentSource(req, poolName, &vol, capacityBytes)
+		if clonedErr != nil {
+			return nil, clonedErr
+		}
+		if clonedVolume != nil {
+			return clonedVolume, nil
+		}
+	}
+
+	createVolReq, err := prepareCreateVolumeReq(ctx, req, capacityBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the effective QoS values into VolumeContext so the PV spec records
+	// what was actually applied.
+	vol.VolumeContext["qos_rw_iops"] = createVolReq.MaxRWIOPS
+	vol.VolumeContext["qos_rw_mbytes"] = createVolReq.MaxRWmBytes
+	vol.VolumeContext["qos_r_mbytes"] = createVolReq.MaxRmBytes
+	vol.VolumeContext["qos_w_mbytes"] = createVolReq.MaxWmBytes
+
+	volumeID, err := sbclient.CreateVolume(createVolReq)
+	if err != nil {
+		klog.Errorf("error creating simplyBlock volume: %v", err)
+		return nil, err
+	}
+	vol.VolumeId = fmt.Sprintf("%s:%s:%s", sbclient.Client.ClusterID, sbclient.Client.PoolID, volumeID)
+	klog.V(5).Info("successfully created volume from Simplyblock with Volume ID: ", vol.GetVolumeId())
+
+	return &vol, nil
+}
+
+func getSPDKVol(csiVolumeID string) (*spdkVolume, error) {
+	// extract clusterID, poolID and spdkLvolID from csiVolumeID
+	// csiVolumeID: 8ffac363-0c46-4714-a71b-f9c0b58a1269:pool01:8e2dcb9d-3a79-4362-965e-fdb0cd3f4b8d
+	// ClusterID: 8ffac363-0c46-4714-a71b-f9c0b58a1269
+	// spdkNodeName: node001
+	// spdklvolID: 8e2dcb9d-3a79-4362-965e-fdb0cd3f4b8d
+
+	ids := strings.Split(csiVolumeID, ":")
+	if len(ids) == 3 {
+		return &spdkVolume{
+			clusterID: ids[0],
+			poolName:  ids[1],
+			lvolID:    ids[2],
+		}, nil
+	}
+	return nil, fmt.Errorf("missing clusterID or poolName in volume: %s", csiVolumeID)
+}
+
+func getSnapshot(csiSnapshotID string) (*spdkSnapshot, error) {
+	ids := strings.Split(csiSnapshotID, ":")
+	switch len(ids) {
+	case 3:
+		// New 3-part format: {clusterID}:{poolID}:{snapshotID}
+		return &spdkSnapshot{clusterID: ids[0], poolID: ids[1], snapshotID: ids[2]}, nil
+	case 2:
+		// Legacy 2-part format: {clusterID}:{snapshotID} — pool resolved at delete time
+		return &spdkSnapshot{clusterID: ids[0], snapshotID: ids[1]}, nil
+	default:
+		return nil, fmt.Errorf("invalid snapshot ID format: %s", csiSnapshotID)
+	}
+}
+
+func (cs *controllerServer) publishVolume(volumeID string, sbclient *util.NodeNVMf) (map[string]string, error) {
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return nil, err
+	}
+	err = sbclient.PublishVolume(spdkVol.lvolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// hostNQN is not available in the controller path; pass empty string.
+	// If the volume has allowed_hosts configured, this call will fail and the
+	// node will re-fetch connection info at NodeStageVolume time using its own NQN.
+	volumeInfo, err := sbclient.VolumeInfo(spdkVol.lvolID, "")
+	if err != nil {
+		klog.Warningf("failed to get volume info for %s (will be fetched at stage time): %v", spdkVol.lvolID, err)
+		return map[string]string{}, nil
+	}
+	return volumeInfo, nil
+}
+
+func (cs *controllerServer) deleteVolume(volumeID string) error {
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return err
+	}
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		return err
+	}
+	return sbclient.DeleteVolume(spdkVol.lvolID)
+}
+
+func (cs *controllerServer) unpublishVolume(volumeID string) error {
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return err
+	}
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		return err
+	}
+	return sbclient.UnpublishVolume(spdkVol.lvolID)
+}
+
+func (cs *controllerServer) ControllerExpandVolume(_ context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	volumeID := req.GetVolumeId()
+	updatedSize := req.GetCapacityRange().GetRequiredBytes()
+
+	// Simplyblock backends are GiB aligned, so we round up to GiB.
+	capacityBytes := util.AlignToGiBBytes(updatedSize)
+
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return nil, err
+	}
+
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = sbclient.ResizeVolume(spdkVol.lvolID, capacityBytes)
+	if err != nil {
+		klog.Errorf("failed to resize lvol, LVolID: %s err: %v", spdkVol.lvolID, err)
+		return nil, err
+	}
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         capacityBytes,
+		NodeExpansionRequired: true,
+	}, nil
+}
+
+// ListSnapshots lists all snapshots across all clusters
+func (cs *controllerServer) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+
+	var entries []*util.SnapshotResp
+	clusters, err := ListClusters()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, clusterID := range clusters {
+		sbclient, err := util.NewsimplyBlockClient(clusterID, "")
+		if err != nil {
+			klog.Errorf("failed to create spdk client: %v", err)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+
+		snapshotEntries, err := sbclient.ListSnapshots()
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, snapshotEntries...)
+	}
+
+	var vca []*csi.ListSnapshotsResponse_Entry
+	for _, entry := range entries {
+		snapshotData := &csi.Snapshot{
+			SizeBytes:  entry.Size,
+			SnapshotId: fmt.Sprintf("%s:%s:%s", entry.ClusterID, entry.PoolID, entry.UUID),
+			ReadyToUse: true,
+		}
+		vca = append(vca, &csi.ListSnapshotsResponse_Entry{Snapshot: snapshotData})
+	}
+
+	return &csi.ListSnapshotsResponse{
+		Entries: vca,
+	}, nil
+}
+
+func ListClusters() (clusterIds []string, err error) {
+	var clusters util.ClustersInfo
+	secretFile := util.FromEnv("SPDKCSI_SECRET", "/etc/spdkcsi-secret/secret.json")
+	err = util.ParseJSONFile(secretFile, &clusters)
+	if err != nil {
+		klog.Errorf("failed to parse secret file: %v", err)
+		return
+	}
+	for _, cluster := range clusters.Clusters {
+		clusterIds = append(clusterIds, cluster.ClusterID)
+	}
+	return
+}
+
+// func (cs *controllerServer) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+// 	volumes := []*csi.ListVolumesResponse_Entry{}
+
+// 	volumeIDs, err := cs.spdkNode.ListVolumes()
+// 	if err != nil {
+// 		klog.Errorf("failed to list volumes: %v", err)
+// 		return nil, status.Error(codes.Internal, err.Error())
+// 	}
+
+// 	for _, volumeID := range volumeIDs {
+// 		volumeInfo, err := cs.spdkNode.VolumeInfo(volumeID.UUID)
+// 		if err != nil {
+// 			klog.Errorf("failed to get volume info for volume %s: %v", volumeID.UUID, err)
+// 			return nil, status.Error(codes.NotFound, err.Error())
+// 		}
+// 		volume := &csi.Volume{
+// 			VolumeId:      volumeID.UUID,
+// 			VolumeContext: volumeInfo,
+// 		}
+
+// 		volumes = append(volumes, &csi.ListVolumesResponse_Entry{
+// 			Volume: volume,
+// 		})
+// 	}
+
+// 	return &csi.ListVolumesResponse{
+// 		Entries: volumes,
+// 	}, nil
+// }
+
+//	func (cs *controllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+//		return nil, status.Error(codes.Unimplemented, "")
+//	}
+
+func (cs *controllerServer) ControllerGetVolume(_ context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+	volumeID := req.GetVolumeId()
+	unlock := cs.volumeLocks.Lock(volumeID)
+	defer unlock()
+
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return nil, err
+	}
+
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		klog.Errorf("failed to create spdk client: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	volumeInfo, err := sbclient.VolumeInfo(spdkVol.lvolID, "")
+	if err != nil {
+		klog.Errorf("failed to get spdkVol for %s: %v", volumeID, err)
+
+		return &csi.ControllerGetVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId: volumeID,
+			},
+			Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
+				VolumeCondition: &csi.VolumeCondition{
+					Abnormal: true,
+					Message:  err.Error(),
+				},
+			},
+		}, nil
+	}
+
+	volume := &csi.Volume{
+		VolumeId:      spdkVol.lvolID,
+		VolumeContext: volumeInfo,
+	}
+
+	return &csi.ControllerGetVolumeResponse{
+		Volume: volume,
+		Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
+			VolumeCondition: &csi.VolumeCondition{
+				Abnormal: false,
+				Message:  "",
+			},
+		},
+	}, nil
+}
+
+func newControllerServer(d *csicommon.CSIDriver) (*controllerServer, error) {
+	server := controllerServer{
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
+		volumeLocks:             util.NewVolumeLocks(),
+	}
+	return &server, nil
+}
+
+func (cs *controllerServer) handleVolumeContentSource(req *csi.CreateVolumeRequest, poolName string, vol *csi.Volume, sizeBytes int64) (*csi.Volume, error) {
+	volumeSource := req.GetVolumeContentSource()
+	switch volumeSource.GetType().(type) {
+	case *csi.VolumeContentSource_Snapshot:
+		return cs.handleSnapshotSource(volumeSource.GetSnapshot(), req, poolName, vol, sizeBytes)
+	case *csi.VolumeContentSource_Volume:
+		return cs.handleVolumeSource(volumeSource.GetVolume(), req, poolName, vol, sizeBytes)
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
+	}
+}
+
+func (cs *controllerServer) handleSnapshotSource(snapshot *csi.VolumeContentSource_SnapshotSource, req *csi.CreateVolumeRequest, poolName string, vol *csi.Volume, sizeBytes int64) (*csi.Volume, error) {
+	if snapshot == nil {
+		return nil, nil
+	}
+	csiSnapshotID := snapshot.GetSnapshotId()
+	sbSnapshot, err := getSnapshot(csiSnapshotID)
+	if err != nil {
+		klog.Errorf("failed to get spdk snapshot, csiSnapshotID: %s err: %v", csiSnapshotID, err)
+		return nil, err
+	}
+	// Use destination pool (from StorageClass params), not source snapshot pool.
+	sbclient, err := util.NewsimplyBlockClient(sbSnapshot.clusterID, poolName)
+	if err != nil {
+		klog.Errorf("failed to create spdk client: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	klog.Infof("CreateSnapshot : snapshotID=%s", sbSnapshot.snapshotID)
+	snapshotName := req.GetName()
+	params := req.GetParameters()
+	pvcName, _ := params[CSIStorageNameKey]
+	// Use raw bytes to avoid decimal/binary unit ambiguity in clone sizing.
+	newSize := strconv.FormatInt(sizeBytes, 10)
+	volumeID, err := sbclient.CloneSnapshot(sbSnapshot.snapshotID, snapshotName, newSize, pvcName)
+	if err != nil {
+		klog.Errorf("error creating simplyBlock volume: %v", err)
+		return nil, err
+	}
+	vol.VolumeId = fmt.Sprintf("%s:%s:%s", sbclient.Client.ClusterID, sbclient.Client.PoolID, volumeID)
+	klog.V(5).Info("successfully Restored Snapshot from Simplyblock with Volume ID: ", vol.GetVolumeId())
+
+	return vol, nil
+}
+
+func (cs *controllerServer) handleVolumeSource(srcVolume *csi.VolumeContentSource_VolumeSource, req *csi.CreateVolumeRequest, poolName string, vol *csi.Volume, sizeBytes int64) (*csi.Volume, error) {
+	if srcVolume == nil {
+		return nil, nil
+	}
+	srcVolumeID := srcVolume.GetVolumeId()
+
+	klog.Infof("srcVolumeID=%s", srcVolumeID)
+
+	cloneName := req.GetName()
+	params := req.GetParameters()
+	pvcName, _ := params[CSIStorageNameKey]
+
+	spdkVol, err := getSPDKVol(srcVolumeID)
+	if err != nil {
+		klog.Errorf("failed to get spdk volume, srcVolumeID: %s err: %v", srcVolumeID, err)
+		return nil, err
+	}
+	// Volume clone goes to the same pool as the source volume.
+	sbclient, err := util.NewsimplyBlockClient(spdkVol.clusterID, spdkVol.poolName)
+	if err != nil {
+		klog.Errorf("failed to create spdk client: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	// Use raw bytes to avoid decimal/binary unit ambiguity in clone sizing.
+	newSize := strconv.FormatInt(sizeBytes, 10)
+	klog.Infof("CloneVolume : cloneName=%s", cloneName)
+	volumeID, err := sbclient.CloneVolume(spdkVol.lvolID, cloneName, newSize, pvcName)
+	if err != nil {
+		klog.Errorf("error creating simplyBlock volume: %v", err)
+		return nil, err
+	}
+	vol.VolumeId = fmt.Sprintf("%s:%s:%s", sbclient.Client.ClusterID, sbclient.Client.PoolID, volumeID)
+	klog.V(5).Info("successfully created clone volume from Simplyblock with Volume ID: ", vol.GetVolumeId())
+
+	return vol, nil
+}
+
+func getHostIDAnnotation(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Errorf("failed to get in-cluster config: %v", err)
+		return "", fmt.Errorf("could not get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Errorf("failed to create clientset: %v", err)
+		return "", fmt.Errorf("could not create clientset: %w", err)
+	}
+
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get PVC %s in namespace %s: %v", pvcName, pvcNamespace, err)
+		return "", fmt.Errorf("could not get PVC %s in namespace %s: %w", pvcName, pvcNamespace, err)
+	}
+
+	hostID := pvcAnnotation(pvc.ObjectMeta.Annotations, annotationHostID, deprecatedAnnotationHostID)
+	if hostID == "" {
+		return "", nil
+	}
+
+	return hostID, nil
+}
+
+func getLvolIDAnnotation(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Errorf("failed to get in-cluster config: %v", err)
+		return "", fmt.Errorf("could not get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Errorf("failed to create clientset: %v", err)
+		return "", fmt.Errorf("could not create clientset: %w", err)
+	}
+
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get PVC %s in namespace %s: %v", pvcName, pvcNamespace, err)
+		return "", fmt.Errorf("could not get PVC %s in namespace %s: %w", pvcName, pvcNamespace, err)
+	}
+
+	lvolID := pvcAnnotation(pvc.ObjectMeta.Annotations, annotationLvolID, deprecatedAnnotationLvolID)
+	if lvolID == "" {
+		return "", nil
+	}
+
+	return lvolID, nil
+}
+
+func getNvmfModelIDAnnotation(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Errorf("failed to get in-cluster config: %v", err)
+		return "", fmt.Errorf("could not get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Errorf("failed to create clientset: %v", err)
+		return "", fmt.Errorf("could not create clientset: %w", err)
+	}
+
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get PVC %s in namespace %s: %v", pvcName, pvcNamespace, err)
+		return "", fmt.Errorf("could not get PVC %s in namespace %s: %w", pvcName, pvcNamespace, err)
+	}
+
+	modelID := pvcAnnotation(pvc.ObjectMeta.Annotations, annotationNvmfModelID, deprecatedAnnotationNvmfModelID)
+	if modelID == "" {
+		return "", nil
+	}
+
+	return modelID, nil
+}
+
+// pvcAnnotation returns the value for newKey, falling back to deprecatedKey for backward compat.
+func pvcAnnotation(annotations map[string]string, newKey, deprecatedKey string) string {
+	if v, ok := annotations[newKey]; ok {
+		return v
+	}
+	return annotations[deprecatedKey]
+}
+
+// qosAnnotations holds per-PVC QoS override values read from PVC annotations.
+type qosAnnotations struct {
+	RWIOPS string
+	RWMBps string
+	RMBps  string
+	WMBps  string
+}
+
+// getQoSAnnotations returns per-PVC QoS overrides from PVC annotations.
+func getQoSAnnotations(ctx context.Context, pvcName, pvcNamespace string) (qosAnnotations, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Errorf("failed to get in-cluster config: %v", err)
+		return qosAnnotations{}, fmt.Errorf("could not get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Errorf("failed to create clientset: %v", err)
+		return qosAnnotations{}, fmt.Errorf("could not create clientset: %w", err)
+	}
+
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get PVC %s in namespace %s: %v", pvcName, pvcNamespace, err)
+		return qosAnnotations{}, fmt.Errorf("could not get PVC %s in namespace %s: %w", pvcName, pvcNamespace, err)
+	}
+
+	annotations := pvc.ObjectMeta.Annotations
+	return qosAnnotations{
+		RWIOPS: pvcAnnotation(annotations, annotationQoSRWIOPS, deprecatedAnnotationQoSRWIOPS),
+		RWMBps: pvcAnnotation(annotations, annotationQoSRWMBps, deprecatedAnnotationQoSRWMBps),
+		RMBps:  pvcAnnotation(annotations, annotationQoSRMBps, deprecatedAnnotationQoSRMBps),
+		WMBps:  pvcAnnotation(annotations, annotationQoSWMBps, deprecatedAnnotationQoSWMBps),
+	}, nil
+}
