@@ -55,8 +55,11 @@ print_help() {
     echo "  --is-single-node                     Deploy as single-node cluster (optional)"
     echo "  --extra-cluster-args <value>         Additional arguments to pass to cluster create command (optional)"
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
-    echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node add-node command (optional)"
-    echo "                                       Example: --extra-sn-args \"--spdk-debug --enable-test-device\""
+    echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
+    echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
+    echo "                                       --pci-blocked, --max-lvol, --max-size) are auto-routed to sn configure."
+    echo "                                       Remaining flags go to sn add-node."
+    echo "                                       Example: --extra-sn-args \"--spdk-debug --nodes-per-socket 4\""
     echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
     echo "  --help                               Print this help message"
     exit 0
@@ -98,10 +101,6 @@ VCPU_COUNT=""
 ID_DEVICE_BY_NQN=""
 K8S_SNODE="false"
 HA_JM_COUNT=""
-NODES_PER_SOCKET=""
-SOCKETS_TO_USE=""
-PCI_ALLOWED=""
-PCI_BLOCKED=""
 NAMESPACE=""
 MODE=""
 JM_PERCENT=""
@@ -115,6 +114,7 @@ PROXY_URL="http://34.1.171.127:5000"
 INSECURE_URL="34.1.171.127:5000"
 
 EXTRA_SN_ARGS=()
+EXTRA_CONFIGURE_ARGS=()
 EXTRA_CLUSTER_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -290,6 +290,41 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+}
+
+# Flags that belong to "storage-node configure" (all take a value argument)
+CONFIGURE_ONLY_FLAGS=(
+    --nodes-per-socket
+    --sockets-to-use
+    --pci-allowed
+    --pci-blocked
+    --max-lvol
+    --max-size
+)
+
+# Split EXTRA_SN_ARGS: extract configure-specific flags into EXTRA_CONFIGURE_ARGS,
+# leave the rest in EXTRA_SN_ARGS for add-node.
+split_extra_sn_args() {
+    local filtered_sn_args=()
+    local i=0
+    while [[ $i -lt ${#EXTRA_SN_ARGS[@]} ]]; do
+        local arg="${EXTRA_SN_ARGS[$i]}"
+        local is_configure=false
+        for flag in "${CONFIGURE_ONLY_FLAGS[@]}"; do
+            if [[ "$arg" == "$flag" ]]; then
+                is_configure=true
+                break
+            fi
+        done
+        if [[ "$is_configure" == "true" ]]; then
+            EXTRA_CONFIGURE_ARGS+=("$arg" "${EXTRA_SN_ARGS[$((i+1))]}")
+            i=$((i + 2))
+        else
+            filtered_sn_args+=("$arg")
+            i=$((i + 1))
+        fi
+    done
+    EXTRA_SN_ARGS=("${filtered_sn_args[@]}")
 }
 
 ssh_exec() {
@@ -540,6 +575,7 @@ add_pool() {
 
 main() {
     parse_args "$@"
+    split_extra_sn_args
     IFS=' ' read -ra mnodes <<< "$MNODES"
 
     # cleanup if requested
@@ -551,10 +587,10 @@ main() {
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
     [[ -n "$MAX_LVOL" ]] && configure_cmd+=" --max-lvol $MAX_LVOL"
     [[ -n "$MAX_SIZE" ]] && configure_cmd+=" --max-size $MAX_SIZE"
-    [[ -n "$NODES_PER_SOCKET" ]] && configure_cmd+=" --nodes-per-socket $NODES_PER_SOCKET"
-    [[ -n "$SOCKETS_TO_USE" ]] && configure_cmd+=" --sockets-to-use $SOCKETS_TO_USE"
-    [[ -n "$PCI_ALLOWED" ]] && configure_cmd+=" --pci-allowed $PCI_ALLOWED"
-    [[ -n "$PCI_BLOCKED" ]] && configure_cmd+=" --pci-blocked $PCI_BLOCKED"
+    # Append configure flags extracted from --extra-sn-args
+    for arg in "${EXTRA_CONFIGURE_ARGS[@]}"; do
+        configure_cmd+=" $arg"
+    done
 
     for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
     for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip" ""; done
