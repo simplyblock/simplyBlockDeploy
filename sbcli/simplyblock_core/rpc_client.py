@@ -93,7 +93,17 @@ _response_validator = jsonschema.validators.validator_for(_response_schema)(_res
 class RPCClient:
 
     # ref: https://spdk.io/doc/jsonrpc.html
-    DEFAULT_ALLOWED_METHODS = ["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]
+    # POST is deliberately EXCLUDED. SPDK JSON-RPC sends every call — including
+    # non-idempotent mutations (bdev/snapshot create, resize, add_ns, transfer)
+    # — as a POST. urllib3 gates *read*-error retries (e.g. a read timeout after
+    # the request was already delivered and is executing on the node) on this
+    # set, so retrying POST here silently re-applies a mutation that may already
+    # have taken effect — e.g. a second snapshot, a re-triggered async transfer.
+    # Connection-error retries (`connect=`) are independent of this set and
+    # still apply, since a failed *connect* means the request never reached the
+    # node and is safe to resend.
+    DEFAULT_ALLOWED_METHODS = ["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE"]
+    RPC_NO_PRINT_OUTPUT = ["bdev_get_bdevs", "nvmf_get_subsystems", "bdev_get_iostat"]
 
     def __init__(self, host, port, username, password, timeout=180, retry=3):
         self.host = host
@@ -159,7 +169,7 @@ class RPCClient:
         if ret_code == 200:
             try:
                 data = response.json()
-                if method != "bdev_get_bdevs":
+                if method not in self.RPC_NO_PRINT_OUTPUT:
                     logger.debug("Response json: %s", json.dumps(data))
             except Exception:
                 logger.debug("Response ret_content: %s", ret_content)
@@ -379,7 +389,11 @@ class RPCClient:
         }
         return self._request2("ultra21_alloc_ns_init", params)
 
-    def nvmf_subsystem_add_ns(self, nqn, dev_name, uuid=None, nguid=None, nsid=None, eui64=None,
+    def nvmf_subsystem_add_ns(self, nqn, dev_name, uuid=None, nguid=None, nsid=None, eui64=None, idempotent=True):
+        ret, err = self.nvmf_subsystem_add_ns2(nqn, dev_name, uuid, nguid, nsid, eui64, idempotent)
+        return ret
+
+    def nvmf_subsystem_add_ns2(self, nqn, dev_name, uuid=None, nguid=None, nsid=None, eui64=None,
                               idempotent=True):
         """Add a namespace to an NVMe-oF subsystem.
 
@@ -417,7 +431,7 @@ class RPCClient:
                             "nvmf_subsystem_add_ns: %s already has %s at nsid=%s, "
                             "skipping duplicate add",
                             nqn, dev_name, existing_nsid)
-                        return existing_nsid
+                        return existing_nsid, None
             except Exception as e:
                 # Don't let an idempotency probe block the legitimate add.
                 logger.debug(
@@ -445,7 +459,7 @@ class RPCClient:
             params['namespace']['ptpl_file'] = "/mnt/ns_resv"+eui64+".json"
 
 
-        return self._request("nvmf_subsystem_add_ns", params)
+        return self._request2("nvmf_subsystem_add_ns", params)
 
     def nvmf_subsystem_remove_ns(self, nqn, nsid):
         params = {
@@ -540,10 +554,14 @@ class RPCClient:
         return self._request("bdev_lvol_set_read_only", params)
 
     def lvol_create_snapshot(self, lvol_id, snapshot_name):
+        ret, _ = self.lvol_create_snapshot2(lvol_id, snapshot_name)
+        return ret
+
+    def lvol_create_snapshot2(self, lvol_id, snapshot_name):
         params = {
             "lvol_name": lvol_id,
             "snapshot_name": snapshot_name}
-        return self._request("bdev_lvol_snapshot", params)
+        return self._request2("bdev_lvol_snapshot", params)
 
     def lvol_clone(self, snapshot_name, clone_name):
         params = {
@@ -713,6 +731,25 @@ class RPCClient:
         if name:
             params["name"] = name
         return self._request("distr_shared_placement", params)
+
+    def jm_set_shared_placement(self, name, enable=True):
+        """Flip the shared_placement mode of a JM bdev at runtime.
+
+        The JM analog of ``distr_shared_placement`` — invoked once after an
+        upgrade (from ``cluster_ops.set_shared_placement``) to migrate an
+        already-existing JM bdev into shared-placement mode.
+
+        Unlike ``distr_shared_placement`` (where an omitted name targets all
+        distrib bdevs on the node), the data-plane ``jm_set_shared_placement``
+        RPC requires ``name``: there is exactly one JM bdev per node
+        (``jm_<node_id>``), so the caller always passes it explicitly.
+
+        Args:
+            name: the JM bdev to target (required).
+            enable: True to enable shared-placement mode, False to disable.
+        """
+        params: dict = {"name": name, "enable": bool(enable)}
+        return self._request("jm_set_shared_placement", params)
 
     def bdev_lvol_delete_lvstore(self, name):
         params = {"lvs_name": name}
@@ -1019,12 +1056,20 @@ class RPCClient:
         }
         return self._request("ultra21_lvol_dismount", params)
 
-    def bdev_jm_create(self, name, name_storage1, block_size=4096, jm_cpu_mask=""):
+    def bdev_jm_create(self, name, name_storage1, block_size=4096, jm_cpu_mask="", shared_placement=False):
         params = {
             "name": name,
             "name_storage1": name_storage1,
             "block_size": block_size
         }
+        # Per-chunk placement is a cluster-wide opt-in, the JM analog of
+        # distrib's shared_placement create flag. Sent only when the cluster
+        # has actually been migrated (cluster.shared_placement), so a JM
+        # recreated on a node restart matches the distrib placement mode and
+        # the on-disk journal records. Omitted (not False) by default to match
+        # the spec's "Default: false" semantics.
+        if shared_placement:
+            params["shared_placement"] = True
         if jm_cpu_mask:
             params["bdb_lcpu_mask"] = int(jm_cpu_mask, 16)
         return self._request("bdev_jm_create", params)
