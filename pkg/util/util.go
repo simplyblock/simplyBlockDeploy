@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,9 +34,6 @@ import (
 
 // file name in which volume context is stashed.
 const volumeContextFileName = "volume-context.json"
-
-// file name in which XPU context is stashed.
-const xpuContextFileName = "xpu-context.json"
 
 const (
 	MIB = int64(1024 * 1024)
@@ -168,13 +166,13 @@ func detectNvmeDeviceName(nvmeModel string) (string, error) {
 }
 
 // get the Nvme block device
-func GetNvmeDeviceName(nvmeModel, bdf string) (string, error) {
+func GetNvmeDeviceName(ctx context.Context, nvmeModel, bdf string) (string, error) {
 	var deviceName string
 	var err error
 	if bdf != "" {
 		var uuidFilePath string
 		// find the uuid file path for the nvme device based on the bdf
-		uuidFilePath, err = waitForDeviceReady(fmt.Sprintf("/sys/bus/pci/devices/%s/nvme/nvme*/nvme*n*/uuid", bdf), 20)
+		uuidFilePath, err = waitForDeviceReady(ctx, fmt.Sprintf("/sys/bus/pci/devices/%s/nvme/nvme*/nvme*n*/uuid", bdf), 20)
 		if err != nil {
 			return "", fmt.Errorf("failed find device at %s: %w", uuidFilePath, err)
 		}
@@ -189,22 +187,22 @@ func GetNvmeDeviceName(nvmeModel, bdf string) (string, error) {
 
 	deviceGlob := "/dev/" + deviceName
 
-	return waitForDeviceReady(deviceGlob, 20)
+	return waitForDeviceReady(ctx, deviceGlob, 20)
 }
 
 // GetVirtioBlkDevice returns a block device available at the
 // given bdf path. If wait is true then it wait till a device
 // appear at the bdf path.
-func GetVirtioBlkDeviceName(bdf string, wait bool) (string, error) {
+func GetVirtioBlkDeviceName(ctx context.Context, bdf string, wait bool) (string, error) {
 	// The parent dir path of the block device for VirtioBlk should be
 	// in the form of "/sys/bus/pci/devices/0000:01:01.0/virtio2/block"
 	sysBusGlob := fmt.Sprintf("/sys/bus/pci/devices/%s/virtio*/block", bdf)
 	var deviceParentDirPath string
 	var err error
 	if wait {
-		deviceParentDirPath, err = waitForDeviceReady(sysBusGlob, 20)
+		deviceParentDirPath, err = waitForDeviceReady(ctx, sysBusGlob, 20)
 	} else {
-		deviceParentDirPath, err = waitForDeviceReady(sysBusGlob, 0)
+		deviceParentDirPath, err = waitForDeviceReady(ctx, sysBusGlob, 0)
 	}
 	if err != nil {
 		klog.Errorf("could not find the deviceParentDirPath (%s): %s", sysBusGlob, err)
@@ -225,7 +223,7 @@ func GetVirtioBlkDeviceName(bdf string, wait bool) (string, error) {
 	// wait for the block device ready for VirtioBlk, eg, in the form of "/dev/vda"
 	deviceGlob := "/dev/" + deviceName[0].Name()
 
-	return waitForDeviceReady(deviceGlob, 20)
+	return waitForDeviceReady(ctx, deviceGlob, 20)
 }
 
 // GetAvailablePhysicalFunction returns next available Pf and Vf by checking
@@ -331,26 +329,6 @@ func LookupVolumeContext(path string) (map[string]string, error) {
 // CleanUpVolumeContext cleans up any stashed volume context at passed in path.
 func CleanUpVolumeContext(path string) error {
 	return cleanUpContext(path, volumeContextFileName)
-}
-
-// StashXPUContext stashes XPU context into the volumeContextFileName at the passed in path, in
-// JSON format.
-func StashXPUContext(xpuContext map[string]string, path string) error {
-	return stashContext(xpuContext, path, xpuContextFileName)
-}
-
-// LookupXPUContext read and returns stashed XPU context at passed in path
-func LookupXPUContext(path string) (map[string]string, error) {
-	data, err := lookupContext(path, xpuContextFileName)
-	if err != nil {
-		return nil, err
-	}
-	return ConvertInterfaceToMap(data)
-}
-
-// CleanUpXPUContext cleans up any stashed XPU context at passed in path.
-func CleanUpXPUContext(path string) error {
-	return cleanUpContext(path, xpuContextFileName)
 }
 
 func parseDurationFromEnv(key string, def time.Duration) time.Duration {
