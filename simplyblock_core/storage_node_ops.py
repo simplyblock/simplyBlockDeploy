@@ -613,7 +613,10 @@ def get_next_physical_device_order(snode):
 
 def _search_for_partitions(rpc_client, nvme_device):
     partitioned_devices = []
-    for bdev in rpc_client.get_bdevs():
+    bdevs = rpc_client.get_bdevs()
+    if bdevs is None:
+        raise RPCException(f"get_bdevs failed on {rpc_client.host}")
+    for bdev in bdevs:
         name = bdev['name']
         if name.startswith(f"{nvme_device.nvme_bdev}p"):
             new_dev = NVMeDevice(nvme_device.to_dict())
@@ -664,7 +667,8 @@ def _create_jm_stack_on_raid(rpc_client, jm_nvme_bdevs, snode, after_restart):
         return False
 
     jm_bdev = f"jm_{snode.get_id()}"
-    ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask)
+    ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask,
+                                    shared_placement=cluster.shared_placement)
     if not ret:
         logger.error(f"Failed to create {jm_bdev}")
         return False
@@ -749,7 +753,8 @@ def _create_jm_stack_on_device(rpc_client, nvme, snode, after_restart):
         return False
 
     jm_bdev = f"jm_{snode.get_id()}"
-    ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask)
+    ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask,
+                                    shared_placement=cluster.shared_placement)
     if not ret:
         logger.error(f"Failed to create {jm_bdev}")
         return False
@@ -980,7 +985,13 @@ def _prepare_cluster_devices_partitions(snode, devices):
 
     # create jm device
     jm_devices = []
-    bdevs_names = [d['name'] for d in snode.rpc_client().get_bdevs()]
+    bdevs = snode.rpc_client().get_bdevs()
+    if bdevs is None:
+        # None means the RPC failed (timeout / non-200), not "no bdevs".
+        # Without this guard the comprehension below crashes with an opaque
+        # TypeError; raise a clear, catchable error instead.
+        raise RPCException(f"get_bdevs failed on node {snode.get_id()}")
+    bdevs_names = [d['name'] for d in bdevs]
     for nvme in new_devices:
         if nvme.status in [NVMeDevice.STATUS_ONLINE, NVMeDevice.STATUS_NEW]:
             dev_part = f"{nvme.nvme_bdev[:-2]}p1"
@@ -1140,7 +1151,8 @@ def _prepare_cluster_devices_on_restart(snode, clear_data=False):
             return False
 
         jm_bdev = f"jm_{snode.get_id()}"
-        ret = rpc_client.bdev_jm_create(jm_bdev, jm_device.alceml_bdev, jm_cpu_mask=snode.jm_cpu_mask)
+        ret = rpc_client.bdev_jm_create(jm_bdev, jm_device.alceml_bdev, jm_cpu_mask=snode.jm_cpu_mask,
+                                        shared_placement=cluster.shared_placement)
         if not ret:
             logger.error(f"Failed to create {jm_bdev}")
             return False
@@ -1547,7 +1559,8 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
              small_bufsize=0, large_bufsize=0,
              num_partitions_per_dev=0, jm_percent=0, enable_test_device=False,
              namespace=None, enable_ha_jm=False, cr_name=None, cr_namespace=None, cr_plural=None,
-             id_device_by_nqn=False, partition_size="", ha_jm_count=None, format_4k=False, spdk_proxy_image=None):
+             id_device_by_nqn=False, partition_size="", ha_jm_count=None, format_4k=False,
+             spdk_proxy_image=None, spdk_sys_mem=None):
     snode_api = SNodeClient(node_addr)
     node_info, _ = snode_api.info()
     if node_info.get("nodes_config") and node_info["nodes_config"].get("nodes"):
@@ -1644,7 +1657,10 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
             return False
 
         # Calculate minimum sys memory
-        minimum_sys_memory = node_config.get("sys_memory")
+        if spdk_sys_mem:
+            minimum_sys_memory = int(utils.parse_size(spdk_sys_mem))
+        else:
+            minimum_sys_memory = node_config.get("sys_memory")
         max_lvol = node_config.get("max_lvol")
         ssd_pcie = node_config.get("ssd_pcis")
 
@@ -2307,7 +2323,7 @@ def restart_storage_node(
             clear_data=clear_data, new_ssd_pcie=new_ssd_pcie,
             force_lvol_recreate=force_lvol_recreate, spdk_proxy_image=spdk_proxy_image)
     except Exception:
-        logger.exception("restart_storage_node raised unexpectedly")
+        logger.error("restart_storage_node raised unexpectedly")
     finally:
         # Trust the DB. If the impl raised after the ONLINE write was
         # already committed, the node IS factually online — peers see
@@ -2378,6 +2394,24 @@ def restart_storage_node(
                     post_node, StorageNode.STATUS_OFFLINE, post_node.status,
                     caused_by="restart_cleanup")
                 distr_controller.send_node_status_event(post_node, StorageNode.STATUS_OFFLINE)
+
+                # Failback compensation. The restart impl demotes this primary's
+                # first_sec to non_optimized (trigger_ana_failback_for_node) in
+                # anticipation of the primary resuming leadership. Since the
+                # restart FAILED and the node is now OFFLINE, that demotion would
+                # otherwise leave the LVS with NO optimized path — the
+                # 2026-06-03 LVS_8720 zero-leader outage, where the primary's
+                # SPDK was killed mid-restart just after the surviving secondary
+                # had been handed leadership back. Re-promote the secondary so it
+                # serves IO again. Idempotent; a no-op for non-primary nodes or
+                # an offline first_sec.
+                try:
+                    trigger_ana_failover_for_node(post_node)
+                except Exception as ana_exc:
+                    logger.error(
+                        f"Restart cleanup: re-promoting secondary (ANA failover) "
+                        f"for {node_id} raised: {ana_exc}"
+                    )
         except Exception as cleanup_exc:
             logger.error(f"Failed to reset node {node_id} after failed restart: {cleanup_exc}")
     return result
@@ -2476,6 +2510,20 @@ def _restart_storage_node_impl(
             for dev in node_info['nvme_devices']:
                 if dev['serial_number'] in known_sn:
                     snode_api.bind_device_to_spdk(dev['address'])
+
+    # Pre-flight: if the node agent (SNodeAPI) is unreachable, fail this restart
+    # attempt fast and let the task runner reschedule, instead of wedging in the
+    # upcoming info()/spdk_process_start RPC retry+backoff (incident 2026-06-03
+    # LVS_8720: spdk_process_start against an unreachable vm202 agent retried for
+    # ~8 minutes, holding the restart task and a peer-port block the whole time).
+    # An unreachable agent means the host cannot host SPDK anyway, so there is
+    # nothing to start here.
+    from simplyblock_core.controllers import health_controller
+    if not health_controller._check_node_api(snode):
+        logger.error(
+            "Node agent for %s is unreachable; aborting this restart attempt "
+            "(task runner will retry)", snode.get_id())
+        return False
 
     active_tcp = False
     active_rdma = False
@@ -2598,6 +2646,7 @@ def _restart_storage_node_impl(
                     snode.ssd_pcie.append(new_ssd)
 
         fdb_connection = cluster.db_connection
+        snode_api.set_hugepages()
         results, err = snode_api.spdk_process_start(
             snode.l_cores, snode.spdk_mem, snode.spdk_image, spdk_debug, cluster_ip, fdb_connection,
             snode.namespace, snode.mgmt_ip, snode.rpc_port, snode.rpc_username, snode.rpc_password,
@@ -3093,7 +3142,7 @@ def list_storage_nodes(is_json, cluster_id=None):
         nodes = db_controller.get_storage_nodes()
     data = []
     output = ""
-    all_lvols = db_controller.get_lvols()
+    all_lvols = db_controller.get_mini_lvols()
     for node in nodes:
         logger.debug(node)
         logger.debug("*" * 20)
@@ -3613,6 +3662,14 @@ def shutdown_storage_node(node_id, force=False):
     set_node_status(node_id, StorageNode.STATUS_IN_SHUTDOWN)
     snode = db_controller.get_storage_node_by_id(node_id)
 
+    # Mark this as a deliberate stop so the monitor's auto-restart leaves it
+    # alone. We set it here — as soon as the intent is committed — rather than
+    # at the final OFFLINE flip, so an interrupted/forced shutdown that never
+    # reaches a clean OFFLINE is still protected from being auto-restarted.
+    # Cleared in set_node_status() when the node deliberately returns ONLINE.
+    snode.auto_restart_disabled = True
+    snode.write_to_db(db_controller.kv_store)
+
     # Step 2: cancel migration tasks while controllers are still up.
     pending_tasks = db_controller.get_job_tasks(snode.cluster_id)
     for task in pending_tasks:
@@ -4063,7 +4120,8 @@ def start_storage_node_api_container(node_ip, cluster_ip=None):
             # /mnt/ramdisk/spdk_<port>/spdk.sock. Without this, the endpoint
             # has to fall through to dockerd, which can stall for 60-80s
             # during post-outage Swarm reconciliation (incident 2026-04-24).
-            '/mnt/ramdisk:/mnt/ramdisk'],
+            '/mnt/ramdisk:/mnt/ramdisk',
+            '/tmp/simplyblock:/tmp/simplyblock'],
         restart_policy={"Name": "always"},
         environment=[
             f"DOCKER_IP={node_ip}",
@@ -4283,48 +4341,88 @@ def set_node_status(node_id, status, caused_by="monitor"):
 
     db_controller = DBController()
     snode = db_controller.get_storage_node_by_id(node_id)
-    if snode.status == status:
-        return True
-
-    if status == StorageNode.STATUS_ONLINE and snode.status not in _ALLOWED_PRE_STATUSES_FOR_ONLINE:
-        # Hard reject: ONLINE may only be reached from RESTARTING (restart
-        # path), IN_CREATION (add_node path), or SUSPENDED (resume path).
-        # Other paths must route through one of those states first.
-        logger.error(
-            f"Refusing illegal status transition for {node_id}: "
-            f"{snode.status} -> ONLINE. Only {_ALLOWED_PRE_STATUSES_FOR_ONLINE} -> ONLINE is allowed."
-        )
+    if snode is None:
+        logger.error(f"set_node_status: node {node_id} not found")
         return False
 
-    if (status == StorageNode.STATUS_OFFLINE
-            and snode.status == StorageNode.STATUS_RESTARTING
-            and caused_by not in _ALLOWED_CAUSED_BY_RESTARTING_TO_OFFLINE):
-        # Symmetric to the ONLINE guard above: RESTARTING is the restart
-        # impl's exclusive lock. Anything else clobbering it to OFFLINE
-        # mid-flight (HealthCheck, StorageNodeMonitor, MainDistrEventCollector,
-        # auto-restart task races) strands the node — the impl's later
-        # set_node_status(ONLINE, caused_by="restart") then hits the
-        # OFFLINE → ONLINE rejection above, returns False, and the CLI
-        # exits silently with the node parked in OFFLINE forever.
-        # Observed: incident 2026-05-20 iter 57 (forced restart of
-        # 5110e910 stuck offline for 16 min until soak gave up).
+    now = str(datetime.datetime.now(datetime.timezone.utc))
+    # verdict communicates the (single, committed) outcome of the mutator out
+    # of the transaction so the irreversible work — event emission, peer
+    # broadcast, task cancellation, error logging — happens exactly once,
+    # AFTER commit. The mutator itself must stay side-effect-free because
+    # fdb.transactional replays it on write conflicts.
+    outcome: dict = {"verdict": None, "old_status": None, "from": None}
+
+    def _mutate(n):
+        if n.status == status:
+            outcome["verdict"] = "noop"
+            return False
+        if status == StorageNode.STATUS_ONLINE and n.status not in _ALLOWED_PRE_STATUSES_FOR_ONLINE:
+            # Hard reject: ONLINE may only be reached from RESTARTING (restart
+            # path), IN_CREATION (add_node path), or SUSPENDED (resume path).
+            # Other paths must route through one of those states first.
+            outcome["verdict"] = "reject_online"
+            outcome["from"] = n.status
+            return False
+        if (status == StorageNode.STATUS_OFFLINE
+                and n.status == StorageNode.STATUS_RESTARTING
+                and caused_by not in _ALLOWED_CAUSED_BY_RESTARTING_TO_OFFLINE):
+            # Symmetric to the ONLINE guard above: RESTARTING is the restart
+            # impl's exclusive lock. Anything else clobbering it to OFFLINE
+            # mid-flight (HealthCheck, StorageNodeMonitor, MainDistrEventCollector,
+            # auto-restart task races) strands the node — the impl's later
+            # set_node_status(ONLINE, caused_by="restart") then hits the
+            # OFFLINE → ONLINE rejection above, returns False, and the CLI
+            # exits silently with the node parked in OFFLINE forever.
+            # Observed: incident 2026-05-20 iter 57 (forced restart of
+            # 5110e910 stuck offline for 16 min until soak gave up).
+            outcome["verdict"] = "reject_offline"
+            outcome["from"] = n.status
+            return False
+
+        outcome["verdict"] = "changed"
+        outcome["old_status"] = n.status
+        n.status = status
+        n.updated_at = now
+        if status == StorageNode.STATUS_ONLINE:
+            n.online_since = now
+            # The node is back ONLINE — necessarily via a deliberate restart
+            # while auto-restart was blocked, or via the normal restart path.
+            # Either way a prior deliberate-shutdown marker no longer applies;
+            # clear it so future genuine failures auto-restart this node again.
+            n.auto_restart_disabled = False
+        else:
+            n.online_since = ""
+        return True
+
+    # Atomic compare-and-set: the guard checks above are evaluated against the
+    # FRESH row inside the transaction, and the write can no longer clobber a
+    # concurrent update from another service (HealthCheck/Monitor/restart task)
+    # — the lost-update race this function's incident comments document.
+    snode = db_controller.atomic_update(snode, _mutate)
+    if snode is None:
+        logger.error(f"set_node_status: node {node_id} disappeared during update")
+        return False
+
+    verdict = outcome["verdict"]
+    if verdict == "noop":
+        return True
+    if verdict == "reject_online":
         logger.error(
             f"Refusing illegal status transition for {node_id}: "
-            f"{snode.status} -> OFFLINE from caused_by={caused_by!r}. "
+            f"{outcome['from']} -> ONLINE. Only {_ALLOWED_PRE_STATUSES_FOR_ONLINE} -> ONLINE is allowed."
+        )
+        return False
+    if verdict == "reject_offline":
+        logger.error(
+            f"Refusing illegal status transition for {node_id}: "
+            f"{outcome['from']} -> OFFLINE from caused_by={caused_by!r}. "
             f"Only {_ALLOWED_CAUSED_BY_RESTARTING_TO_OFFLINE} may flip "
             f"a RESTARTING node to OFFLINE."
         )
         return False
 
-    old_status = snode.status
-    snode.status = status
-    snode.updated_at = str(datetime.datetime.now(datetime.timezone.utc))
-    if status == StorageNode.STATUS_ONLINE:
-        snode.online_since = str(datetime.datetime.now(datetime.timezone.utc))
-    else:
-        snode.online_since = ""
-    snode.write_to_db(db_controller.kv_store)
-    storage_events.snode_status_change(snode, snode.status, old_status, caused_by=caused_by)
+    storage_events.snode_status_change(snode, snode.status, outcome["old_status"], caused_by=caused_by)
     distr_controller.send_node_status_event(snode, status)
 
     if status == StorageNode.STATUS_ONLINE:
@@ -4972,7 +5070,7 @@ def recreate_lvstore_on_non_leader(snode, leader_node, primary_node, activation_
         else:
             logger.info("creating subsystem %s (allow_any_host=%s)", lvol.nqn, allow_any)
             snode_rpc_client.subsystem_create(lvol.nqn, lvol.ha_type, lvol.uuid, min_cntlid,
-                                              max_namespaces=constants.LVO_MAX_NAMESPACES_PER_SUBSYS,
+                                              max_namespaces=lvol.max_namespace_per_subsys,
                                               allow_any_host=allow_any)
         if lvol.allowed_hosts:
             _reapply_allowed_hosts(lvol, snode, snode_rpc_client)
@@ -5452,6 +5550,46 @@ def recreate_lvstore_on_non_leader(snode, leader_node, primary_node, activation_
     return True
 
 
+def _release_lvs_subsys_port_on_peers(lvs_node, exclude_node_id, db_controller):
+    """Best-effort release of an LVS subsystem port on every replica peer.
+
+    recreate_lvstore / recreate_lvstore_on_non_leader block the LVS port on
+    the surviving leader (and other peers) while a restarting node rebuilds
+    its lvstore, and release it only via their internal abort/success paths.
+    A RAW RPC exception mid-rebuild (e.g. the restarting node's SPDK going
+    unreachable) unwinds PAST those release points, leaving a peer's client
+    IO blocked for the entire failed restart and its retries — the
+    2026-06-03 LVS_8720 incident, where vm203 (the sole surviving leader)
+    stayed port-blocked for 10m12s. Calling this on any recreate failure
+    guarantees the port is reopened. Idempotent: 'allow' is a no-op when the
+    port is not blocked.
+    """
+    try:
+        port = lvs_node.get_lvol_subsys_port(lvs_node.lvstore)
+    except Exception as e:
+        logger.error("Defensive unblock: could not resolve LVS port for %s: %s",
+                     lvs_node.get_id(), e)
+        return
+    peer_ids = {pid for pid in (lvs_node.get_id(),
+                                lvs_node.secondary_node_id,
+                                lvs_node.tertiary_node_id)
+                if pid and pid != exclude_node_id}
+    for pid in peer_ids:
+        try:
+            peer = db_controller.get_storage_node_by_id(pid)
+            if not peer or peer.status != StorageNode.STATUS_ONLINE:
+                continue
+            port_type = "udp" if peer.active_rdma else "tcp"
+            FirewallClient(peer, timeout=5, retry=2).firewall_set_port(
+                port, port_type, "allow", peer.rpc_port)
+            tcp_ports_events.port_allowed(peer, port)
+            logger.info("Defensive unblock: allowed LVS port %s on peer %s after "
+                        "failed recreate of %s", port, pid, lvs_node.lvstore)
+        except Exception as e:
+            logger.error("Defensive unblock of LVS port %s on %s failed: %s",
+                         port, pid, e)
+
+
 def recreate_all_lvstores(snode, force=False):
     """Recreate all LVS stacks on a restarting node: primary, secondary, tertiary.
 
@@ -5462,15 +5600,25 @@ def recreate_all_lvstores(snode, force=False):
 
     # --- Step 1: Primary LVS ---
     logger.info("=== Phase: Primary LVS recreation ===")
-    ret = recreate_lvstore(snode, force=force)
+    try:
+        ret = recreate_lvstore(snode, force=force)
+    except Exception:
+        # A raw RPC exception (e.g. the restarting node's SPDK going
+        # unreachable mid-rebuild) unwinds past recreate_lvstore's internal
+        # abort/unblock, leaving the surviving leader's LVS port blocked for
+        # the whole failed restart (incident 2026-06-03 LVS_8720). Release it.
+        _release_lvs_subsys_port_on_peers(snode, snode.get_id(), db_controller)
+        raise
     snode = db_controller.get_storage_node_by_id(snode.get_id())
     if not ret:
         logger.error("Failed to recreate primary lvstore")
+        _release_lvs_subsys_port_on_peers(snode, snode.get_id(), db_controller)
         return False
 
     # --- Step 2: Secondary LVS ---
     if snode.lvstore_stack_secondary:
         logger.info("=== Phase: Secondary LVS recreation ===")
+        secondary_primary_node = None
         try:
             secondary_primary_node = db_controller.get_storage_node_by_id(snode.lvstore_stack_secondary)
             secondary_primary_node.lvstore_status = "in_creation"
@@ -5493,10 +5641,14 @@ def recreate_all_lvstores(snode, force=False):
                 logger.error(f"Failed to recreate secondary LVS {secondary_primary_node.lvstore}")
         except Exception as e:
             logger.error("Secondary LVS recreation failed: %s", e)
+            if secondary_primary_node is not None:
+                _release_lvs_subsys_port_on_peers(
+                    secondary_primary_node, snode.get_id(), db_controller)
 
     # --- Step 3: Tertiary LVS ---
     if snode.lvstore_stack_tertiary:
         logger.info("=== Phase: Tertiary LVS recreation ===")
+        tertiary_primary_node = None
         try:
             tertiary_primary_node = db_controller.get_storage_node_by_id(snode.lvstore_stack_tertiary)
             tertiary_primary_node.lvstore_status = "in_creation"
@@ -5532,6 +5684,9 @@ def recreate_all_lvstores(snode, force=False):
                 logger.error(f"Failed to recreate tertiary LVS {tertiary_primary_node.lvstore}")
         except Exception as e:
             logger.error("Tertiary LVS recreation failed: %s", e)
+            if tertiary_primary_node is not None:
+                _release_lvs_subsys_port_on_peers(
+                    tertiary_primary_node, snode.get_id(), db_controller)
 
     return True
 
@@ -5705,7 +5860,7 @@ def recreate_lvstore(snode, force=False, lvs_primary=None, activation_mode=False
         else:
             logger.info("creating subsystem %s (allow_any_host=%s)", lvol.nqn, allow_any)
             ret = rpc_client.subsystem_create(lvol.nqn, lvol.ha_type, lvol.uuid, 1,
-                                              max_namespaces=constants.LVO_MAX_NAMESPACES_PER_SUBSYS,
+                                              max_namespaces=lvol.max_namespace_per_subsys,
                                               allow_any_host=allow_any)
             if ret:
                 created_subsystems.append(lvol.nqn)
