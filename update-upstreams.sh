@@ -4,12 +4,8 @@
 
 set -euo pipefail
 
-COMPONENTS=(
-    "sbcli       sbcli       main"
-    "operator    operator    main"
-    "helm-charts helm-charts main"
-    "csi         csi         master"
-)
+# shellcheck source=components.sh
+source "$(dirname "$0")/components.sh"
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$CURRENT_BRANCH" != "main" ]]; then

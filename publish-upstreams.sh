@@ -8,12 +8,8 @@
 
 set -euo pipefail
 
-COMPONENTS=(
-    "sbcli       sbcli"
-    "operator    operator"
-    "helm-charts helm-charts"
-    "csi         csi"
-)
+# shellcheck source=components.sh
+source "$(dirname "$0")/components.sh"
 
 usage() {
     cat <<EOF
@@ -86,7 +82,7 @@ fi
 FAILED=()
 
 for entry in "${COMPONENTS[@]}"; do
-    read -r prefix remote <<< "$entry"
+    read -r prefix remote _ <<< "$entry"
     echo "==> Splitting $prefix/ from $CURRENT_BRANCH"
     if ! SPLIT_SHA=$(git subtree split --prefix="$prefix" HEAD); then
         echo "    FAILED to split $prefix" >&2
