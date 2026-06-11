@@ -12,12 +12,13 @@ The components are:
 - **`operator/`** — Kubernetes operator (Go/kubebuilder)
 - **`helm-charts/`** — Helm charts for deployment
 - **`csi/`** — Kubernetes CSI driver (Go) for NVMe-over-TCP storage provisioning
+- **`documentation/`** — Project documentation
 
 Together they form the **Simplyblock Control Plane** — a Kubernetes-native, distributed NVMe-over-Fabrics block storage system.
 
 ## Syncing Upstream Changes
 
-To pull the latest `main` from all four upstream repos into this monorepo, run from the repo root while on the `main` branch with a clean working tree:
+To pull the latest `main` from all five upstream repos into this monorepo, run from the repo root while on the `main` branch with a clean working tree:
 
 ```bash
 ./update-upstreams.sh

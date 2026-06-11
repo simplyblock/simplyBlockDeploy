@@ -3,8 +3,9 @@
 # Source this file; do not execute it directly.
 
 COMPONENTS=(
-    "sbcli       sbcli       main"
-    "operator    operator    main"
-    "helm-charts helm-charts main"
-    "csi         csi         master"
+    "sbcli         sbcli         main"
+    "operator      operator      main"
+    "helm-charts   helm-charts   main"
+    "csi           csi           master"
+    "documentation documentation main"
 )

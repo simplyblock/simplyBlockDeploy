@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+
+# Stop on any error!
+set -e
+
+IMAGE_NAME="simplyblock/mkdocs-builder"
+
+DOCKER=$(command -v docker)
+if ! [[ "${DOCKER}" ]]; then
+  echo "Command docker not found. Please install docker."
+  exit 1
+fi
+
+GREP=$(command -v grep)
+if ! [[ "${GREP}" ]]; then
+  echo "Command grep not found. Please install grep."
+  exit 1
+fi
+
+JQ=$(command -v jq)
+if ! [[ "${JQ}" ]]; then
+  echo "Command jq not found. Please install jq."
+  exit 1
+fi
+
+GIT=$(command -v git)
+if ! [[ "${GIT}" ]]; then
+  echo "Command git not found. Please install git."
+  exit 1
+fi
+
+function ensure_docker_image() {
+  echo -n "Checking docker build image... "
+  local image=$(${DOCKER} image ls | ${GREP} ${IMAGE_NAME})
+  if [[ "${image}" ]]; then
+    echo "ok."
+    return
+  fi
+  echo "failed. Please run ./doc-builder build-image"
+  exit 1
+}
+
+function update_repositories() {
+  if [ ! -d ./scripts/sbcli-repo ]; then
+    echo "Cloning sbcli repository..."
+    git clone https://github.com/simplyblock-io/sbcli.git ./scripts/sbcli-repo
+
+    if [ -f ./scripts/sbcli.lock ]; then
+      echo "Found sbcli.lock, checking out locked reference..."
+      pushd ./scripts/sbcli-repo
+      git checkout "$(cat ../sbcli.lock)"
+      popd
+    fi
+  else
+    echo "Updating sbcli repository..."
+    pushd ./scripts/sbcli-repo
+    git reset --hard
+    git pull -f
+    local ret=$?
+    popd
+    exit ${ret}
+  fi
+}
+
+function build_image() {
+  docker build -t ${IMAGE_NAME} .
+  exit $?
+}
+
+function serve() {
+  ensure_docker_image
+  local dirty=""
+  if [[ "$1" == "--dirty" ]]; then
+    dirty="--dirty"
+  fi
+  ${DOCKER} run --rm -it -p 127.0.0.1:8000:8000 -v "${PWD}:/docs" ${IMAGE_NAME} serve ${dirty} --watch-theme -a 0.0.0.0:8000
+  exit $?
+}
+
+function gen_sbcli_ref() {
+  if [ ! -d ./scripts/sbcli-repo ]; then
+    echo "The sbcli repository not yet available. Please run ./doc-builder update-repositories and try again."
+    exit 1
+  fi
+
+  echo "Generating sbcli reference pages..."
+  ${DOCKER} run --rm ${terminal} -v "${PWD}":/docs --entrypoint="/usr/local/bin/python" ${IMAGE_NAME} /docs/scripts/cli-reference-gen.py /docs
+
+  echo "Generating openapi.json specification..."
+  ${DOCKER} run --rm ${terminal} -v "${PWD}":/docs --entrypoint="/usr/local/bin/python" ${IMAGE_NAME} /docs/scripts/openapi-json-gen.py
+}
+
+function build_css() {
+  ${DOCKER} run --rm ${terminal} -v "${PWD}":/docs --entrypoint="/docs/scripts/build-css.sh" ${IMAGE_NAME}
+}
+
+function build() {
+  ensure_docker_image
+  echo -n "Cleaning site directory... "
+  rm -rf ./site > /dev/null
+  echo "ok."
+
+  local terminal="-it"
+  if [[ "${GITHUB_RUN_ID}" != "" ]]; then
+    echo "Running in GitHub Actions, disabling interactive terminal..."
+    terminal="-t"
+  fi
+
+  # Generates the markdown files for the sbcli reference pages
+  if ! gen_sbcli_ref; then
+    exit 1
+  fi
+
+  echo "Building documentation... "
+  if ! ${DOCKER} run --rm ${terminal} -v "${PWD}:/docs" ${IMAGE_NAME} build --strict "$@"; then
+    echo "Building documentation failed. Please see above for potential issues. After fixing them, you can retry."
+    exit 1
+  fi
+
+  if [[ "${GITHUB_RUN_ID}" != "" ]]; then
+    echo "Fixing file permissions after GitHub build..."
+    sudo chown -R runner:docker ./site
+  fi
+}
+
+function deploy() {
+  local version="$1"
+  if [[ "${version}" == "" ]]; then
+    echo "Version missing. Please run as /doc-builder build {version-name}"
+    exit 1
+  fi
+
+  if [[ -d "./deployment/${version}" ]]; then
+    if [[ "$2" != "--force" ]]; then
+      echo "Version ${version} already exists."
+      exit 1
+    fi
+  fi
+
+  echo "Adjusting canonical url..."
+  tempMkdocsYml="$(mktemp ./mkdocs.XXX)"
+  sed -r "s|(site_url: .*)|\1${version}/|g" mkdocs.yml > "${tempMkdocsYml}"
+
+  function cleanup() {
+    rm "${tempMkdocsYml}"
+  }
+  trap cleanup EXIT
+
+  if ! build --config-file "${tempMkdocsYml}" ; then
+    exit 1
+  fi
+
+  echo -n "Prepare version for deployment..."
+  if [[ "$2" != "--force" ]]; then
+    mv "./site" "./deployment/${version}"
+  else
+    cp -R "./site/" "./deployment/${version}/"
+  fi
+
+  if [[ "$2" != "--force" ]]; then
+    if [ -d ./deployment/latest ]; then
+      ${JQ} '.[].aliases=[]' ./deployment/latest/versions.json | ${JQ} --arg version "${version}" \
+            '. |= [{"version":$version, "title":$version, "aliases":["latest"]}] + .' > ./deployment/versions-temp.json
+      rm "./deployment/latest"
+    else
+      printf "[{\"version\":\"${version}\",\"title\":\"${version}\",\"aliases\":[\"latest\"]},{\"version\":\"dev\",\"title\":\"development\",\"aliases\":[]}]" | ${JQ} . > ./deployment/versions-temp.json
+    fi
+
+    ln -s "./${version}" "./deployment/latest"
+
+    mv ./deployment/versions-temp.json ./deployment/latest/versions.json
+  fi
+
+  if [ ! -f ./deployment/versions.json ]; then
+    ln -s ./latest/versions.json ./deployment/versions.json
+  fi
+  echo "ok."
+}
+
+function isHelp() {
+  if [[ "$1" == "--help" ]]; then
+    echo 0
+  fi
+  echo 1
+}
+
+function run_help() {
+  local help="$(isHelp "$2")"
+  if [[ "${help}" == "1" ]]; then
+    return
+  fi
+
+  case "$1" in
+    "build-image")
+      echo "Builds the docker image, required for building the documentation"
+      echo "./doc-builder build-image"
+    ;;
+    "serve")
+      echo "Starts the development server with automatic rebuild and reload"
+      echo "./doc-builder serve [--dirty]"
+      echo
+      echo "  [--dirty]             Activates incremental rebuilds, which have some"
+      echo "                        caveats. While they speed up the build extensively,"
+      echo "                        they break certain elements, like search or navigation"
+      echo "                        updates. Use with caution!"
+    ;;
+    "build")
+      echo "Builds the documentation for local testing"
+      echo "./doc-builder build"
+    ;;
+    "build-css")
+      echo "Creates the theme css style"
+      echo "./doc-builder build-css"
+    ;;
+    "deploy")
+      echo "Creates a deployable version of the documentation"
+      echo "./doc-builder deploy {version-name} [--force]"
+      echo
+      echo "  {release-name}        Name of the version and deployment subdirectory"
+      echo "  [--force]             Force creation of override of an existing version"
+      echo "                        with the same name."
+    ;;
+    "update-repositories")
+      echo "Updates the sbcli repository"
+      echo "./doc-builder update-repositories"
+      echo
+      echo "If a scripts/sbcli.lock file, with a specific tag name or git hash reference"
+      echo "exists, the sbcli git subrepository will be checked out to this specific"
+      echo "reference. Otherwise, it will be the latest HEAD."
+    ;;
+    "gen-sbcli-ref")
+      echo "Generates the sbcli / sbctl reference documentation"
+      echo "./doc-builder gen-sbcli-ref"
+    ;;
+    *)
+      echo "Unknown command. No help available."
+    ;;
+  esac
+
+  exit 0
+}
+
+case "$1" in
+  "build-image")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    build_image
+  ;;
+
+  "serve")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    serve "${@:2}"
+  ;;
+
+  "build")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    build
+  ;;
+
+  "build-css")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    build_css
+  ;;
+
+  "deploy")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    deploy "${@:2}"
+  ;;
+
+  "update-repositories")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    update_repositories
+  ;;
+
+  "gen-sbcli-ref")
+    # Test for help requested
+    run_help "$1" "$2"
+
+    gen_sbcli_ref
+  ;;
+
+  *)
+    echo "Simplyblock Documentation Builder"
+    echo "Available commands:"
+    echo "  ./doc-builder build-image              Building required docker image"
+    echo "  ./doc-builder update-repositories      Initialized or updated external repository"
+    echo "  ./doc-builder gen-sbcli-ref            Generates the sbcli reference pages"
+    echo "  ./doc-builder serve                    Live serving content changes"
+    echo "  ./doc-builder build                    Building static documentation"
+    echo "  ./doc-builder build-css                Building static CSS"
+    echo "  ./doc-builder deploy {version-name}    Preparing new version deployment "
+  ;;
+esac
+
