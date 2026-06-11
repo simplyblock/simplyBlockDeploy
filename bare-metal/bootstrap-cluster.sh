@@ -14,7 +14,7 @@ storage_private_ips=$STORAGE_PRIVATE_IPS
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-lvol  <value>                  Set Maximum lvols (optional)"
+    echo "  --max-subsys  <value>                Set Maximum subsystems (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
     echo "  --max-size  <value>                  Set Maximum amount of GB to be utilized on storage node (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
@@ -57,7 +57,7 @@ print_help() {
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
     echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
-    echo "                                       --pci-blocked, --max-lvol, --max-size) are auto-routed to sn configure."
+    echo "                                       --pci-blocked, --max-subsys, --max-size) are auto-routed to sn configure."
     echo "                                       Remaining flags go to sn add-node."
     echo "                                       Example: --extra-sn-args \"--spdk-debug --nodes-per-socket 4\""
     echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
@@ -67,7 +67,7 @@ print_help() {
 
 parse_args() {
 # initialize all vars
-MAX_LVOL=""
+MAX_SUBSYS=""
 MAX_SNAPSHOT=""
 MAX_SIZE=""
 NO_DEVICE=""
@@ -120,8 +120,8 @@ EXTRA_CLUSTER_ARGS=()
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-    --max-lvol)
-        MAX_LVOL="$2"
+    --max-subsys)
+        MAX_SUBSYS="$2"
         shift
         ;;
     --max-snap)
@@ -298,7 +298,7 @@ CONFIGURE_ONLY_FLAGS=(
     --sockets-to-use
     --pci-allowed
     --pci-blocked
-    --max-lvol
+    --max-subsys
     --max-size
 )
 
@@ -585,7 +585,7 @@ main() {
     fi
 
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
-    [[ -n "$MAX_LVOL" ]] && configure_cmd+=" --max-lvol $MAX_LVOL"
+    [[ -n "$MAX_SUBSYS" ]] && configure_cmd+=" --max-subsys $MAX_SUBSYS"
     [[ -n "$MAX_SIZE" ]] && configure_cmd+=" --max-size $MAX_SIZE"
     # Append configure flags extracted from --extra-sn-args
     for arg in "${EXTRA_CONFIGURE_ARGS[@]}"; do
