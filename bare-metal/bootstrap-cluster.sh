@@ -593,6 +593,7 @@ main() {
     done
 
     for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
+    wait
     for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip" ""; done
 
     bootstrap_cluster "${mnodes[0]}"
