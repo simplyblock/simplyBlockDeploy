@@ -152,7 +152,11 @@ def _kill_spdk_until_dead(snode, max_attempts=3, poll_per_attempt_sec=5,
         deadline = time.time() + poll_per_attempt_sec
         while time.time() < deadline:
             try:
-                up = snode_api.spdk_process_is_up(snode.rpc_port, snode.cluster_id)
+                # spdk_process_is_up returns a (result, error) tuple; unpack it.
+                # Treating the raw tuple as a bool is always truthy, so the
+                # kill loop would never observe SPDK as down (it would burn all
+                # attempts and log a false "did NOT die" even after a clean kill).
+                up, _ = snode_api.spdk_process_is_up(snode.rpc_port, snode.cluster_id)
             except Exception:
                 up = False
             if not up:
@@ -678,7 +682,9 @@ def _create_jm_stack_on_raid(rpc_client, jm_nvme_bdevs, snode, after_restart):
 
     jm_bdev = f"jm_{snode.get_id()}"
     ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask,
-                                    shared_placement=cluster.shared_placement)
+                                    shared_placement=cluster.shared_placement,
+                                    compression_thread=constants.JM_COMPRESSION_THREAD_ENABLED,
+                                    compression_cpu_mask=snode.compression_cpu_mask)
     if not ret:
         logger.error(f"Failed to create {jm_bdev}")
         return False
@@ -766,7 +772,9 @@ def _create_jm_stack_on_device(rpc_client, nvme, snode, after_restart):
 
     jm_bdev = f"jm_{snode.get_id()}"
     ret = rpc_client.bdev_jm_create(jm_bdev, alceml_name, jm_cpu_mask=snode.jm_cpu_mask,
-                                    shared_placement=cluster.shared_placement)
+                                    shared_placement=cluster.shared_placement,
+                                    compression_thread=constants.JM_COMPRESSION_THREAD_ENABLED,
+                                    compression_cpu_mask=snode.compression_cpu_mask)
     if not ret:
         logger.error(f"Failed to create {jm_bdev}")
         return False
@@ -1164,7 +1172,9 @@ def _prepare_cluster_devices_on_restart(snode, clear_data=False):
 
         jm_bdev = f"jm_{snode.get_id()}"
         ret = rpc_client.bdev_jm_create(jm_bdev, jm_device.alceml_bdev, jm_cpu_mask=snode.jm_cpu_mask,
-                                        shared_placement=cluster.shared_placement)
+                                        shared_placement=cluster.shared_placement,
+                                        compression_thread=constants.JM_COMPRESSION_THREAD_ENABLED,
+                                        compression_cpu_mask=snode.compression_cpu_mask)
         if not ret:
             logger.error(f"Failed to create {jm_bdev}")
             return False
@@ -1635,6 +1645,8 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
         alceml_worker_cpu_index = 0
         distrib_cpu_index = 0
         jc_singleton_mask = ""
+        compression_cpu_mask = ""
+        compression_core = None
 
         req_cpu_count = len(node_config.get("isolated"))
 
@@ -1782,6 +1794,7 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
             jm_cpu_core = new_distribution.get("jm_cpu_core")
             lvol_poller_core = new_distribution.get("lvol_poller_core")
             lvol_poller_mask = utils.generate_mask(lvol_poller_core)
+            compression_core = new_distribution.get("compression_core")
         else:
             poller_cpu_cores = node_config.get("distribution").get("poller_cpu_cores")
             alceml_cpu_cores = node_config.get("distribution").get("alceml_cpu_cores")
@@ -1792,6 +1805,7 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
             jm_cpu_core = node_config.get("distribution").get("jm_cpu_core")
             lvol_poller_core =  node_config.get("distribution").get("lvol_poller_core")
             lvol_poller_mask = utils.generate_mask(lvol_poller_core)
+            compression_core = node_config.get("distribution").get("compression_core")
 
         number_of_distribs = node_config.get("number_of_distribs")
 
@@ -1800,6 +1814,8 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
 
         if jc_singleton_core:
             jc_singleton_mask = utils.decimal_to_hex_power_of_2(jc_singleton_core[0])
+        if compression_core:
+            compression_cpu_mask = utils.generate_mask(compression_core)
         jm_cpu_mask = utils.generate_mask(jm_cpu_core)
 
 
@@ -1910,6 +1926,7 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
         snode.alceml_worker_cpu_cores = alceml_worker_cpu_cores
         snode.distrib_cpu_cores = distrib_cpu_cores
         snode.jc_singleton_mask = jc_singleton_mask or ""
+        snode.compression_cpu_mask = compression_cpu_mask or ""
         snode.nvmf_port = utils.get_next_dev_port(cluster_id)
         snode.poller_cpu_cores = poller_cpu_cores or []
         snode.socket = node_socket
@@ -2687,6 +2704,9 @@ def _restart_storage_node_impl(
 
         if jc_singleton_core:
             snode.jc_singleton_mask = utils.decimal_to_hex_power_of_2(jc_singleton_core[0])
+        compression_core = new_distribution.get("compression_core")
+        if compression_core:
+            snode.compression_cpu_mask = utils.generate_mask(compression_core)
         snode.jm_cpu_mask = utils.generate_mask(jm_cpu_core)
 
     if not results:
@@ -5576,9 +5596,7 @@ def _release_lvs_subsys_port_on_peers(lvs_node, exclude_node_id, db_controller):
             peer = db_controller.get_storage_node_by_id(pid)
             if not peer or peer.status != StorageNode.STATUS_ONLINE:
                 continue
-            port_type = "udp" if peer.active_rdma else "tcp"
-            FirewallClient(peer, timeout=5, retry=2).firewall_set_port(
-                port, port_type, "allow", peer.rpc_port)
+            port_block.set_port(peer, port, block=False, timeout=5, retry=2)
             tcp_ports_events.port_allowed(peer, port)
             logger.info("Defensive unblock: allowed LVS port %s on peer %s after "
                         "failed recreate of %s", port, pid, lvs_node.lvstore)
@@ -5933,44 +5951,82 @@ def recreate_lvstore(snode, force=False, lvs_primary=None, activation_mode=False
         raise Exception(f"Abort restart: {reason}")
 
     if not activation_mode:
-        # Wait for replication to finish on the current leader only
-        if current_leader and current_leader.get_id() not in disconnected_peers:
-            try:
-                ret = current_leader.wait_for_jm_rep_tasks_to_finish(lvs_jm_vuid)
-                if not ret:
-                    msg = f"JM replication task found on leader {current_leader.get_id()} for jm {lvs_jm_vuid}"
-                    logger.error(msg)
-                    storage_events.jm_repl_tasks_found(current_leader, lvs_jm_vuid)
-            except Exception as e:
-                raise Exception(
-                    f"Abort restart: replication-wait on leader {current_leader.get_id()} failed: {e}")
-
-        ### 3- block LVS port on every connected peer (leader + non-leaders).
-        # Without blocking the tertiary, client IO can leak to it during the
+        ### 3- block LVS port on every connected peer (leader + non-leaders),
+        # then suspend the leader's journal replication before the flap.
+        #
+        # Per attempt against the current leader:
+        #   a. wait for any in-flight JM replication task to finish (loops
+        #      internally) so we don't block mid-replication;
+        #   b. mark the leader in_creation and block its LVS port;
+        #   c. jc_disable_replication(jm_vuid):
+        #        True  -> no active replication; it is now suspended (~12s) ->
+        #                 proceed with the drain + leadership drop below.
+        #        False -> active replication present -> unblock the leader port
+        #                 and retry the whole sequence (re-wait, re-block,
+        #                 re-disable).
+        #
+        # Without blocking the tertiary too, client IO can leak to it during the
         # leader flap: tertiary's LVOL listener stays open and serves writes
         # whose hublvol redirect target is mid-transition, producing
-        # writer_conflict events on the journal. Each peer stays blocked
-        # until its connect_to_hublvol succeeds in ### 8b.
+        # writer_conflict events on the journal. Non-leader peers are blocked
+        # once, after the leader's replication is confirmed suspended. Each peer
+        # stays blocked until its connect_to_hublvol succeeds in ### 8b.
         if current_leader and current_leader.get_id() not in disconnected_peers:
-            try:
-                current_leader.lvstore_status = "in_creation"
-                current_leader.write_to_db()
-                time.sleep(3)
+            _REPL_SUSPEND_MAX_ATTEMPTS = 10
+            replication_suspended = False
+            for _attempt in range(_REPL_SUSPEND_MAX_ATTEMPTS):
+                # a. ensure no active replication on the leader (loops internally)
+                try:
+                    ret = current_leader.wait_for_jm_rep_tasks_to_finish(lvs_jm_vuid)
+                    if not ret:
+                        msg = f"JM replication task found on leader {current_leader.get_id()} for jm {lvs_jm_vuid}"
+                        logger.error(msg)
+                        storage_events.jm_repl_tasks_found(current_leader, lvs_jm_vuid)
+                except Exception as e:
+                    raise Exception(
+                        f"Abort restart: replication-wait on leader {current_leader.get_id()} failed: {e}")
 
-                port_block.set_port(current_leader, snode_lvs_port, block=True, timeout=5, retry=2)
-                tcp_ports_events.port_deny(current_leader, snode_lvs_port)
-                blocked_peers.append(current_leader)
-            except Exception as e:
-                # Failing to port-block the current leader means we cannot
-                # safely promote snode: the old leader may still be serving
-                # IO, and a parallel leader on snode would produce a writer
-                # conflict (observed 2026-04-25, LVS_6609 incident).
-                # _check_hublvol_connected from snode is meaningless here —
-                # snode hasn't reconnected to peer hublvols yet — so we
-                # cannot use it to discriminate "peer gone" from "peer slow".
-                # Abort the attempt; the task runner will retry.
+                # b. block the leader's LVS port
+                try:
+                    current_leader.lvstore_status = "in_creation"
+                    current_leader.write_to_db()
+                    port_block.set_port(current_leader, snode_lvs_port, block=True, timeout=5, retry=2)
+                    tcp_ports_events.port_deny(current_leader, snode_lvs_port)
+                    blocked_peers.append(current_leader)
+                except Exception as e:
+                    # Failing to port-block the current leader means we cannot
+                    # safely promote snode: the old leader may still be serving
+                    # IO, and a parallel leader on snode would produce a writer
+                    # conflict (observed 2026-04-25, LVS_6609 incident).
+                    # _check_hublvol_connected from snode is meaningless here —
+                    # snode hasn't reconnected to peer hublvols yet — so we
+                    # cannot use it to discriminate "peer gone" from "peer slow".
+                    # Abort the attempt; the task runner will retry.
+                    _abort_restart_and_unblock(
+                        f"Failed to port-block leader {current_leader.get_id()}: {e}")
+
+                # c. suspend journal replication while the port is blocked
+                try:
+                    repl_disabled = current_leader.rpc_client().jc_disable_replication(lvs_jm_vuid)
+                except Exception as e:
+                    _abort_restart_and_unblock(
+                        f"jc_disable_replication on leader {current_leader.get_id()} failed: {e}")
+                if repl_disabled:
+                    replication_suspended = True
+                    break
+
+                # Active replication still present: unblock the leader port and
+                # retry the full sequence from the replication wait.
+                logger.warning(
+                    "jc_disable_replication reports active replication on leader %s "
+                    "(attempt %d/%d); unblocking and retrying",
+                    current_leader.get_id(), _attempt + 1, _REPL_SUSPEND_MAX_ATTEMPTS)
+                _unblock_peer_port(current_leader)
+
+            if not replication_suspended:
                 _abort_restart_and_unblock(
-                    f"Failed to port-block leader {current_leader.get_id()}: {e}")
+                    f"Could not suspend journal replication on leader "
+                    f"{current_leader.get_id()} after {_REPL_SUSPEND_MAX_ATTEMPTS} attempts")
 
         # Also block non-leader peers (tertiary). The leader's demote+drain
         # below is leader-specific; non-leaders just need the port shut so
@@ -6597,7 +6653,9 @@ def create_lvstore(snode, ndcs, npcs, distr_bs, distr_chunk_bs, page_size_in_blo
     lvstore_stack: List[dict] = []
     distrib_list = []
     distrib_vuids = []
-    size = max_size // snode.number_of_distribs
+    # Fixed size per distrib, reported up to the raid0/lvstore layer,
+    # regardless of cluster raw capacity (max_size) or number_of_distribs.
+    size = constants.DISTRIB_SIZE_BYTES
     distr_page_size = page_size_in_blocks
     # distr_page_size = (ndcs + npcs) * page_size_in_blocks
     # cluster_sz = ndcs * page_size_in_blocks

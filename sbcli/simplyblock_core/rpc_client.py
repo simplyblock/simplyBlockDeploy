@@ -1056,7 +1056,8 @@ class RPCClient:
         }
         return self._request("ultra21_lvol_dismount", params)
 
-    def bdev_jm_create(self, name, name_storage1, block_size=4096, jm_cpu_mask="", shared_placement=False):
+    def bdev_jm_create(self, name, name_storage1, block_size=4096, jm_cpu_mask="", shared_placement=False,
+                       compression_thread=False, compression_cpu_mask=""):
         params = {
             "name": name,
             "name_storage1": name_storage1,
@@ -1072,6 +1073,14 @@ class RPCClient:
             params["shared_placement"] = True
         if jm_cpu_mask:
             params["bdb_lcpu_mask"] = int(jm_cpu_mask, 16)
+        # Compression thread: enabled per-branch (constants.JM_COMPRESSION_THREAD_ENABLED).
+        # compression_cpu_mask is a hex mask string co-located with jc-singleton on
+        # nodes <32 vCPU, or a dedicated core on >=32 vCPU; the data plane wants it as
+        # an int, matching bdb_lcpu_mask above.
+        if compression_thread:
+            params["compression_thread"] = True
+            if compression_cpu_mask:
+                params["compression_cpu_mask"] = int(compression_cpu_mask, 16)
         return self._request("bdev_jm_create", params)
 
     def bdev_jm_delete(self, name, safe_removal=False):
@@ -1439,6 +1448,20 @@ class RPCClient:
         }
         return self._request("jc_get_jm_status", params)
 
+    def jc_disable_replication(self, jm_vuid):
+        """Suspend journal replication on the target JM before a leadership flap.
+
+        Return value:
+            True  - no active replication; replication is now suspended for ~12s.
+            False - active replication present; management must unblock the LVS
+                    port, wait for replication to finish, and retry the full
+                    block sequence.
+        """
+        params = {
+            "jm_vuid": jm_vuid,
+        }
+        return self._request("jc_disable_replication", params)
+
     def bdev_distrib_check_inflight_io(self, jm_vuid):
         params = {
             "jm_vuid": jm_vuid,
@@ -1495,7 +1518,7 @@ class RPCClient:
     def nvmf_port_block(self, port, is_reject=False):
         params = {
             "port": port,
-            "is_reject": bool(is_reject),
+            "reject": bool(is_reject),
         }
         return self._request_raise("nvmf_port_block", params)
 
