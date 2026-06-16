@@ -1,0 +1,191 @@
+#!/bin/bash
+
+set -exo pipefail
+
+KEY="${KEY:-$HOME/.ssh/id_ed25519}"
+
+print_help() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  --k8s-snode <value>                  Set Storage node to run on k8s (default: false)"
+    echo "  --help                               Print this help message"
+    exit 0
+}
+
+K8S_SNODE="false"
+
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+    --k8s-snode)
+        K8S_SNODE="true"
+        ;;
+    --help)
+        print_help
+        ;;
+    *)
+        echo "Unknown option: $1"
+        print_help
+        ;;
+    esac
+    shift
+done
+
+BASTION_IP=$(terraform output -raw bastion_public_ip)
+k3snodes=($(terraform output -raw extra_nodes_public_ips))
+k3snodes_private_ips=($(terraform output -raw extra_nodes_private_ips))
+distro=$(terraform output -raw storage_node_distro)
+IFS=' ' read -ra k3snodes_private_ips <<<"$k3snodes_private_ips"
+
+storage_private_ips=$(terraform output -raw storage_private_ips)
+
+echo "KEY=$KEY" >> ${GITHUB_OUTPUT:-/dev/stdout}
+echo "extra_node_ip=${k3snodes[0]}" >> ${GITHUB_OUTPUT:-/dev/stdout}
+
+detect_ssh_user() {
+    local target_ip="$1"
+    local bastion_ip="$2"
+    local user="ec2-user"
+
+    for u in ec2-user rocky ubuntu; do
+        if ssh -i "$KEY" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=5 \
+            -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -i \"$KEY\" -o StrictHostKeyChecking=no -W %h:%p ec2-user@$bastion_ip" \
+            $u@$target_ip "command -v bash" >/dev/null 2>&1; then
+            user="$u"
+            break
+        fi
+    done
+
+    echo "$user"
+}
+
+
+PKG_INSTALL_SNIPPET='
+detect_pkg_manager() {
+    if command -v yum >/dev/null 2>&1; then
+        echo "yum"
+    elif command -v apt >/dev/null 2>&1; then
+        echo "apt"
+    else
+        echo "unknown"
+    fi
+}
+
+PKG_MANAGER=$(detect_pkg_manager)
+
+if [ "$PKG_MANAGER" = "yum" ]; then
+    sudo yum install -y fio nvme-cli pciutils make golang iptables iptables-services
+elif [ "$PKG_MANAGER" = "apt" ]; then
+    sudo apt update
+    sudo apt install -y fio nvme-cli pciutils make golang
+else
+    echo "Unsupported package manager: $PKG_MANAGER"
+    exit 1
+fi
+'
+
+SSH_USER=$(detect_ssh_user ${k3snodes[0]} $BASTION_IP)
+
+ssh -i $KEY -o StrictHostKeyChecking=no ${SSH_USER}@${k3snodes[0]} "
+$PKG_INSTALL_SNIPPET
+sudo modprobe br_netfilter
+sudo modprobe overlay
+sudo modprobe nvme-tcp
+sudo modprobe nbd
+sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--advertise-address=${k3snodes[0]} --disable=traefik' bash
+sudo /usr/local/bin/k3s kubectl taint nodes --all node-role.kubernetes.io/master-
+sudo chown $SSH_USER:$SSH_USER /etc/rancher/k3s/k3s.yaml
+echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+sudo sysctl --system
+"
+
+## In case of Rocky10, reboot the node
+
+if [ "$distro" == "rocky10" ]; then
+    echo "Rebooting the first k3s node ${k3snodes[0]} as it is Rocky Linux 10..."
+    ssh -i $KEY -o StrictHostKeyChecking=no ${SSH_USER}@${k3snodes[0]} "sudo reboot"
+    echo "Waiting for the first k3s node ${k3snodes[0]} to come back online..."
+    while ! ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "echo 'Node is back online'"; do
+        sleep 10
+    done
+    # even after node reboot, wait for the k3s server to come back up
+    sleep 10
+fi
+
+MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[0]} | awk '{print \$1}'")
+ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
+
+TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
+
+for ((i=1; i<${#k3snodes[@]}; i++)); do
+    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[${i}]} "
+    $PKG_INSTALL_SNIPPET
+    sudo modprobe br_netfilter
+    sudo modprobe overlay
+    sudo modprobe nvme-tcp
+    sudo modprobe nbd
+    sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+    curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
+    echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+    echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+    sudo sysctl --system
+    "
+
+    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${k3snodes_private_ips[${i}]} | awk '{print \$1}'")
+    ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
+done
+
+if [ "$K8S_SNODE" == "true" ]; then
+    for node in ${storage_private_ips[@]}; do
+        echo ""
+        echo "Adding primary storage node ${node}.."
+        echo ""
+
+        SSH_USER=$(detect_ssh_user "$node" "$BASTION_IP")
+
+        ssh -i "$KEY" -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p ec2-user@${BASTION_IP}" \
+            ${SSH_USER}@${node} "
+
+            $PKG_INSTALL_SNIPPET
+            sudo modprobe br_netfilter
+            sudo modprobe overlay
+            sudo modprobe nvme-tcp
+            sudo modprobe nbd
+            sudo systemctl disable nm-cloud-setup.service nm-cloud-setup.timer
+            total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
+            total_memory_mb=\$((total_memory_kb / 1024))
+            hugepages=\$((total_memory_mb / 4 / 2))
+            sudo sysctl -w vm.nr_hugepages=\$hugepages
+            curl -sfL https://get.k3s.io | K3S_URL=https://${k3snodes[0]}:6443 K3S_TOKEN=$TOKEN bash
+            echo 'nvme-tcp' | sudo tee /etc/modules-load.d/nvme-tcp.conf
+            echo 'nbd' | sudo tee /etc/modules-load.d/nbd.conf
+            sudo sysctl --system
+        "
+
+        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        ssh -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/zone=default --overwrite"
+    done
+fi
+
+# copy kubeconfig
+scp -i $KEY -o StrictHostKeyChecking=no $SSH_USER@${k3snodes[0]}:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+#!/bin/bash
+
+PATTERN="s|https://[^:]*:[0-9]*|https://${k3snodes}:6443|g"
+CONFIG_FILE="./kubeconfig"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS/BSD sed
+  sed -i '' "$PATTERN" "$CONFIG_FILE"
+else
+  # Linux/GNU sed
+  sed -i "$PATTERN" "$CONFIG_FILE"
+fi
+
+echo "Kubeconfig copied to ./kubeconfig. \nTo use it please run 'export KUBECONFIG=\$PWD/kubeconfig'"

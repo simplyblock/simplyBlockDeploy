@@ -1,8 +1,0 @@
-.DS_Store
-.cache
-site
-venv
-.idea
-docs/reference/cli
-scripts/sbcli-repo
-docs/reference/api/openapi.json
