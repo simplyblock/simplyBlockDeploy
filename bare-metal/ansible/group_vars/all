@@ -1,0 +1,15 @@
+management_nic: eth0
+data_nic: eth1
+docker_proxy_url: http://34.1.171.127:5000
+docker_insecure_registry: 34.1.171.127:5000
+k8s_snode: false
+cleanup: false
+wipe_storage_devices: false
+storage_wipe_devices:
+  - nvme0n1
+  - nvme1n1
+  - nvme2n1
+  - nvme3n1
+storage_wipe_partitions:
+  - 1
+  - 2
