@@ -394,10 +394,10 @@ install_sbcli_on_node() {
         pip install ${SBCLI_INSTALL_SOURCE} --upgrade
     "
     if [ -n "${SIMPLY_BLOCK_DOCKER_IMAGE+x}" ]; then
-        ssh_exec "$node_ip" "ENV_VAR_FILE=\$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null | head -1); sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" \"\${ENV_VAR_FILE}\""
+        ssh_exec "$node_ip" "for f in \$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null); do sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" \"\$f\"; done"
     fi
     if [ -n "${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE+x}" ]; then
-        ssh_exec "$node_ip" "ENV_VAR_FILE=\$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null | head -1); sed -i \"s#^\(SIMPLY_BLOCK_SPDK_ULTRA_IMAGE=\).*#\1${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE}#\" \"\${ENV_VAR_FILE}\""
+        ssh_exec "$node_ip" "for f in \$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null); do sed -i \"s#^\(SIMPLY_BLOCK_SPDK_ULTRA_IMAGE=\).*#\1${SIMPLY_BLOCK_SPDK_ULTRA_IMAGE}#\" \"\$f\"; done"
     fi
 
     # sbcli configure
