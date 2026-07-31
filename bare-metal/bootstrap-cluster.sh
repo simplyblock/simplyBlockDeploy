@@ -14,7 +14,7 @@ storage_private_ips=$STORAGE_PRIVATE_IPS
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-subsys  <value>                Set Maximum subsystems (optional)"
+    echo "  --max-subsys  <value>                Set Maximum subsystems (--max-lvol on older sbcli) (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
     echo "  --max-size  <value>                  Set Maximum amount of GB to be utilized on storage node (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
@@ -57,7 +57,7 @@ print_help() {
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
     echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
-    echo "                                       --pci-blocked, --max-subsys, --max-size) are auto-routed to sn configure."
+    echo "                                       --pci-blocked, --max-subsys, --max-lvol, --max-size) are auto-routed to sn configure."
     echo "                                       Remaining flags go to sn add-node."
     echo "                                       Example: --extra-sn-args \"--spdk-debug --nodes-per-socket 4\""
     echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
@@ -299,6 +299,7 @@ CONFIGURE_ONLY_FLAGS=(
     --pci-allowed
     --pci-blocked
     --max-subsys
+    --max-lvol
     --max-size
 )
 
@@ -415,8 +416,14 @@ install_sbcli_on_node() {
         "
 
         ssh_exec "$node_ip" "
-            echo ${configure_cmd} > /root/sn_deploy.log 2>&1
-            $configure_cmd >> /root/sn_deploy.log 2>&1
+            # Detect sbctl flag: newer versions use --max-subsys, older use --max-lvol
+            CONFIGURE_CMD=\"${configure_cmd}\"
+            if ! ${SBCLI_CMD} storage-node configure --help 2>&1 | grep -q -- '--max-subsys'; then
+                CONFIGURE_CMD=\"\${CONFIGURE_CMD//--max-subsys/--max-lvol}\"
+                echo 'Note: sbctl does not support --max-subsys, falling back to --max-lvol'
+            fi
+            echo \${CONFIGURE_CMD} > /root/sn_deploy.log 2>&1
+            eval \${CONFIGURE_CMD} >> /root/sn_deploy.log 2>&1
             if [ \"$K8S_SNODE\" == \"true\" ]; then
                 :
             else
