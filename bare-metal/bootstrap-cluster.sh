@@ -118,7 +118,7 @@ EXTRA_CLUSTER_ARGS=()
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-    --max-subsys)
+    --max-subsys|--max-lvol)
         MAX_SUBSYS="$2"
         shift
         ;;
