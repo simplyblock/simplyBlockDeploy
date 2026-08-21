@@ -14,9 +14,9 @@ storage_private_ips=$STORAGE_PRIVATE_IPS
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-subsys  <value>                Set Maximum subsystems (--max-lvol on older sbcli) (optional)"
+    echo "  --max-subsys  <value>                Set Maximum subsystems per node, passed to cluster create (cluster-wide) (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
-    echo "  --max-size  <value>                  Set Maximum amount of GB to be utilized on storage node (optional)"
+    echo "  --max-size  <value>                  Set huge-page memory floor per node, maps to --hugepages-mem on cluster create (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
     echo "  --journal-partition <value>          Set 1: auto-create small partitions for journal on nvme devices. 0: use a separate (the smallest) nvme device of the node for journal (optional)"
     echo "  --iobuf_small_bufsize <value>        Set bdev_set_options param (optional)"
@@ -43,9 +43,8 @@ print_help() {
     echo "  --spdk-debug                         Allow core dumps on storage nodes (optional)"
     echo "  --disable-ha-jm                      Disable HA JM for distrib creation (optional)"
     echo "  --enable-test-device                 Enable creation of test device (optional)"
-    echo "  --full-page-unmap                    Enable use_map_whole_page_on_1st_write flaf in bdev_distrib_create and bdev_alceml_create (optional)"
     echo "  --data-nics                          Set Storage network interface name(s). Can be more than one. (optional)"
-    echo "  --vcpu-count                         Set Number of vCPUs used for SPDK. (optional)"
+    echo "  --vcpu-count <value>                 Set Number of vCPUs for SPDK per node, passed to cluster create (optional)"
     echo "  --id-device-by-nqn                   Use device nqn to identify it instead of serial number. (optional)"
     echo "  --jm-percent                         Number in percent to use for JM from each device (optional)"
     echo "  --size-of-device                     Size of device per storage node (optional)"
@@ -57,7 +56,7 @@ print_help() {
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
     echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
-    echo "                                       --pci-blocked, --max-subsys, --max-lvol, --max-size) are auto-routed to sn configure."
+    echo "                                       --pci-blocked) are auto-routed to sn configure."
     echo "                                       Remaining flags go to sn add-node."
     echo "                                       Example: --extra-sn-args \"--spdk-debug --nodes-per-socket 4\""
     echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
@@ -107,7 +106,6 @@ JM_PERCENT=""
 PARTITION_SIZE=""
 IS_SINGLE_NODE=""
 ENABLE_TEST_DEVICE="false"
-FULL_PAGE_UNMAP="false"
 CLEAN_UP="false"
 
 PROXY_URL="http://34.1.171.127:5000"
@@ -238,7 +236,7 @@ while [[ $# -gt 0 ]]; do
         ENABLE_TEST_DEVICE="true"
         ;;
     --full-page-unmap)
-        FULL_PAGE_UNMAP="true"
+        echo "Warning: --full-page-unmap has been removed from sbcli, ignoring."
         ;;
     --cleanup)
         CLEAN_UP="true"
@@ -298,9 +296,6 @@ CONFIGURE_ONLY_FLAGS=(
     --sockets-to-use
     --pci-allowed
     --pci-blocked
-    --max-subsys
-    --max-lvol
-    --max-size
 )
 
 # Split EXTRA_SN_ARGS: extract configure-specific flags into EXTRA_CONFIGURE_ARGS,
@@ -416,12 +411,7 @@ install_sbcli_on_node() {
         "
 
         ssh_exec "$node_ip" "
-            # Detect sbctl flag: newer versions use --max-subsys, older use --max-lvol
             CONFIGURE_CMD=\"${configure_cmd}\"
-            if ! ${SBCLI_CMD} storage-node configure --help 2>&1 | grep -q -- '--max-subsys'; then
-                CONFIGURE_CMD=\"\${CONFIGURE_CMD//--max-subsys/--max-lvol}\"
-                echo 'Note: sbctl does not support --max-subsys, falling back to --max-lvol'
-            fi
             echo \${CONFIGURE_CMD} > /root/sn_deploy.log 2>&1
             eval \${CONFIGURE_CMD} >> /root/sn_deploy.log 2>&1
             if [ \"$K8S_SNODE\" == \"true\" ]; then
@@ -452,6 +442,9 @@ bootstrap_cluster() {
     [[ -n "$ENABLE_NODE_AFFINITY" ]] && command+=" --enable-node-affinity"
     [[ -n "$IS_SINGLE_NODE" ]] && command+=" --is-single-node"
     [[ -n "$QPAIR_COUNT" ]] && command+=" --qpair-count $QPAIR_COUNT"
+    [[ -n "$MAX_SUBSYS" ]] && command+=" --max-subsys $MAX_SUBSYS"
+    [[ -n "$MAX_SIZE" ]] && command+=" --hugepages-mem $MAX_SIZE"
+    [[ -n "$VCPU_COUNT" ]] && command+=" --vcpu-count $VCPU_COUNT"
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
     [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
@@ -556,7 +549,6 @@ add_storage_nodes() {
     [[ -n "$SPDK_IMAGE" ]] && add_cmd+=" --spdk-image $SPDK_IMAGE"
     [[ "$DISABLE_HA_JM" == "true" ]] && add_cmd+=" --disable-ha-jm"
     [[ "$ENABLE_TEST_DEVICE" == "true" ]] && add_cmd+=" --enable-test-device"
-    [[ "$FULL_PAGE_UNMAP" == "true" ]] && add_cmd+=" --full-page-unmap"
     [[ "$SPDK_DEBUG" == "true" ]] && add_cmd+=" --spdk-debug"
     [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
     [[ -n "$JM_PERCENT" ]] && add_cmd+=" --jm-percent $JM_PERCENT"
@@ -592,8 +584,6 @@ main() {
     fi
 
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
-    [[ -n "$MAX_SUBSYS" ]] && configure_cmd+=" --max-subsys $MAX_SUBSYS"
-    [[ -n "$MAX_SIZE" ]] && configure_cmd+=" --max-size $MAX_SIZE"
     # Append configure flags extracted from --extra-sn-args
     for arg in "${EXTRA_CONFIGURE_ARGS[@]}"; do
         configure_cmd+=" $arg"
