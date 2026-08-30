@@ -1,6 +1,7 @@
 #!/bin/bash
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
+NR_HUGEPAGES=${NR_HUGEPAGES:-}
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -91,9 +92,6 @@ ssh -i $KEY -o StrictHostKeyChecking=no \
 sudo yum install -y fio nvme-cli bc;
 sudo modprobe nvme-tcp
 sudo modprobe nbd
-total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-total_memory_mb=\$((total_memory_kb / 1024))
-#hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
 hugepages=0
 
 sudo sysctl -w vm.nr_hugepages=\$hugepages
@@ -124,9 +122,6 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo yum install -y fio nvme-cli bc;
     sudo modprobe nvme-tcp
     sudo modprobe nbd
-    total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-    total_memory_mb=\$((total_memory_kb / 1024))
-    #hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
     hugepages=0
 
     sudo sysctl -w vm.nr_hugepages=\$hugepages
@@ -161,9 +156,8 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo modprobe nvme-tcp
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
-
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+            hugepages=${NR_HUGEPAGES:-\$((total_memory_mb / 4))}
 
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
@@ -196,7 +190,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo modprobe nbd
             total_memory_kb=\$(grep MemTotal /proc/meminfo | awk '{print \$2}')
             total_memory_mb=\$((total_memory_kb / 1024))
-            hugepages=\$(echo \"\$total_memory_mb * 0.3 / 1\" | bc)
+            hugepages=${NR_HUGEPAGES:-\$((total_memory_mb / 4))}
 
             sudo sysctl -w vm.nr_hugepages=\$hugepages
             sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
