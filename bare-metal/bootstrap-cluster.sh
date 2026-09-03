@@ -14,7 +14,7 @@ storage_private_ips=$STORAGE_PRIVATE_IPS
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-subsys  <value>                Set Maximum subsystems per node, passed to cluster create as --max-subsys AND to storage-node configure as --max-lvol (required by configure)"
+    echo "  --max-subsys  <value>                Set Maximum subsystems per node, passed to cluster create (cluster-wide) (optional)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
     echo "  --max-size  <value>                  Set huge-page memory floor per node, maps to --hugepages-mem on cluster create (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
@@ -56,7 +56,10 @@ print_help() {
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
     echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
-    echo "                                       --pci-blocked) are auto-routed to sn configure."
+    echo "                                       --pci-blocked, --max-lvol, --max-subsys) are auto-routed to sn configure."
+    echo "                                       Use --max-lvol/--max-subsys here (not the top-level --max-subsys flag)"
+    echo "                                       when the target sbcli's 'storage-node configure' requires one of them"
+    echo "                                       (this has changed across versions and isn't inferable from branch name)."
     echo "                                       Remaining flags go to sn add-node."
     echo "                                       Example: --extra-sn-args \"--spdk-debug --nodes-per-socket 4\""
     echo "                                       Example: --extra-sn-args \"--host-nqn /home/ec2-user/host-nqn.json\""
@@ -296,6 +299,8 @@ CONFIGURE_ONLY_FLAGS=(
     --sockets-to-use
     --pci-allowed
     --pci-blocked
+    --max-lvol
+    --max-subsys
 )
 
 # Split EXTRA_SN_ARGS: extract configure-specific flags into EXTRA_CONFIGURE_ARGS,
@@ -584,10 +589,12 @@ main() {
     fi
 
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
-    # storage-node configure requires --max-lvol (not --max-subsys, which
-    # only belongs to cluster create). Reuse the same --max-subsys/--max-lvol
-    # script flag for both.
-    [[ -n "$MAX_SUBSYS" ]] && configure_cmd+=" --max-lvol $MAX_SUBSYS"
+    # Whether configure needs --max-lvol, --max-subsys, or neither depends on
+    # which sbcli version is deployed (this has changed more than once) and
+    # can't be inferred from a branch name. Rather than guess here (which
+    # would change behavior for every caller of this shared script), that
+    # value-if-needed is opt-in only, via --extra-sn-args --max-lvol/--max-subsys
+    # <value> — now routed here since both are in CONFIGURE_ONLY_FLAGS above.
     # Append configure flags extracted from --extra-sn-args
     for arg in "${EXTRA_CONFIGURE_ARGS[@]}"; do
         configure_cmd+=" $arg"
