@@ -14,7 +14,7 @@ storage_private_ips=$STORAGE_PRIVATE_IPS
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --max-subsys  <value>                Set Maximum subsystems per node, passed to cluster create (cluster-wide) (optional)"
+    echo "  --max-subsys  <value>                Set Maximum subsystems per node, passed to cluster create as --max-subsys AND to storage-node configure as --max-lvol (required by configure)"
     echo "  --max-snap  <value>                  Set Maximum snapshots (optional)"
     echo "  --max-size  <value>                  Set huge-page memory floor per node, maps to --hugepages-mem on cluster create (optional)"
     echo "  --number-of-devices <value>          Set number of devices (optional)"
@@ -584,6 +584,10 @@ main() {
     fi
 
     local configure_cmd="${SBCLI_CMD} --dev -d storage-node configure"
+    # storage-node configure requires --max-lvol (not --max-subsys, which
+    # only belongs to cluster create). Reuse the same --max-subsys/--max-lvol
+    # script flag for both.
+    [[ -n "$MAX_SUBSYS" ]] && configure_cmd+=" --max-lvol $MAX_SUBSYS"
     # Append configure flags extracted from --extra-sn-args
     for arg in "${EXTRA_CONFIGURE_ARGS[@]}"; do
         configure_cmd+=" $arg"
