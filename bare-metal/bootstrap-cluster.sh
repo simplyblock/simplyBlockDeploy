@@ -51,11 +51,22 @@ print_help() {
     echo "  --mode                               The Environment to deploy management services (optional)"
     echo "  --cleanup                            cleans up the cluster before deployment"
     echo "  --is-single-node                     Deploy as single-node cluster (optional)"
+    echo "  --device-mode <nvme|lblk>            Storage backing for the cluster (optional, default: nvme)."
+    echo "                                       nvme: NVMe PCIe devices bound to SPDK (the historical behaviour)."
+    echo "                                       lblk: generic Linux block devices wrapped in SPDK AIO bdevs; the"
+    echo "                                       devices stay on their kernel driver and are NOT rebound to"
+    echo "                                       uio_pci_generic/vfio-pci. Each node auto-selects every eligible"
+    echo "                                       whole disk, so no device list is needed; partitions are never"
+    echo "                                       auto-selected and must be named with --blk-names/--blk-serials"
+    echo "                                       (passed through --extra-sn-args). Implies --enable-journal-device."
+    echo "                                       Requires SIMPLY_BLOCK_DOCKER_IMAGE to be pinned."
     echo "  --extra-cluster-args <value>         Additional arguments to pass to cluster create command (optional)"
     echo "                                       Example: --extra-cluster-args \"--log-del-interval 10 --cap-warn 80\""
     echo "  --extra-sn-args <value>              Additional arguments to pass to storage-node commands (optional)"
     echo "                                       Configure flags (--nodes-per-socket, --sockets-to-use, --pci-allowed,"
-    echo "                                       --pci-blocked, --max-lvol, --max-subsys) are auto-routed to sn configure."
+    echo "                                       --pci-blocked, --max-lvol, --max-subsys, --blk-names,"
+    echo "                                       --blk-names-exclude, --blk-serials, --jm-percent) are auto-routed"
+    echo "                                       to sn configure, as are the valueless --lblk and --force."
     echo "                                       Use --max-lvol/--max-subsys here (not the top-level --max-subsys flag)"
     echo "                                       when the target sbcli's 'storage-node configure' requires one of them"
     echo "                                       (this has changed across versions and isn't inferable from branch name)."
@@ -111,6 +122,9 @@ PARTITION_SIZE=""
 IS_SINGLE_NODE=""
 ENABLE_TEST_DEVICE="false"
 CLEAN_UP="false"
+# nvme (default) preserves every historical code path byte-for-byte; lblk is
+# opt-in and every behaviour change below is gated on it.
+DEVICE_MODE="nvme"
 
 PROXY_URL="http://34.1.171.127:5000"
 INSECURE_URL="34.1.171.127:5000"
@@ -273,6 +287,10 @@ while [[ $# -gt 0 ]]; do
         IS_SINGLE_NODE="$2"
         shift
         ;;
+    --device-mode)
+        DEVICE_MODE="$2"
+        shift
+        ;;
     --extra-sn-args)
         read -r -a EXTRA_SN_ARGS <<< "$2"
         shift
@@ -294,7 +312,7 @@ while [[ $# -gt 0 ]]; do
 done
 }
 
-# Flags that belong to "storage-node configure" (all take a value argument)
+# Flags that belong to "storage-node configure" AND take a value argument.
 CONFIGURE_ONLY_FLAGS=(
     --nodes-per-socket
     --sockets-to-use
@@ -302,6 +320,22 @@ CONFIGURE_ONLY_FLAGS=(
     --pci-blocked
     --max-lvol
     --max-subsys
+    --blk-names
+    --blk-names-exclude
+    --blk-serials
+    --jm-percent
+)
+
+# Flags that belong to "storage-node configure" and take NO value.
+#
+# These need their own list because the router below consumes the next token as
+# the flag's value. Putting a valueless flag in CONFIGURE_ONLY_FLAGS silently
+# eats whatever follows it: "--lblk --blk-names sdb,sdc" would route as
+# ("--lblk" "--blk-names") and leak "sdb,sdc" to add-node as a stray positional,
+# which fails as "unrecognized arguments" a long way from the cause.
+CONFIGURE_ONLY_BOOL_FLAGS=(
+    --lblk
+    --force
 )
 
 # Split EXTRA_SN_ARGS: extract configure-specific flags into EXTRA_CONFIGURE_ARGS,
@@ -311,6 +345,21 @@ split_extra_sn_args() {
     local i=0
     while [[ $i -lt ${#EXTRA_SN_ARGS[@]} ]]; do
         local arg="${EXTRA_SN_ARGS[$i]}"
+
+        # Valueless configure flags first: consume one token, not two.
+        local is_bool=false
+        for flag in "${CONFIGURE_ONLY_BOOL_FLAGS[@]}"; do
+            if [[ "$arg" == "$flag" ]]; then
+                is_bool=true
+                break
+            fi
+        done
+        if [[ "$is_bool" == "true" ]]; then
+            EXTRA_CONFIGURE_ARGS+=("$arg")
+            i=$((i + 1))
+            continue
+        fi
+
         local is_configure=false
         for flag in "${CONFIGURE_ONLY_FLAGS[@]}"; do
             if [[ "$arg" == "$flag" ]]; then
@@ -319,6 +368,10 @@ split_extra_sn_args() {
             fi
         done
         if [[ "$is_configure" == "true" ]]; then
+            if [[ $((i + 1)) -ge ${#EXTRA_SN_ARGS[@]} ]]; then
+                echo "ERROR: --extra-sn-args: '$arg' expects a value but none followed" >&2
+                exit 1
+            fi
             EXTRA_CONFIGURE_ARGS+=("$arg" "${EXTRA_SN_ARGS[$((i+1))]}")
             i=$((i + 2))
         else
@@ -412,14 +465,22 @@ install_sbcli_on_node() {
         local configure_cmd="$2"
 
         # cleanup partitions
-        ssh_exec "$node_ip" "
-              for disk in nvme0n1 nvme1n1 nvme2n1 nvme3n1; do
-                for part in 1 2; do
-                  echo \"Cleaning up partitions on \$disk:\$part\"
-                  sudo parted /dev/\$disk rm \$part || true
-                done
-              done
-        "
+        #
+        # Skipped in lblk mode: the disk names here are hardcoded NVMe
+        # namespaces, so on a node whose storage is sdb/sdc this is a no-op at
+        # best, and actively destructive if nvme0n1 happens to be the OS disk.
+        # lblk clears partitions through `sn configure --force` plus
+        # `add-node --force-format` instead, which act on the selected devices.
+        if [[ "$DEVICE_MODE" != "lblk" ]]; then
+            ssh_exec "$node_ip" "
+                  for disk in nvme0n1 nvme1n1 nvme2n1 nvme3n1; do
+                    for part in 1 2; do
+                      echo \"Cleaning up partitions on \$disk:\$part\"
+                      sudo parted /dev/\$disk rm \$part || true
+                    done
+                  done
+            "
+        fi
 
         ssh_exec "$node_ip" "
             CONFIGURE_CMD=\"${configure_cmd}\"
@@ -456,6 +517,7 @@ bootstrap_cluster() {
     [[ -n "$MAX_SUBSYS" ]] && command+=" --max-subsys $MAX_SUBSYS"
     [[ -n "$MAX_SIZE" ]] && command+=" --hugepages-mem $MAX_SIZE"
     [[ -n "$VCPU_COUNT" ]] && command+=" --vcpu-count $VCPU_COUNT"
+    [[ "$DEVICE_MODE" == "lblk" ]] && command+=" --device-mode lblk"
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
     [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
@@ -553,17 +615,27 @@ add_storage_nodes() {
     local add_cmd="${SBCLI_CMD} --dev -d storage-node add-node"
     [[ -n "$MAX_SNAPSHOT" ]] && add_cmd+=" --max-snap $MAX_SNAPSHOT"
     [[ -n "$IOBUF_SMALL_BUFFSIZE" ]] && add_cmd+=" --iobuf_small_bufsize $IOBUF_SMALL_BUFFSIZE"
-    [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS"
+    if [[ "$DEVICE_MODE" == "lblk" ]]; then
+        # Mandatory on lblk: the control plane rejects add-node without it,
+        # because the partitioned-journal mode that --journal-partition selects
+        # is not supported there. CI passes --journal-partition 1 by default,
+        # so it has to be actively suppressed rather than just left unset.
+        add_cmd+=" --enable-journal-device"
+    else
+        [[ -n "$NUM_PARTITIONS" ]] && add_cmd+=" --journal-partition $NUM_PARTITIONS"
+    fi
     [[ -n "$IOBUF_LARGE_BUFFSIZE" ]] && add_cmd+=" --iobuf_large_bufsize $IOBUF_LARGE_BUFFSIZE"
     [[ -n "$DATANICS" ]] && add_cmd+=" --data-nics $DATANICS"
-    [[ -n "$ID_DEVICE_BY_NQN" ]] && add_cmd+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
+    # NVMe-identity flag; meaningless for AIO bdevs, which are keyed by serial.
+    [[ "$DEVICE_MODE" != "lblk" && -n "$ID_DEVICE_BY_NQN" ]] && add_cmd+=" --id-device-by-nqn $ID_DEVICE_BY_NQN"
     [[ -n "$SPDK_IMAGE" ]] && add_cmd+=" --spdk-image $SPDK_IMAGE"
     [[ "$DISABLE_HA_JM" == "true" ]] && add_cmd+=" --disable-ha-jm"
     [[ "$ENABLE_TEST_DEVICE" == "true" ]] && add_cmd+=" --enable-test-device"
     [[ "$SPDK_DEBUG" == "true" ]] && add_cmd+=" --spdk-debug"
     [[ -n "$HA_JM_COUNT" ]] && add_cmd+=" --ha-jm-count $HA_JM_COUNT"
     [[ -n "$JM_PERCENT" ]] && add_cmd+=" --jm-percent $JM_PERCENT"
-    [[ -n "$PARTITION_SIZE" ]] && add_cmd+=" --size-of-device $PARTITION_SIZE"
+    # NVMe-partitioning oriented; the lblk device set is fixed at configure time.
+    [[ "$DEVICE_MODE" != "lblk" && -n "$PARTITION_SIZE" ]] && add_cmd+=" --size-of-device $PARTITION_SIZE"
     # [[ -n "$EXTRA_SN_ARGS" ]] && add_cmd+=" $EXTRA_SN_ARGS"
     for arg in "${EXTRA_SN_ARGS[@]}"; do
         add_cmd+=" $arg"
@@ -583,9 +655,43 @@ add_pool() {
     ssh_exec "${mnodes[0]}" "${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}"
 }
 
+validate_device_mode() {
+    case "$DEVICE_MODE" in
+    nvme) return 0 ;;
+    lblk) ;;
+    *)
+        echo "ERROR: --device-mode must be 'nvme' or 'lblk', got '$DEVICE_MODE'" >&2
+        exit 1
+        ;;
+    esac
+
+    # The control plane errors on these combinations anyway; failing here says
+    # so before the run has spent time deploying.
+    for arg in "${EXTRA_CONFIGURE_ARGS[@]}" "${EXTRA_SN_ARGS[@]}"; do
+        case "$arg" in
+        --pci-allowed | --pci-blocked | --ssd-pcie)
+            echo "ERROR: $arg cannot be combined with --device-mode lblk" >&2
+            exit 1
+            ;;
+        esac
+    done
+
+    # A control plane older than the lblk merge drops device_mode on
+    # read-modify-write, so the cluster silently comes up as nvme and the whole
+    # run is testing the wrong thing. Refuse to guess.
+    if [[ -z "${SIMPLY_BLOCK_DOCKER_IMAGE:-}" ]]; then
+        echo "ERROR: --device-mode lblk requires SIMPLY_BLOCK_DOCKER_IMAGE to be" >&2
+        echo "       pinned to an explicit tag at or after the lblk merge." >&2
+        echo "       The floating ':main' tag may be older and will silently" >&2
+        echo "       revert the cluster to nvme." >&2
+        exit 1
+    fi
+}
+
 main() {
     parse_args "$@"
     split_extra_sn_args
+    validate_device_mode
     IFS=' ' read -ra mnodes <<< "$MNODES"
 
     # cleanup if requested
@@ -606,7 +712,26 @@ main() {
         configure_cmd+=" $arg"
     done
 
+    # lblk selection: with no --blk-* selector each node auto-selects every
+    # eligible whole disk, which is what we want on a uniform lab. Selectors
+    # arrive via --extra-sn-args and are already appended above; only add --lblk
+    # if the caller did not pass it there.
+    if [[ "$DEVICE_MODE" == "lblk" && " ${EXTRA_CONFIGURE_ARGS[*]} " != *" --lblk "* ]]; then
+        configure_cmd+=" --lblk"
+    fi
+
     for node_ip in ${storage_private_ips}; do install_sbcli_on_node "$node_ip" "$configure_cmd" & done
+    # Per-node configure runs in the background and nothing waits for it before
+    # the cluster is created. That race exists in nvme mode too, but on lblk
+    # configure can repartition a disk, so losing it corrupts the device set
+    # rather than just reordering log lines.
+    #
+    # Gated on lblk deliberately: adding a barrier to the nvme path would change
+    # the timing of every run currently in flight, and that is not a change to
+    # make casually. The nvme race is worth fixing separately, on its own.
+    if [[ "$DEVICE_MODE" == "lblk" ]]; then
+        wait
+    fi
     for node_ip in ${mnodes[@]}; do install_sbcli_on_node "$node_ip" ""; done
 
     bootstrap_cluster "${mnodes[0]}"
