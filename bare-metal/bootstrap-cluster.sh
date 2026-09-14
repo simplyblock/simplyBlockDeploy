@@ -9,6 +9,13 @@ echo "mgmt_private_ips: ${mnodes}"
 IFS=' ' read -ra mnodes <<<"$mnodes"
 storage_private_ips=$STORAGE_PRIVATE_IPS
 
+# sbcli requires python >= 3.11, which the nodes don't ship, so it is installed
+# as a uv tool against a uv-managed interpreter. Both uv and the sbcli entry
+# point go to /usr/local/bin: non-login ssh shells don't pick up ~/.local/bin.
+UV_INSTALL_DIR="${UV_INSTALL_DIR:-/usr/local/bin}"
+UV_BIN="${UV_INSTALL_DIR}/uv"
+SBCLI_PYTHON_VERSION="${SBCLI_PYTHON_VERSION:-3.11}"
+
 
 print_help() {
     echo "Usage: $0 [options]"
@@ -391,14 +398,23 @@ install_sbcli_on_node() {
 
     echo "Installing sbcli on node: $node_ip"
     ssh_exec "$node_ip" "
-        old_pkg=\$(pip list | grep -i sbcli | awk '{print \$1}')
+        old_pkg=\$(pip list 2>/dev/null | grep -i sbcli | awk '{print \$1}')
         if [[ -n \"\${old_pkg}\" ]]; then
             \$old_pkg sn deploy-cleaner
             pip uninstall -y \$old_pkg
+        elif command -v ${SBCLI_CMD} >/dev/null 2>&1; then
+            ${SBCLI_CMD} sn deploy-cleaner || true
         fi
 
         sudo yum install -y git
-        pip install ${SBCLI_INSTALL_SOURCE} --upgrade
+
+        if [ ! -x ${UV_BIN} ]; then
+            curl -LsSf https://astral.sh/uv/install.sh \
+                | env UV_INSTALL_DIR=${UV_INSTALL_DIR} INSTALLER_NO_MODIFY_PATH=1 sh
+        fi
+
+        UV_TOOL_BIN_DIR=${UV_INSTALL_DIR} ${UV_BIN} tool install --force \
+            --python ${SBCLI_PYTHON_VERSION} ${SBCLI_INSTALL_SOURCE}
     "
     if [ -n "${SIMPLY_BLOCK_DOCKER_IMAGE+x}" ]; then
         ssh_exec "$node_ip" "for f in \$(find /usr /root ~/.local -name env_var -path '*/site-packages/simplyblock_core/*' 2>/dev/null); do sed -i \"s#^\(SIMPLY_BLOCK_DOCKER_IMAGE=\).*#\1${SIMPLY_BLOCK_DOCKER_IMAGE}#\" \"\$f\"; done"
@@ -510,8 +526,12 @@ cleanup_and_reboot() {
             docker volume prune -f
             docker rmi -f \$(docker images -aq) || true
 
-            # Remove sbcli
-            pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
+            # The uv tool is registered under the package name, which is not
+            # necessarily ${SBCLI_CMD} (git branches still ship it as sbcli-dev).
+            for tool in \$(${UV_BIN} tool list 2>/dev/null | grep -E '^sb(cli|ctl)' | awk '{print \$1}'); do
+                UV_TOOL_BIN_DIR=${UV_INSTALL_DIR} ${UV_BIN} tool uninstall \$tool || true
+            done
+            pip uninstall -y ${SBCLI_CMD} || true
             rm -rf /usr/local/bin/sbc*
 
             echo "rebooting the node"
@@ -534,8 +554,12 @@ cleanup_and_reboot() {
             docker volume prune -f
             docker rmi -f \$(docker images -aq) || true
 
-            # Remove ${SBCLI_CMD}
-            pip uninstall -y ${SBCLI_CMD} || { echo \"Error: Failed to uninstall ${SBCLI_CMD}\";}
+            # The uv tool is registered under the package name, which is not
+            # necessarily ${SBCLI_CMD} (git branches still ship it as sbcli-dev).
+            for tool in \$(${UV_BIN} tool list 2>/dev/null | grep -E '^sb(cli|ctl)' | awk '{print \$1}'); do
+                UV_TOOL_BIN_DIR=${UV_INSTALL_DIR} ${UV_BIN} tool uninstall \$tool || true
+            done
+            pip uninstall -y ${SBCLI_CMD} || true
 
             rm -rf /usr/local/bin/sbc*
             find /usr /root ~/.local -name "*.py" -path "*/simplyblock*" -delete 2>/dev/null || true
