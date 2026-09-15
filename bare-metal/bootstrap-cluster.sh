@@ -517,7 +517,11 @@ bootstrap_cluster() {
     [[ -n "$MAX_SUBSYS" ]] && command+=" --max-subsys $MAX_SUBSYS"
     [[ -n "$MAX_SIZE" ]] && command+=" --hugepages-mem $MAX_SIZE"
     [[ -n "$VCPU_COUNT" ]] && command+=" --vcpu-count $VCPU_COUNT"
-    [[ "$DEVICE_MODE" == "lblk" ]] && command+=" --device-mode lblk"
+    # Skip when the caller already passed it through --extra-cluster-args,
+    # which is how CI has to do it; the loop below would append a second copy.
+    if [[ "$DEVICE_MODE" == "lblk" && " ${EXTRA_CLUSTER_ARGS[*]} " != *" --device-mode "* ]]; then
+        command+=" --device-mode lblk"
+    fi
     [[ -n "$MODE" ]] && command+=" --mode $MODE"
     [[ -n "$MODE" && "$MODE" == "kubernetes" ]] && command+=" --mgmt-ip $mgmt_ip"
     [[ -z "$MODE" || "$MODE" == "docker" ]] && command+=" --ifname eth0"
@@ -655,6 +659,35 @@ add_pool() {
     ssh_exec "${mnodes[0]}" "${SBCLI_CMD} pool add testing1 ${CLUSTER_ID}"
 }
 
+infer_device_mode() {
+    # Callers that cannot pass --device-mode still have to reach lblk mode.
+    #
+    # e2e-bootstrap.yml and the other CI workflows only expose
+    # EXTRA_CLUSTER_ARGS and EXTRA_SN_ARGS; there is no input that maps to a
+    # top-level flag on this script. So a run that asked for lblk the only way
+    # it could -- "--device-mode lblk" in EXTRA_CLUSTER_ARGS and "--lblk" in
+    # EXTRA_SN_ARGS -- got an lblk cluster and an lblk node config, while this
+    # script stayed in nvme mode and built add-node with --journal-partition
+    # instead of the --enable-journal-device that lblk requires. Run
+    # 34939729220 failed exactly that way.
+    #
+    # Infer the mode from what was actually asked for rather than requiring a
+    # flag the caller has no way to set.
+    [[ "$DEVICE_MODE" != "nvme" ]] && return 0
+
+    local reason=""
+    if [[ " ${EXTRA_CLUSTER_ARGS[*]} " == *" --device-mode lblk "* ]]; then
+        reason="--device-mode lblk in --extra-cluster-args"
+    elif [[ " ${EXTRA_CONFIGURE_ARGS[*]} " == *" --lblk "* ]]; then
+        reason="--lblk in --extra-sn-args"
+    fi
+
+    if [[ -n "$reason" ]]; then
+        DEVICE_MODE="lblk"
+        echo "Inferred --device-mode lblk from ${reason}"
+    fi
+}
+
 validate_device_mode() {
     case "$DEVICE_MODE" in
     nvme) return 0 ;;
@@ -691,6 +724,7 @@ validate_device_mode() {
 main() {
     parse_args "$@"
     split_extra_sn_args
+    infer_device_mode
     validate_device_mode
     IFS=' ' read -ra mnodes <<< "$MNODES"
 
