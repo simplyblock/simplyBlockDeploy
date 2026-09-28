@@ -1,7 +1,19 @@
 #!/bin/bash
 set -exo pipefail
 
-KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
+# KEY_PATH first, then KEY_NAME, then the old name.
+#
+# simplyblock-us-east-2.pem is not a credential any more: the lab nodes'
+# authorized_keys are managed by infra, which strips every key it did not
+# provision, and that one is gone for good. Naming it directly still resolves --
+# the file is on the runner -- so the failure is not "no key" but a key that
+# loads and then does not authenticate, which reads like a node problem.
+#
+# The pipelines install the surviving key from a secret and export KEY_PATH, so
+# honouring it is all this needs. The old name stays last so a developer running
+# by hand against a lab that still authorises it is unaffected.
+KEY="${KEY_PATH:-${KEY_NAME:+$HOME/.ssh/$KEY_NAME}}"
+KEY="${KEY:-$HOME/.ssh/simplyblock-us-east-2.pem}"
 BASTION_IP=$BASTION_IP
 GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
 mnodes=$MNODES
