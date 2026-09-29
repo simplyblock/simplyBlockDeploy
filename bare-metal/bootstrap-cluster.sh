@@ -14,6 +14,37 @@ set -exo pipefail
 # by hand against a lab that still authorises it is unaffected.
 KEY="${KEY_PATH:-${KEY_NAME:+$HOME/.ssh/$KEY_NAME}}"
 KEY="${KEY:-$HOME/.ssh/simplyblock-us-east-2.pem}"
+
+# The same credential chain the pipelines use, for the same reason: the lab is
+# mid-migration and no single credential is reliable. ssh tries each -i in turn,
+# so listing them all is the fallback; sshpass only supplies a password when one
+# is actually prompted for, so wrapping a command whose key works costs nothing.
+#
+# Order: the CI key the run installed, then simplyblock-us-east-2.pem while some
+# nodes still authorise it, then a developer's own keys, then the password.
+# Bootstrap used a single -i and died on the first refusal -- which is what
+# "Permission denied (publickey...)" against 192.168.10.210 was, on a host where
+# the pem would have worked.
+SSH_IDS=""
+for _cand in "${KEY_PATH:-}" "${KEY_NAME:+$HOME/.ssh/$KEY_NAME}"              "$HOME/.ssh/simplyblock-us-east-2.pem"              "$HOME/.ssh/id_ed25519" "$HOME/.ssh/id_rsa"; do
+    [ -n "$_cand" ] && [ -f "$_cand" ] || continue
+    case " $SSH_IDS " in *" -i $_cand "*) continue ;; esac
+    SSH_IDS="$SSH_IDS -i $_cand"
+done
+
+# -e keeps the password out of the process arguments, where anyone who can read
+# /proc would see it.
+SSH_PREFIX=""
+if [ -n "${SSH_PASSWORD:-}" ] && command -v sshpass >/dev/null 2>&1; then
+    export SSHPASS="$SSH_PASSWORD"
+    SSH_PREFIX="sshpass -e"
+fi
+
+if [ -z "$SSH_IDS" ] && [ -z "$SSH_PREFIX" ]; then
+    echo "ERROR: no SSH credential: no key at KEY_PATH/KEY_NAME, none in ~/.ssh, no SSH_PASSWORD" >&2
+    exit 1
+fi
+echo "ssh identities:${SSH_IDS:- none}${SSH_PREFIX:+ (+ password fallback)}"
 BASTION_IP=$BASTION_IP
 GRAFANA_ENDPOINT=$GRAFANA_ENDPOINT
 mnodes=$MNODES
@@ -404,8 +435,8 @@ split_extra_sn_args() {
 ssh_exec() {
     local node_ip="$1"
     local cmd="$2"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
     root@${node_ip} "$cmd"
 }
 

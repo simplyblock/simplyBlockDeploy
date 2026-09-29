@@ -2,6 +2,37 @@
 
 KEY="$HOME/.ssh/simplyblock-us-east-2.pem"
 
+# The same credential chain the pipelines use, for the same reason: the lab is
+# mid-migration and no single credential is reliable. ssh tries each -i in turn,
+# so listing them all is the fallback; sshpass only supplies a password when one
+# is actually prompted for, so wrapping a command whose key works costs nothing.
+#
+# Order: the CI key the run installed, then simplyblock-us-east-2.pem while some
+# nodes still authorise it, then a developer's own keys, then the password.
+# Bootstrap used a single -i and died on the first refusal -- which is what
+# "Permission denied (publickey...)" against 192.168.10.210 was, on a host where
+# the pem would have worked.
+SSH_IDS=""
+for _cand in "${KEY_PATH:-}" "${KEY_NAME:+$HOME/.ssh/$KEY_NAME}"              "$HOME/.ssh/simplyblock-us-east-2.pem"              "$HOME/.ssh/id_ed25519" "$HOME/.ssh/id_rsa"; do
+    [ -n "$_cand" ] && [ -f "$_cand" ] || continue
+    case " $SSH_IDS " in *" -i $_cand "*) continue ;; esac
+    SSH_IDS="$SSH_IDS -i $_cand"
+done
+
+# -e keeps the password out of the process arguments, where anyone who can read
+# /proc would see it.
+SSH_PREFIX=""
+if [ -n "${SSH_PASSWORD:-}" ] && command -v sshpass >/dev/null 2>&1; then
+    export SSHPASS="$SSH_PASSWORD"
+    SSH_PREFIX="sshpass -e"
+fi
+
+if [ -z "$SSH_IDS" ] && [ -z "$SSH_PREFIX" ]; then
+    echo "ERROR: no SSH credential: no key at KEY_PATH/KEY_NAME, none in ~/.ssh, no SSH_PASSWORD" >&2
+    exit 1
+fi
+echo "ssh identities:${SSH_IDS:- none}${SSH_PREFIX:+ (+ password fallback)}"
+
 print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
@@ -49,8 +80,8 @@ echo "cleaning up old K8s cluster..."
 
 for node_ip in ${mnodes[@]}; do
     echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
         root@${node_ip} "
         if command -v k3s &>/dev/null; then
             echo "Uninstalling k3s..."
@@ -61,8 +92,8 @@ done
 
 for node_ip in ${storage_private_ips}; do
     echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
         root@${node_ip} "
         if command -v k3s &>/dev/null; then
             echo "Uninstalling k3s..."
@@ -73,8 +104,8 @@ done
 
 for node_ip in ${sec_storage_private_ips}; do
     echo "SSH into $node_ip and executing commands"
-    ssh -i "$KEY" -o StrictHostKeyChecking=no \
-        -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+        -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
         root@${node_ip} "
         if command -v k3s &>/dev/null; then
             echo "Uninstalling k3s..."
@@ -85,8 +116,8 @@ done
 
 echo "bootstrapping k3s cluster..."
 
-ssh -i $KEY -o StrictHostKeyChecking=no \
-    -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i $KEY -W %h:%p root@${BASTION_IP}" \
+$SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+    -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
     root@${mnodes[0]} "
 sudo yum install -y fio nvme-cli bc;
 sudo modprobe nvme-tcp
@@ -114,13 +145,13 @@ echo \"vm.nr_hugepages=\$hugepages\" | sudo tee /etc/sysctl.d/hugepages.conf
 sudo sysctl --system
 "
 
-MASTER_NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[0]} | awk '{print \$1}'")
-ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
+MASTER_NODE_NAME=$($SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[0]} | awk '{print \$1}'")
+$SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $MASTER_NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 
-TOKEN=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
+TOKEN=$($SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "sudo cat /var/lib/rancher/k3s/server/node-token")
 
 for ((i=1; i<${#mnodes[@]}; i++)); do
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[${i}]} "
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[${i}]} "
     sudo yum install -y fio nvme-cli bc;
     sudo modprobe nvme-tcp
     sudo modprobe nbd
@@ -144,8 +175,8 @@ for ((i=1; i<${#mnodes[@]}; i++)); do
     sudo sysctl --system
     "
 
-    NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[${i}]} | awk '{print \$1}'")
-    ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
+    NODE_NAME=$($SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${mnodes[${i}]} | awk '{print \$1}'")
+    $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME type=simplyblock-cache topology.kubernetes.io/zone=default --overwrite"
 done
 
 if [ "$K8S_SNODE" == "true" ]; then
@@ -154,8 +185,8 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo "Adding primary storage node ${node}.."
         echo ""
 
-        ssh -i "$KEY" -o StrictHostKeyChecking=no \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
             root@${node} "
             sudo yum install -y fio nvme-cli bc;
             sudo modprobe nvme-tcp
@@ -179,8 +210,8 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/zone=default --overwrite"
+        NODE_NAME=$($SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane topology.kubernetes.io/zone=default --overwrite"
     done
 
     for node in ${sec_storage_private_ips[@]}; do
@@ -188,8 +219,8 @@ if [ "$K8S_SNODE" == "true" ]; then
         echo "Adding secondary storage node ${node}.."
         echo ""
 
-        ssh -i "$KEY" -o StrictHostKeyChecking=no \
-            -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i \"$KEY\" -W %h:%p root@${BASTION_IP}" \
+        $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -o StrictHostKeyChecking=no $SSH_IDS -W %h:%p root@${BASTION_IP}" \
             root@${node} "
             sudo yum install -y fio nvme-cli bc;
             sudo modprobe nvme-tcp
@@ -212,7 +243,7 @@ if [ "$K8S_SNODE" == "true" ]; then
             sudo sysctl --system
         "
 
-        NODE_NAME=$(ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
-        ssh -i $KEY -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane-reserve topology.kubernetes.io/zone=default --overwrite"
+        NODE_NAME=$($SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl get nodes -o wide | grep -w ${node} | awk '{print \$1}'")
+        $SSH_PREFIX ssh $SSH_IDS -o StrictHostKeyChecking=no root@${mnodes[0]} "kubectl label nodes $NODE_NAME io.simplyblock.node-type=simplyblock-storage-plane-reserve topology.kubernetes.io/zone=default --overwrite"
     done
 fi
