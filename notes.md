@@ -27,12 +27,7 @@ terraform workspace -or-create <workspace-name>
 terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 -var sbcli_cmd=sbcli-rj -var storage_nodes_distro=rhel9
 ```
 
-### create mgmt cluster on docker 
-```
-./bootstrap-cluster.sh --max-lvol 50 --max-snap 10 --sbcli-cmd sbcli-rj --k8s-snode
-```
-
-### setup k3s based k8s cluster [can be parallel]
+### setup k3s based k8s cluster
 ```
 ./bootstrap-k3s.sh --k8s-snode
 ```
@@ -40,11 +35,6 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var extra_nodes=1 -var s
 ### [OR] setup talos base k8s cluster
 ```
 TODO
-```
-
-### Add storage nodes
-```
-./storagenodes-k8s.sh
 ```
 
 

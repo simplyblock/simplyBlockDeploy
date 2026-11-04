@@ -121,50 +121,7 @@ terraform apply -var mgmt_nodes=1 -var storage_nodes=3 \
 terraform output -json > outputs.json
 ```
 
-# Cluster Bootstrapping
-
-## Bootstrap Script
-
-```bash
-# The bootstrap-cluster.sh creates the KEY in `.ssh` directory in the home directory
-chmod +x ./bootstrap-cluster.sh
-./bootstrap-cluster.sh
-```
-
-### View Supported Options
-
-```bash
-./bootstrap-cluster.sh --help
-```
-
-### Specifying Cluster Arguments
-
-# specifying cluster argument to use
-./bootstrap-cluster.sh --max-lvol 10 --max-snap 10 --max-prov 150g
-
-### Specifying Log Deletion Interval, Metrics Retention Period and Contact Point
-
-
-```bash
-./bootstrap-cluster.sh --log-del-interval 30m --metrics-retention-period 2h --contact-point <slack webhook>
-```
-
-### Deploy Storage-node to K8s
-
-#### Set Terraform variable snode_deploy_on_k8s to true
-
-```bash
-terraform apply -var mgmt_nodes=1 -var storage_nodes=3 -var snode_deploy_on_k8s="true" --auto-approve
-```
-
-#### Set cluster argument --k8s-snode
-
-```bash
-./bootstrap-cluster.sh --k8s-snode
-```
-
-
-#### Set k3s argument --k8s-snode
+# Kubernetes Bootstrapping
 
 ```bash
 ./bootstrap-k3s.sh --k8s-snode
